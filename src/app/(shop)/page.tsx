@@ -5,6 +5,8 @@ export const metadata: Metadata = {
   title: "Tech Zone"
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function IndexPage() {
   return <MarketTwoPageView />;
 }

@@ -7,13 +7,14 @@ import { MainCarouselItem } from "models/Market-2.model";
 import Category from "models/Category.model";
 import Blog from "models/Blog.model";
 import Shop from "models/Shop.model";
+import { getServerBaseUrl } from "utils/site-url";
 
 const CACHE_REVALIDATE_SECONDS = 60;
 
 /** Base URL for server-side fetch (Next.js Data Cache requires absolute URLs). */
 function getFetchBaseUrl(): string {
   if (typeof window !== "undefined") return "";
-  return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  return getServerBaseUrl();
 }
 
 const getProducts = cache(async (): Promise<Product[]> => {

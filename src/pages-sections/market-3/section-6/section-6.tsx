@@ -17,7 +17,7 @@ export default function Section6() {
             <Divider />
 
             <p className="price">
-              Only From <span>{currency(270)}</span>
+              Only From <span>{formatPrice(270)}</span>
             </p>
           </BannerBox>
         </Grid>

@@ -1,11 +1,10 @@
 import { cache } from "react";
-import axios from "../axiosInstance";
+import { getLayoutData as getServerLayoutData } from "lib/layout-data";
 // CUSTOM DATA MODEL
-import LayoutModel from "models/Layout.model";
+import type LayoutModel from "models/Layout.model";
 
-const getLayoutData = cache(async () => {
-  const response = await axios.get<LayoutModel>("/api/layout");
-  return response.data;
+const getLayoutData = cache(async (): Promise<LayoutModel> => {
+  return getServerLayoutData();
 });
 
 export default { getLayoutData };

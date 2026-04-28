@@ -1,6 +1,7 @@
 import { cache } from "react";
 import type Product from "models/Product.model";
 import type { CategorySidebarFilters } from "models/Filters";
+import { getServerBaseUrl } from "utils/site-url";
 
 type SearchResultItem = {
   id: string;
@@ -16,7 +17,7 @@ const PER_PAGE = 30;
 /** Base URL for server-side fetch. */
 function getFetchBaseUrl(): string {
   if (typeof window !== "undefined") return "";
-  return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  return getServerBaseUrl();
 }
 
 const PLACEHOLDER_IMAGE = "/assets/images/placeholder.png";
