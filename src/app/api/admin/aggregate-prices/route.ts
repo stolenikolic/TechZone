@@ -9,7 +9,7 @@ import { aggregatePrices } from "lib/pricing";
  * repeatedly or after supplier sync.
  *
  * Returns: { updated, batches, error? }
- * Requires: Supabase service role. Conversion uses PRICING_* env vars (optional).
+ * Requires: Supabase secret key. Conversion uses PRICING_* env vars (optional).
  */
 export async function POST() {
   try {

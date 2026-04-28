@@ -11,12 +11,14 @@ type DbProduct = {
   description: string | null;
   brand: string | null;
   main_image: string | null;
+  price: number | null;
+  rating: number | null;
   discount_percent: number | null;
   categories: DbCategory | DbCategory[] | null;
 };
 
 const selectFields =
-  "id, name, slug, description, brand, main_image, discount_percent, categories(id, name, slug)";
+  "id, name, slug, description, brand, main_image, price, rating, discount_percent, categories(id, name, slug)";
 
 function toProduct(product: DbProduct): Product {
   const thumbnail = product.main_image ?? "/assets/images/placeholder.png";
@@ -27,8 +29,8 @@ function toProduct(product: DbProduct): Product {
     id: product.id,
     slug: product.slug,
     title: product.name,
-    price: Math.floor(Math.random() * 500) + 100,
-    rating: 0,
+    price: product.price != null ? Number(product.price) : 0,
+    rating: product.rating != null ? Number(product.rating) : 0,
     discount: product.discount_percent ?? 0,
     thumbnail,
     images: [thumbnail],
@@ -40,7 +42,7 @@ function toProduct(product: DbProduct): Product {
 }
 
 /** Minimal select for fallback (no is_flash_deal, no discount_percent, no relation). */
-const selectFieldsMinimal = "id, name, slug, description, brand, main_image";
+const selectFieldsMinimal = "id, name, slug, description, brand, main_image, price, rating";
 
 function toProductMinimal(row: {
   id: string;
@@ -49,14 +51,16 @@ function toProductMinimal(row: {
   description: string | null;
   brand: string | null;
   main_image: string | null;
+  price: number | null;
+  rating: number | null;
 }): Product {
   const thumbnail = row.main_image ?? "/assets/images/placeholder.png";
   return {
     id: row.id,
     slug: row.slug,
     title: row.name,
-    price: Math.floor(Math.random() * 500) + 100,
-    rating: 0,
+    price: row.price != null ? Number(row.price) : 0,
+    rating: row.rating != null ? Number(row.rating) : 0,
     discount: 0,
     thumbnail,
     images: [thumbnail],
@@ -95,7 +99,7 @@ export async function GET() {
         console.error("[flash-deals] fallback failed:", fallback.error.message);
         return NextResponse.json([], { status: 200 });
       }
-      const rows = (fallback.data ?? []) as { id: string; name: string; slug: string; description: string | null; brand: string | null; main_image: string | null }[];
+      const rows = (fallback.data ?? []) as { id: string; name: string; slug: string; description: string | null; brand: string | null; main_image: string | null; price: number | null; rating: number | null }[];
       return NextResponse.json(rows.map(toProductMinimal));
     }
 

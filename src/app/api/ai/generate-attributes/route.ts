@@ -8,7 +8,7 @@ import { runAttributeGenerator } from "lib/ai/attribute-generator";
  * gets category attributes per product, calls AI to generate values, inserts into product_attributes.
  * Processes one batch (20 products) per request. Call repeatedly to process more.
  *
- * Requires: OPENAI_API_KEY, Supabase service role.
+ * Requires: OPENAI_API_KEY, Supabase secret key.
  */
 export async function POST() {
   try {

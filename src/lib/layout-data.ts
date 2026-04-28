@@ -1,6 +1,11 @@
 import type LayoutModel from "models/Layout.model";
 import type { CategoryMenuItem } from "models/Category.model";
-import { createSupabaseServiceClient } from "utils/supabase";
+import {
+  createSupabaseClient,
+  createSupabaseServiceClient,
+  hasSupabasePublicConfig,
+  hasSupabaseServerConfig
+} from "utils/supabase";
 
 type DbCategory = { id: string; name: string; slug: string; parent_id: string | null };
 type TreeNode = DbCategory & { children: TreeNode[] };
@@ -46,32 +51,7 @@ function toCategoryMenuItem(node: TreeNode, pathPrefix: string[] = []): Category
   };
 }
 
-export async function getLayoutData(): Promise<LayoutModel> {
-  const supabase = createSupabaseServiceClient();
-
-  const { data: rootCategories } = await supabase
-    .from("categories")
-    .select("id, name, slug")
-    .is("parent_id", null)
-    .order("name");
-
-  const mappedCategories = (rootCategories ?? []).map((row) => ({
-    title: row.name,
-    value: row.slug
-  }));
-
-  const { data: allCategories } = await supabase
-    .from("categories")
-    .select("id, name, slug, parent_id")
-    .order("name");
-
-  const rows = (allCategories ?? []) as DbCategory[];
-  const treeRoots = buildCategoryTree(rows);
-  const builtMenu: CategoryMenuItem[] = treeRoots.map((root) => ({
-    ...toCategoryMenuItem(root),
-    component: "List"
-  }));
-
+function createLayout(categories: LayoutModel["header"]["categories"], categoryMenus: CategoryMenuItem[]): LayoutModel {
   return {
     footer: {
       logo: "/assets/images/logo.svg",
@@ -95,8 +75,8 @@ export async function getLayoutData(): Promise<LayoutModel> {
     },
     header: {
       logo: "/assets/images/logo.svg",
-      categories: mappedCategories,
-      categoryMenus: builtMenu,
+      categories,
+      categoryMenus,
       navigation: []
     },
     topbar: {
@@ -113,4 +93,44 @@ export async function getLayoutData(): Promise<LayoutModel> {
       version2: []
     }
   };
+}
+
+export async function getLayoutData(): Promise<LayoutModel> {
+  if (!hasSupabaseServerConfig() && !hasSupabasePublicConfig()) {
+    return createLayout([], []);
+  }
+
+  const supabase = hasSupabaseServerConfig()
+    ? createSupabaseServiceClient()
+    : createSupabaseClient();
+
+  try {
+    const { data: rootCategories } = await supabase
+      .from("categories")
+      .select("id, name, slug")
+      .is("parent_id", null)
+      .order("name");
+
+    const mappedCategories = (rootCategories ?? []).map((row) => ({
+      title: row.name,
+      value: row.slug
+    }));
+
+    const { data: allCategories } = await supabase
+      .from("categories")
+      .select("id, name, slug, parent_id")
+      .order("name");
+
+    const rows = (allCategories ?? []) as DbCategory[];
+    const treeRoots = buildCategoryTree(rows);
+    const builtMenu: CategoryMenuItem[] = treeRoots.map((root) => ({
+      ...toCategoryMenuItem(root),
+      component: "List"
+    }));
+
+    return createLayout(mappedCategories, builtMenu);
+  } catch (error) {
+    console.error("[layout-data]", error);
+    return createLayout([], []);
+  }
 }

@@ -9,7 +9,7 @@ import { runMotherboardAttributeGenerator } from "lib/ai/attribute-generator";
  * calls AI with product name and description, then inserts into product_attributes.
  * Does not overwrite existing attributes. Runs in batches until no products are left.
  *
- * Requires: OPENAI_API_KEY, Supabase service role.
+ * Requires: OPENAI_API_KEY, Supabase secret key.
  */
 export async function POST() {
   try {

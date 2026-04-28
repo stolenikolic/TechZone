@@ -11,6 +11,8 @@ type DbProduct = {
   description: string | null;
   brand: string | null;
   main_image: string | null;
+  price: number | null;
+  rating: number | null;
   categories: DbCategory | DbCategory[] | null;
 };
 
@@ -23,8 +25,8 @@ function toProduct(product: DbProduct): Product {
     id: product.id,
     slug: product.slug,
     title: product.name,
-    price: Math.floor(Math.random() * 500) + 100,
-    rating: 0,
+    price: product.price != null ? Number(product.price) : 0,
+    rating: product.rating != null ? Number(product.rating) : 0,
     discount: 0,
     thumbnail,
     images: [thumbnail],
@@ -35,7 +37,7 @@ function toProduct(product: DbProduct): Product {
   };
 }
 
-const selectFieldsMinimal = "id, name, slug, description, brand, main_image";
+const selectFieldsMinimal = "id, name, slug, description, brand, main_image, price, rating";
 
 function toProductMinimal(row: {
   id: string;
@@ -44,14 +46,16 @@ function toProductMinimal(row: {
   description: string | null;
   brand: string | null;
   main_image: string | null;
+  price: number | null;
+  rating: number | null;
 }): Product {
   const thumbnail = row.main_image ?? "/assets/images/placeholder.png";
   return {
     id: row.id,
     slug: row.slug,
     title: row.name,
-    price: Math.floor(Math.random() * 500) + 100,
-    rating: 0,
+    price: row.price != null ? Number(row.price) : 0,
+    rating: row.rating != null ? Number(row.rating) : 0,
     discount: 0,
     thumbnail,
     images: [thumbnail],
@@ -68,7 +72,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, slug, description, brand, main_image, categories(id, name, slug)")
+      .select("id, name, slug, description, brand, main_image, price, rating, categories(id, name, slug)")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
       .limit(6);
@@ -84,7 +88,7 @@ export async function GET() {
         console.error("[market-2/products] fallback failed:", fallback.error.message);
         return NextResponse.json([], { status: 200 });
       }
-      const rows = (fallback.data ?? []) as { id: string; name: string; slug: string; description: string | null; brand: string | null; main_image: string | null }[];
+      const rows = (fallback.data ?? []) as { id: string; name: string; slug: string; description: string | null; brand: string | null; main_image: string | null; price: number | null; rating: number | null }[];
       return NextResponse.json(rows.map(toProductMinimal));
     }
 

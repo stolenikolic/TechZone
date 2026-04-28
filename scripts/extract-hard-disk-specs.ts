@@ -3,7 +3,7 @@
  *
  * Category: Hard Disks (ID below). Attributes: capacity, rpm, buffer, size_inch.
  * Run: npx tsx scripts/extract-hard-disk-specs.ts
- * Requires: .env.local with NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+ * Requires: .env.local with NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY
  */
 import dotenv from "dotenv";
 import path from "path";

@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   keywords: ["search", "tech", "hardware", "e-commerce"]
 };
 
+export const dynamic = "force-dynamic";
+
 // ==============================================================
 interface Props {
   searchParams: Promise<{

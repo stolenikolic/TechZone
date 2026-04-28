@@ -3,7 +3,7 @@
  * Uses OpenAI with web_search; batch size 5. Does not overwrite existing attributes.
  *
  * Run: npx tsx scripts/run-ssd-attributes.ts
- * Requires: .env.local with OPENAI_API_KEY, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+ * Requires: .env.local with OPENAI_API_KEY, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY
  */
 import dotenv from "dotenv";
 import path from "path";
