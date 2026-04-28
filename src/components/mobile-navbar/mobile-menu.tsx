@@ -15,15 +15,33 @@ import { renderLevels } from "./render-levels";
 import { updateNavigation } from "./modified-navigation";
 // CUSTOM DATA MODEL
 import { Menu } from "models/Navigation.model";
+import type { CategoryMenuItem } from "models/Category.model";
 
 // ==============================================================
-type Props = { navigation: Menu[] };
+type Props = {
+  navigation: Menu[];
+  categories?: CategoryMenuItem[];
+};
 // ==============================================================
 
-export function MobileMenu({ navigation }: Props) {
+function categoriesToMobileNavigation(categories: CategoryMenuItem[]): any[] {
+  return categories.map((category) => ({
+    title: category.title,
+    url: category.href,
+    icon: category.icon,
+    ...(category.children?.length
+      ? { child: categoriesToMobileNavigation(category.children) }
+      : {})
+  }));
+}
+
+export function MobileMenu({ navigation, categories = [] }: Props) {
   const [openDrawer, setOpenDrawer] = useState(false);
   const handleClose = useCallback(() => setOpenDrawer(false), []);
   const handleOpen = useCallback(() => setOpenDrawer(true), []);
+  const menuItems = categories.length > 0
+    ? categoriesToMobileNavigation(categories)
+    : updateNavigation(navigation);
 
   return (
     <Fragment>
@@ -56,7 +74,7 @@ export function MobileMenu({ navigation }: Props) {
                 <Clear fontSize="small" />
               </IconButton>
 
-              {renderLevels(updateNavigation(navigation), handleClose)}
+              {renderLevels(menuItems, handleClose)}
             </Box>
           </OverlayScrollbar>
         </Box>

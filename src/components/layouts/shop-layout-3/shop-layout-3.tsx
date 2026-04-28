@@ -41,7 +41,7 @@ export default function ShopLayout3({
   const MOBILE_VERSION_HEADER = (
     <MobileHeader>
       <MobileHeader.Left>
-        <MobileMenu navigation={header.navigation} />
+        <MobileMenu navigation={header.navigation} categories={header.categoryMenus} />
       </MobileHeader.Left>
 
       <MobileHeader.Logo logoUrl={mobileNavigation.logo} />

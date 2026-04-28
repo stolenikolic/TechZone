@@ -5,6 +5,7 @@ import ExpandMore from "@mui/icons-material/ExpandMore";
 import Typography from "@mui/material/Typography";
 // GLOBAL CUSTOM COMPONENTS
 import { NavLink } from "components/nav-link";
+import IconComponent from "components/IconComponent";
 
 const ACCORDION_STYLES = {
   "&:not(:last-child)": { borderBottom: 0 },
@@ -24,11 +25,18 @@ const ACCORDION_SUMMARY_STYLES = {
 
 export const renderLevels = (data: any[], handleClose: () => void) => {
   return data.map((item: any, index: number) => {
+    const label = (
+      <Box display="flex" alignItems="center" gap={1}>
+        {item.icon ? <IconComponent icon={item.icon} fontSize="small" color="inherit" /> : null}
+        <span>{item.title}</span>
+      </Box>
+    );
+
     if (item.child) {
       return (
         <Accordion square key={index} elevation={0} disableGutters sx={ACCORDION_STYLES}>
           <AccordionSummary expandIcon={<ExpandMore />} sx={ACCORDION_SUMMARY_STYLES}>
-            <Typography variant="h6">{item.title}</Typography>
+            <Typography variant="h6">{label}</Typography>
           </AccordionSummary>
 
           <Box mx={2}>{renderLevels(item.child, handleClose)}</Box>
@@ -39,7 +47,7 @@ export const renderLevels = (data: any[], handleClose: () => void) => {
     if (item.extLink) {
       return (
         <Typography variant="h6" sx={{ py: 1 }} key={index}>
-          <NavLink href={item.url}>{item.title}</NavLink>
+          <NavLink href={item.url}>{label}</NavLink>
         </Typography>
       );
     }
@@ -47,7 +55,7 @@ export const renderLevels = (data: any[], handleClose: () => void) => {
     return (
       <Box key={index} py={1}>
         <NavLink href={item.url} onClick={handleClose}>
-          {item.title}
+          {label}
         </NavLink>
       </Box>
     );
