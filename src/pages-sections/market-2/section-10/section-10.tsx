@@ -14,7 +14,7 @@ export default async function Section10() {
     <Container>
       <SectionHeader title="Read our blogs" seeMoreLink="#" />
 
-      <Grid container spacing={3}>
+      <Grid container spacing={3} sx={{ width: "100%", m: 0 }}>
         {blogs.map((item) => (
           <Grid size={{ md: 4, xs: 12 }} key={item.id}>
             <BlogCard1

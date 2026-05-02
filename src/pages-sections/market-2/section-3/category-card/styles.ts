@@ -3,6 +3,8 @@
 import { styled } from "@mui/material/styles";
 
 export const StyledRoot = styled("div")(({ theme }) => ({
+  width: "100%",
+  minWidth: 0,
   borderRadius: 12,
   overflow: "hidden",
   border: `1px solid ${theme.palette.grey[100]}`,
@@ -18,11 +20,21 @@ export const StyledRoot = styled("div")(({ theme }) => ({
 
 export const ImageContainer = styled("div")(({ theme }) => ({
   display: "flex",
+  justifyContent: "center",
   padding: "2rem",
   borderTopLeftRadius: 12,
   borderTopRightRadius: 12,
   backgroundColor: theme.palette.grey[50],
   ".category-image": {
+    maxWidth: "100%",
     transition: "scale 0.75s cubic-bezier(0.2, 0.75, 0.5, 1)"
+  },
+  ".category-placeholder": {
+    width: 180,
+    height: 180,
+    maxWidth: "100%"
+  },
+  [theme.breakpoints.down("sm")]: {
+    padding: "1rem"
   }
 }));

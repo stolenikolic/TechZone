@@ -5,7 +5,7 @@ interface Item {
 
 export interface Category {
   title: string;
-  children?: string[];
+  children?: Array<string | { title: string; href: string }>;
 }
 
 export type RangeFilter = { min: number; max: number };

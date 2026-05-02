@@ -7,6 +7,8 @@ export const StyledCard = styled(Card, {
   shouldForwardProp: (prop) => prop !== "bgWhite"
 })<{ bgWhite?: boolean }>(({ theme, bgWhite }) => ({
   height: "100%",
+  width: "100%",
+  minWidth: 0,
   margin: "auto",
   display: "flex",
   overflow: "hidden",
@@ -35,15 +37,17 @@ export const StyledCard = styled(Card, {
 }));
 
 export const ImageWrapper = styled("div")(({ theme }) => ({
+  width: "100%",
   height: 370,
-  aspectRatio: 1,
+  maxWidth: "100%",
+  aspectRatio: "1 / 1",
   display: "grid",
   cursor: "pointer",
   textAlign: "center",
   position: "relative",
   placeItems: "center",
   [theme.breakpoints.down("sm")]: {
-    height: "100%"
+    height: "auto"
   },
   "& > a": {
     position: "absolute",
@@ -62,6 +66,7 @@ export const ImageWrapper = styled("div")(({ theme }) => ({
 export const ImageContainer = styled("div")(() => ({
   position: "relative",
   width: "100%",
+  maxWidth: "100%",
   height: "100%",
   overflow: "hidden",
   aspectRatio: "1 / 1"
@@ -86,6 +91,8 @@ export const HoverWrapper = styled("div")(() => ({
 
 export const ContentWrapper = styled("div")(({ theme }) => ({
   zIndex: 2,
+  width: "100%",
+  minWidth: 0,
   position: "relative",
   paddingTop: "1rem",
   textAlign: "center",

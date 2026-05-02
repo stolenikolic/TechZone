@@ -1,5 +1,6 @@
 import type LayoutModel from "models/Layout.model";
 import type { CategoryMenuItem } from "models/Category.model";
+import type { Menu } from "models/Navigation.model";
 import {
   createSupabaseClient,
   createSupabaseServiceClient,
@@ -13,6 +14,17 @@ type TreeNode = DbCategory & { children: TreeNode[] };
 const CATEGORY_ICON_BY_SLUG: Record<string, string> = {
   "racunarske-komponente": "Microchip"
 };
+
+const MAIN_NAVIGATION: Menu[] = [
+  { title: "Početna", url: "/", megaMenu: false, megaMenuWithSub: false },
+  { title: "Kategorije", url: "/categories", megaMenu: false, megaMenuWithSub: false },
+  { title: "Akcije", url: "#", megaMenu: false, megaMenuWithSub: false },
+  { title: "Najprodavanije", url: "#", megaMenu: false, megaMenuWithSub: false },
+  { title: "Novo u ponudi", url: "#", megaMenu: false, megaMenuWithSub: false },
+  { title: "Za firme", url: "#", megaMenu: false, megaMenuWithSub: false },
+  { title: "Kako naručiti", url: "#", megaMenu: false, megaMenuWithSub: false },
+  { title: "Kontakt", url: "#", megaMenu: false, megaMenuWithSub: false }
+];
 
 function buildCategoryTree(rows: DbCategory[]): TreeNode[] {
   const byId = new Map<string, TreeNode>();
@@ -77,7 +89,7 @@ function createLayout(categories: LayoutModel["header"]["categories"], categoryM
       logo: "/assets/images/logo.svg",
       categories,
       categoryMenus,
-      navigation: []
+      navigation: MAIN_NAVIGATION
     },
     topbar: {
       title: "Welcome",

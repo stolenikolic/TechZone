@@ -46,9 +46,10 @@ export interface MenuWithCategoryMenu {
 
 export interface MenuItem {
   title: string;
+  url?: string;
   megaMenu: false;
   megaMenuWithSub: false;
-  child: MenuItemWithChild[];
+  child?: MenuItemWithChild[];
 }
 
 export type Menu = MenuWithMegaMenu | MenuWithCategoryMenu | MenuItem;

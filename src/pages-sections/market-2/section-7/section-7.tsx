@@ -18,10 +18,10 @@ export default async function Section7() {
 
   return (
     <Container>
-      <FlexBox gap="1.75rem" position="relative">
+      <FlexBox gap="1.75rem" position="relative" minWidth={0}>
         {brands && shops && <Sidebar brands={brands} shops={shops} />}
 
-        <Grid container spacing={3}>
+        <Grid container spacing={3} sx={{ minWidth: 0, width: "100%" }}>
           {products.map((product) => (
             <Grid size={{ lg: 4, sm: 6, xs: 12 }} key={product.id}>
               <ProductCard17 product={product} />

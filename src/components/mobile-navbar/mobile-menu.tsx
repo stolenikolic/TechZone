@@ -24,24 +24,11 @@ type Props = {
 };
 // ==============================================================
 
-function categoriesToMobileNavigation(categories: CategoryMenuItem[]): any[] {
-  return categories.map((category) => ({
-    title: category.title,
-    url: category.href,
-    icon: category.icon,
-    ...(category.children?.length
-      ? { child: categoriesToMobileNavigation(category.children) }
-      : {})
-  }));
-}
-
-export function MobileMenu({ navigation, categories = [] }: Props) {
+export function MobileMenu({ navigation }: Props) {
   const [openDrawer, setOpenDrawer] = useState(false);
   const handleClose = useCallback(() => setOpenDrawer(false), []);
   const handleOpen = useCallback(() => setOpenDrawer(true), []);
-  const menuItems = categories.length > 0
-    ? categoriesToMobileNavigation(categories)
-    : updateNavigation(navigation);
+  const menuItems = updateNavigation(navigation);
 
   return (
     <Fragment>

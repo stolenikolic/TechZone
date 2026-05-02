@@ -8,6 +8,6 @@ export const updateNavigation = (navigation: Menu[]) => {
       return { title: curr.title, child: flatChild };
     }
 
-    return { title: curr.title, child: curr.child };
+    return { title: curr.title, url: curr.url, child: curr.child };
   });
 };

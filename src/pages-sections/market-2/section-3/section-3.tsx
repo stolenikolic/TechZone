@@ -14,7 +14,7 @@ export default async function Section3() {
     <Container>
       <SectionHeader title="Categories" seeMoreLink="#" />
 
-      <Grid container spacing={3}>
+      <Grid container spacing={3} sx={{ width: "100%", m: 0 }}>
         {categories.map((item) => (
           <Grid size={{ lg: 2, sm: 4, xs: 6 }} key={item.id}>
             <CategoryCard

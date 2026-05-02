@@ -107,7 +107,7 @@ export async function GET(
   const priceMin = minPriceRow?.price != null ? Number(minPriceRow.price) : null;
   const priceMax = maxPriceRow?.price != null ? Number(maxPriceRow.price) : null;
   if (priceMin != null && priceMax != null && priceMin <= priceMax) {
-    result.priceRange = { min: Math.floor(priceMin), max: Math.ceil(priceMax) };
+    result.priceRange = { min: priceMin, max: priceMax };
   }
 
   const { data: productRows } = await supabase

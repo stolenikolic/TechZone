@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 // MUI
 import Box from "@mui/material/Box";
@@ -12,8 +12,11 @@ import Collapse from "@mui/material/Collapse";
 import TextField from "@mui/material/TextField";
 import FormGroup from "@mui/material/FormGroup";
 import Typography from "@mui/material/Typography";
+import KeyboardArrowUp from "@mui/icons-material/KeyboardArrowUp";
+import KeyboardArrowDown from "@mui/icons-material/KeyboardArrowDown";
 // GLOBAL CUSTOM COMPONENTS
 import AccordionHeader from "components/accordion";
+import { NavLink } from "components/nav-link";
 import { FlexBetween, FlexBox } from "components/flex-box";
 // LOCAL CUSTOM COMPONENTS
 import CheckboxLabel from "./checkbox-label";
@@ -32,10 +35,30 @@ function normalizeBrandValue(value: string): string {
   return value.toLowerCase().replace(/\s+/g, "-");
 }
 
+function getCategoryChildTitle(child: string | { title: string; href: string }) {
+  return typeof child === "string" ? child : child.title;
+}
+
+function getCategoryChildHref(child: string | { title: string; href: string }) {
+  return typeof child === "string" ? undefined : child.href;
+}
+
+function formatFilterValue(slug: string, value: string) {
+  if (slug === "heatsink" && (value === "true" || value === "false")) {
+    return value === "true" ? "Yes" : "No";
+  }
+
+  return value === "-" ? "N/A (SATA)" : value;
+}
+
+const BRAND_VISIBLE_LIMIT = 5;
+
 export default function ProductFilters({ filters }: { filters: ProductFilterCardFilters }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [openFilterSlugs, setOpenFilterSlugs] = useState<Record<string, boolean>>({ brand: true });
+  const [expandedFilterSlugs, setExpandedFilterSlugs] = useState<Record<string, boolean>>({});
 
   const hook = useProductFilterCard(filters);
   const {
@@ -92,15 +115,27 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
                 <Typography component="span">{item.title}</Typography>
               </AccordionHeader>
               <Collapse in={collapsed}>
-                {item.children.map((name) => (
-                  <Typography
-                    variant="body1"
-                    key={name}
-                    sx={{ py: 0.75, pl: "22px", fontSize: 14, cursor: "pointer", color: "grey.600" }}
-                  >
-                    {name}
-                  </Typography>
-                ))}
+                {item.children.map((child) => {
+                  const title = getCategoryChildTitle(child);
+                  const href = getCategoryChildHref(child);
+
+                  const content = (
+                    <Typography
+                      variant="body1"
+                      sx={{ py: 0.75, pl: "22px", fontSize: 14, cursor: "pointer", color: "grey.600" }}
+                    >
+                      {title}
+                    </Typography>
+                  );
+
+                  return href ? (
+                    <NavLink href={href} key={title}>
+                      {content}
+                    </NavLink>
+                  ) : (
+                    <Fragment key={title}>{content}</Fragment>
+                  );
+                })}
               </Collapse>
             </Fragment>
           ) : (
@@ -157,29 +192,80 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
             <Box component={Divider} my={3} />
           </>
         )}
-        {filters.filters.map((filter) => (
-          <Fragment key={filter.slug}>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              {filter.name}
-            </Typography>
-            <FormGroup>
-              {filter.values.map((value) => {
-                const selected = filter.slug === "brand"
-                  ? getSelectedValues(filter.slug).includes(normalizeBrandValue(value))
-                  : getSelectedValues(filter.slug).includes(value);
-                return (
-                  <CheckboxLabel
-                    key={value}
-                    label={filter.slug === "heatsink" && (value === "true" || value === "false") ? (value === "true" ? "Yes" : "No") : value === "-" ? "N/A (SATA)" : value}
-                    checked={selected}
-                    onChange={() => handleFilterChange(filter.slug, value, !selected)}
-                  />
-                );
-              })}
-            </FormGroup>
-            <Box component={Divider} my={3} />
-          </Fragment>
-        ))}
+        {filters.filters.map((filter) => {
+          const isBrand = filter.slug === "brand";
+          const open = openFilterSlugs[filter.slug] ?? isBrand;
+          const expanded = expandedFilterSlugs[filter.slug] ?? false;
+          const visibleValues = isBrand ? filter.values.slice(0, BRAND_VISIBLE_LIMIT) : filter.values;
+          const hiddenValues = isBrand ? filter.values.slice(BRAND_VISIBLE_LIMIT) : [];
+          const hasHiddenBrandValues = isBrand && filter.values.length > BRAND_VISIBLE_LIMIT;
+
+          return (
+            <Fragment key={filter.slug}>
+              <AccordionHeader
+                open={open}
+                onClick={() => setOpenFilterSlugs((state) => ({ ...state, [filter.slug]: !open }))}
+                sx={{ padding: ".5rem 0", cursor: "pointer", color: "grey.600" }}
+              >
+                <Typography variant="h6">{filter.name}</Typography>
+              </AccordionHeader>
+
+              <Collapse in={open}>
+                <FormGroup>
+                  {visibleValues.map((value) => {
+                    const selected = isBrand
+                      ? getSelectedValues(filter.slug).includes(normalizeBrandValue(value))
+                      : getSelectedValues(filter.slug).includes(value);
+
+                    return (
+                      <CheckboxLabel
+                        key={value}
+                        label={formatFilterValue(filter.slug, value)}
+                        checked={selected}
+                        onChange={() => handleFilterChange(filter.slug, value, !selected)}
+                      />
+                    );
+                  })}
+                </FormGroup>
+
+                {hasHiddenBrandValues && (
+                  <>
+                    <Collapse in={expanded} timeout="auto" unmountOnExit>
+                      <FormGroup>
+                        {hiddenValues.map((value) => {
+                          const selected = getSelectedValues(filter.slug).includes(normalizeBrandValue(value));
+
+                          return (
+                            <CheckboxLabel
+                              key={value}
+                              label={formatFilterValue(filter.slug, value)}
+                              checked={selected}
+                              onChange={() => handleFilterChange(filter.slug, value, !selected)}
+                            />
+                          );
+                        })}
+                      </FormGroup>
+                    </Collapse>
+
+                    <Button
+                      size="small"
+                      color="primary"
+                      variant="text"
+                      endIcon={expanded ? <KeyboardArrowUp fontSize="small" /> : <KeyboardArrowDown fontSize="small" />}
+                      onClick={() =>
+                        setExpandedFilterSlugs((state) => ({ ...state, [filter.slug]: !expanded }))
+                      }
+                      sx={{ mt: 1, px: 0, minWidth: 0, color: "primary.main" }}
+                    >
+                      {expanded ? "Prikaži manje" : "Prikaži više"}
+                    </Button>
+                  </>
+                )}
+              </Collapse>
+              <Box component={Divider} my={3} />
+            </Fragment>
+          );
+        })}
         <Typography variant="h6" sx={{ mb: 2 }}>
           Ratings
         </Typography>
@@ -298,21 +384,33 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
             </AccordionHeader>
 
             <Collapse in={collapsed}>
-              {item.children.map((name) => (
-                <Typography
-                  variant="body1"
-                  key={name}
-                  sx={{
-                    py: 0.75,
-                    pl: "22px",
-                    fontSize: 14,
-                    cursor: "pointer",
-                    color: "grey.600"
-                  }}
-                >
-                  {name}
-                </Typography>
-              ))}
+              {item.children.map((child) => {
+                const title = getCategoryChildTitle(child);
+                const href = getCategoryChildHref(child);
+
+                const content = (
+                  <Typography
+                    variant="body1"
+                    sx={{
+                      py: 0.75,
+                      pl: "22px",
+                      fontSize: 14,
+                      cursor: "pointer",
+                      color: "grey.600"
+                    }}
+                  >
+                    {title}
+                  </Typography>
+                );
+
+                return href ? (
+                  <NavLink href={href} key={title}>
+                    {content}
+                  </NavLink>
+                ) : (
+                  <Fragment key={title}>{content}</Fragment>
+                );
+              })}
             </Collapse>
           </Fragment>
         ) : (

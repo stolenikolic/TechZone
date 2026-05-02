@@ -14,7 +14,7 @@ export default async function Section1() {
 
   return (
     <Container>
-      <Grid container spacing={3}>
+      <Grid container spacing={3} sx={{ width: "100%", m: 0 }}>
         <Grid size={{ xs: 12, lg: 8, xl: 9 }}>
           <CarouselBanner>
             {carouselData.map((item) => (

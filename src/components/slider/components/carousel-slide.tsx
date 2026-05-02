@@ -6,6 +6,7 @@ type StyledProps = Pick<CarouselOptions, "axis" | "slideSpacing">;
 const StyledRoot = styled("li", {
   shouldForwardProp: (prop) => prop !== "axis" && prop !== "slideSpacing"
 })<StyledProps>(({ axis, slideSpacing }) => ({
+  boxSizing: "border-box",
   display: "block",
   position: "relative",
   ...(axis === "x" && {

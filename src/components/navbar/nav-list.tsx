@@ -11,7 +11,7 @@ import MegaMenu from "./mega-menu";
 import NavItemChild from "./nav-item-child";
 import { CategoryBasedMenu } from "./category-based-menu";
 // STYLED COMPONENTS
-import { NAV_LINK_STYLES, ChildNavListWrapper } from "./styles";
+import { NAV_LINK_STYLES, ChildNavListWrapper, StyledNavLink } from "./styles";
 // DATA TYPES
 import { Menu, MenuItemWithChild } from "models/Navigation.model";
 
@@ -50,8 +50,16 @@ export function NavigationList({ navigation }: Props) {
         return <CategoryBasedMenu key={nav.title} title={nav.title} menuList={nav.child} />;
       }
 
+      if (nav.url && nav.megaMenu === false && nav.megaMenuWithSub === false && !nav.child?.length) {
+        return (
+          <StyledNavLink href={nav.url} key={nav.title}>
+            {nav.title}
+          </StyledNavLink>
+        );
+      }
+
       // SHOW LIST MENU WITH CHILD
-      if (nav.child && nav.megaMenu === false && nav.megaMenuWithSub === false) {
+      if (nav.child?.length && nav.megaMenu === false && nav.megaMenuWithSub === false) {
         return (
           <FlexBox
             key={nav.title}

@@ -12,7 +12,7 @@ import { CardContent, CardRoot } from "./styles";
 export default function Section5() {
   return (
     <Container>
-      <Grid container spacing={3}>
+      <Grid container spacing={3} sx={{ width: "100%", m: 0 }}>
         <Grid size={{ md: 6, xs: 12 }}>
           <Link href="/products/search">
             <CardRoot>

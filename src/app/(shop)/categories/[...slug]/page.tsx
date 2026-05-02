@@ -5,6 +5,7 @@ import Container from "@mui/material/Container";
 import ProductFilters from "components/products-view/filters";
 import ProductsGridView from "components/products-view/products-grid-view";
 import ProductPagination from "components/shop/product-pagination";
+import CategoryBrowser, { type CategoryTreeNode } from "pages-sections/categories";
 import api from "utils/__api__/market-2";
 import type Filters from "models/Filters";
 import type { CategorySidebarFilters } from "models/Filters";
@@ -41,16 +42,38 @@ function resolvePathAndFilter(slugParts: string[]): {
 
 /** Map market-2 category tree to Filters.categories shape for ProductFilters sidebar. */
 function buildFiltersCategories(
-  categories: { name: string; parent?: Array<{ name: string } | string> }[] | null
+  categories: { name: string; slug: string; parent?: Array<{ name: string; slug: string } | string> }[] | null
 ): Filters["categories"] {
   if (!categories || !Array.isArray(categories)) return [];
   return categories.map((item) => {
     const children =
       item.parent && item.parent.length > 0
-        ? item.parent.map((c) => (typeof c === "string" ? c : c.name))
+        ? item.parent.map((c) =>
+            typeof c === "string"
+              ? c
+              : {
+                  title: c.name,
+                  href: `/categories/${item.slug}/${c.slug}`
+                })
         : undefined;
     return { title: item.name, ...(children?.length ? { children } : {}) };
   });
+}
+
+function findCategoryNode(
+  categories: CategoryTreeNode[] | null,
+  pathSegments: string[]
+): CategoryTreeNode | null {
+  let currentLevel = categories ?? [];
+  let currentNode: CategoryTreeNode | null = null;
+
+  for (const segment of pathSegments) {
+    currentNode = currentLevel.find((item) => item.slug === segment) ?? null;
+    if (!currentNode) return null;
+    currentLevel = currentNode.parent ?? [];
+  }
+
+  return currentNode;
 }
 
 export async function generateMetadata({ params, searchParams }: CategoryPageParams): Promise<Metadata> {
@@ -97,10 +120,27 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
 
   if (!categoryPath) notFound();
 
-  const [payload, categoryFilters, categories] = await Promise.all([
+  const categories = (await api.getCategories()) as unknown as CategoryTreeNode[];
+  const categoryPathSegments = categoryPath.split("/").filter(Boolean);
+  const currentCategory = findCategoryNode(categories, categoryPathSegments);
+  const subcategories = currentCategory?.parent ?? [];
+
+  if (filterSegments.length === 0 && currentCategory && subcategories.length > 0) {
+    return (
+      <div className="bg-white pt-2 pb-4">
+        <CategoryBrowser
+          categories={subcategories}
+          title={currentCategory.name}
+          description="Izaberi podkategoriju da nastaviš ka proizvodima."
+          pathPrefix={categoryPathSegments}
+        />
+      </div>
+    );
+  }
+
+  const [payload, categoryFilters] = await Promise.all([
     api.getCategoryBySlug(categoryPath, page, effectiveFilterParams),
-    api.getCategoryFilters(categoryPath),
-    api.getCategories()
+    api.getCategoryFilters(categoryPath)
   ]);
 
   if (!payload) notFound();

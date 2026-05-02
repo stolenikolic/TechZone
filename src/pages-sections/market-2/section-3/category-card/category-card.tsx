@@ -14,16 +14,15 @@ interface Props {
 export default function CategoryCard({ image, title, slug }: Props) {
   const hasImage = image && image.trim() !== "";
   return (
-    <Link href={`/products/search?category=${slug}`}>
+    <Link href={`/categories/${slug}`}>
       <StyledRoot>
         <ImageContainer>
           {hasImage ? (
             <LazyImage alt={title} width={180} height={180} src={image!} className="category-image" />
           ) : (
             <div
+              className="category-placeholder"
               style={{
-                width: 180,
-                height: 180,
                 background: "#f0f0f0",
                 display: "flex",
                 alignItems: "center",

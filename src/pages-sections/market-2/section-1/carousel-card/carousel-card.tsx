@@ -17,7 +17,7 @@ interface Props {
 
 export default function CarouselCard({ title, category, buttonLink, description, imgUrl }: Props) {
   return (
-    <Grid container spacing={3}>
+    <Grid container spacing={3} sx={{ width: "100%", m: 0 }}>
       <Grid size={{ xs: 12, md: 6 }}>
         <CardContent>
           <Typography
