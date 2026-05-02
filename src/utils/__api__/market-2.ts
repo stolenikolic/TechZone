@@ -180,7 +180,7 @@ const getCategoryFilters = cache(async (path: string): Promise<CategoryFiltersPa
     if (typeof window === "undefined") {
       const base = getFetchBaseUrl();
       const res = await fetch(`${base}${urlPath}`, {
-        next: { revalidate: CACHE_REVALIDATE_SECONDS }
+        cache: "no-store"
       });
       if (res.status === 404) return null;
       if (!res.ok) return null;

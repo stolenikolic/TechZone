@@ -11,7 +11,15 @@ export interface Category {
 export type RangeFilter = { min: number; max: number };
 
 /** Single filter from API: slug, name, list of values. */
-export type FilterItem = { slug: string; name: string; values: string[] };
+export type FilterItem = {
+  slug: string;
+  name: string;
+  values: string[];
+  displayType?: "checkbox" | "range";
+  range?: RangeFilter;
+  unit?: string;
+  step?: number;
+};
 
 /** API-driven sidebar: filters array + price range + category nav. No hardcoded attribute names. */
 export type CategorySidebarFilters = {

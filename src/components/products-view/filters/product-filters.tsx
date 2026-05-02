@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 // MUI
 import Box from "@mui/material/Box";
@@ -24,7 +24,7 @@ import CheckboxLabel from "./checkbox-label";
 import useProductFilterCard, { type ProductFilterCardFilters } from "./use-product-filter-card";
 // TYPES
 import type Filters from "models/Filters";
-import type { CategorySidebarFilters } from "models/Filters";
+import type { CategorySidebarFilters, FilterItem } from "models/Filters";
 
 function isCategorySidebarFilters(f: ProductFilterCardFilters): f is CategorySidebarFilters {
   return "filters" in f && Array.isArray((f as CategorySidebarFilters).filters);
@@ -52,6 +52,113 @@ function formatFilterValue(slug: string, value: string) {
 }
 
 const BRAND_VISIBLE_LIMIT = 5;
+
+function parseRangeValue(param: string | null, fallback: { min: number; max: number }): [number, number] {
+  if (!param?.trim()) return [fallback.min, fallback.max];
+
+  const parts = param.split("-").map((value) => Number(value.trim()));
+  if (parts.length >= 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) {
+    return [parts[0], parts[1]];
+  }
+
+  return [fallback.min, fallback.max];
+}
+
+function formatRangeLabel(value: number, unit?: string) {
+  return unit ? `${value} ${unit}` : `${value}`;
+}
+
+interface RangeAttributeFilterProps {
+  filter: FilterItem;
+  selectedParam: string | null;
+  onApply: (slug: string, value: string) => void;
+}
+
+function RangeAttributeFilter({ filter, selectedParam, onApply }: RangeAttributeFilterProps) {
+  const range = filter.range;
+  const step = filter.step ?? 1;
+  const [localRange, setLocalRange] = useState<[number, number]>(
+    range ? parseRangeValue(selectedParam, range) : [0, 0]
+  );
+  const [minInput, setMinInput] = useState(String(localRange[0]));
+  const [maxInput, setMaxInput] = useState(String(localRange[1]));
+
+  useEffect(() => {
+    if (!range) return;
+
+    const next = parseRangeValue(selectedParam, range);
+    setLocalRange(next);
+    setMinInput(String(next[0]));
+    setMaxInput(String(next[1]));
+  }, [selectedParam, range]);
+
+  if (!range) return null;
+
+  const applyRange = (nextValues?: [number, number]) => {
+    const min = nextValues?.[0] ?? (minInput.trim() === "" ? range.min : Number(minInput));
+    const max = nextValues?.[1] ?? (maxInput.trim() === "" ? range.max : Number(maxInput));
+    const minNum = Number.isFinite(min) ? Math.max(range.min, Math.min(range.max, min)) : range.min;
+    const maxNum = Number.isFinite(max) ? Math.max(range.min, Math.min(range.max, max)) : range.max;
+    const finalRange: [number, number] = [Math.min(minNum, maxNum), Math.max(minNum, maxNum)];
+
+    setLocalRange(finalRange);
+    setMinInput(String(finalRange[0]));
+    setMaxInput(String(finalRange[1]));
+    onApply(filter.slug, `${finalRange[0]}-${finalRange[1]}`);
+  };
+
+  return (
+    <>
+      <Slider
+        min={range.min}
+        max={range.max}
+        step={step}
+        size="small"
+        value={localRange}
+        valueLabelDisplay="auto"
+        valueLabelFormat={(value) => formatRangeLabel(value, filter.unit)}
+        disabled={range.min === range.max}
+        onChange={(_, value) => {
+          const next = value as number[];
+          const tuple: [number, number] = [next[0], next[1]];
+          setLocalRange(tuple);
+          setMinInput(String(tuple[0]));
+          setMaxInput(String(tuple[1]));
+        }}
+        onChangeCommitted={(_, value) => {
+          const next = value as number[];
+          applyRange([next[0], next[1]]);
+        }}
+      />
+
+      <FlexBetween>
+        <TextField
+          fullWidth
+          size="small"
+          type="text"
+          inputMode="decimal"
+          placeholder={String(range.min)}
+          value={minInput}
+          onChange={(event) => setMinInput(event.target.value)}
+          onBlur={() => applyRange()}
+          onKeyDown={(event) => event.key === "Enter" && applyRange()}
+        />
+        <Typography variant="h5" sx={{ px: 1, color: "grey.600" }}>-</Typography>
+        <TextField
+          fullWidth
+          size="small"
+          type="text"
+          inputMode="decimal"
+          placeholder={String(range.max)}
+          value={maxInput}
+          onChange={(event) => setMaxInput(event.target.value)}
+          onBlur={() => applyRange()}
+          onKeyDown={(event) => event.key === "Enter" && applyRange()}
+        />
+      </FlexBetween>
+    </>
+  );
+}
 
 export default function ProductFilters({ filters }: { filters: ProductFilterCardFilters }) {
   const router = useRouter();
@@ -94,6 +201,15 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
   const handleClearFilters = () => {
     const targetPath = hasSeoFilterInPath ? basePathForParams : pathname;
     router.push(targetPath);
+  };
+
+  const handleRangeFilterChange = (slug: string, value: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.delete("page");
+    params.set(slug, value);
+    const query = params.toString();
+    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    setTimeout(() => router.refresh(), 0);
   };
 
   /** Dynamic sidebar: API-driven filters array + price + categories + rating */
@@ -199,6 +315,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
           const visibleValues = isBrand ? filter.values.slice(0, BRAND_VISIBLE_LIMIT) : filter.values;
           const hiddenValues = isBrand ? filter.values.slice(BRAND_VISIBLE_LIMIT) : [];
           const hasHiddenBrandValues = isBrand && filter.values.length > BRAND_VISIBLE_LIMIT;
+          const isRangeFilter = filter.displayType === "range" && filter.range;
 
           return (
             <Fragment key={filter.slug}>
@@ -211,54 +328,64 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
               </AccordionHeader>
 
               <Collapse in={open}>
-                <FormGroup>
-                  {visibleValues.map((value) => {
-                    const selected = isBrand
-                      ? getSelectedValues(filter.slug).includes(normalizeBrandValue(value))
-                      : getSelectedValues(filter.slug).includes(value);
-
-                    return (
-                      <CheckboxLabel
-                        key={value}
-                        label={formatFilterValue(filter.slug, value)}
-                        checked={selected}
-                        onChange={() => handleFilterChange(filter.slug, value, !selected)}
-                      />
-                    );
-                  })}
-                </FormGroup>
-
-                {hasHiddenBrandValues && (
+                {isRangeFilter ? (
+                  <RangeAttributeFilter
+                    filter={filter}
+                    selectedParam={searchParams.get(filter.slug)}
+                    onApply={handleRangeFilterChange}
+                  />
+                ) : (
                   <>
-                    <Collapse in={expanded} timeout="auto" unmountOnExit>
-                      <FormGroup>
-                        {hiddenValues.map((value) => {
-                          const selected = getSelectedValues(filter.slug).includes(normalizeBrandValue(value));
+                    <FormGroup>
+                      {visibleValues.map((value) => {
+                        const selected = isBrand
+                          ? getSelectedValues(filter.slug).includes(normalizeBrandValue(value))
+                          : getSelectedValues(filter.slug).includes(value);
 
-                          return (
-                            <CheckboxLabel
-                              key={value}
-                              label={formatFilterValue(filter.slug, value)}
-                              checked={selected}
-                              onChange={() => handleFilterChange(filter.slug, value, !selected)}
-                            />
-                          );
-                        })}
-                      </FormGroup>
-                    </Collapse>
+                        return (
+                          <CheckboxLabel
+                            key={value}
+                            label={formatFilterValue(filter.slug, value)}
+                            checked={selected}
+                            onChange={() => handleFilterChange(filter.slug, value, !selected)}
+                          />
+                        );
+                      })}
+                    </FormGroup>
 
-                    <Button
-                      size="small"
-                      color="primary"
-                      variant="text"
-                      endIcon={expanded ? <KeyboardArrowUp fontSize="small" /> : <KeyboardArrowDown fontSize="small" />}
-                      onClick={() =>
-                        setExpandedFilterSlugs((state) => ({ ...state, [filter.slug]: !expanded }))
-                      }
-                      sx={{ mt: 1, px: 0, minWidth: 0, color: "primary.main" }}
-                    >
-                      {expanded ? "Prikaži manje" : "Prikaži više"}
-                    </Button>
+                    {hasHiddenBrandValues && (
+                      <>
+                        <Collapse in={expanded} timeout="auto" unmountOnExit>
+                          <FormGroup>
+                            {hiddenValues.map((value) => {
+                              const selected = getSelectedValues(filter.slug).includes(normalizeBrandValue(value));
+
+                              return (
+                                <CheckboxLabel
+                                  key={value}
+                                  label={formatFilterValue(filter.slug, value)}
+                                  checked={selected}
+                                  onChange={() => handleFilterChange(filter.slug, value, !selected)}
+                                />
+                              );
+                            })}
+                          </FormGroup>
+                        </Collapse>
+
+                        <Button
+                          size="small"
+                          color="primary"
+                          variant="text"
+                          endIcon={expanded ? <KeyboardArrowUp fontSize="small" /> : <KeyboardArrowDown fontSize="small" />}
+                          onClick={() =>
+                            setExpandedFilterSlugs((state) => ({ ...state, [filter.slug]: !expanded }))
+                          }
+                          sx={{ mt: 1, px: 0, minWidth: 0, color: "primary.main" }}
+                        >
+                          {expanded ? "Prikaži manje" : "Prikaži više"}
+                        </Button>
+                      </>
+                    )}
                   </>
                 )}
               </Collapse>

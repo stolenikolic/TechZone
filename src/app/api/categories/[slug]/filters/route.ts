@@ -51,12 +51,64 @@ export type FilterItem = {
   slug: string;
   name: string;
   values: string[];
+  displayType?: "checkbox" | "range";
+  range?: { min: number; max: number };
+  unit?: string;
+  step?: number;
 };
 
 export type CategoryFiltersResponse = {
   priceRange?: { min: number; max: number };
   filters: FilterItem[];
 };
+
+type AttributeRow = {
+  id: string;
+  slug: string;
+  name: string | null;
+  filter_display_type?: string | null;
+  filter_unit?: string | null;
+  filter_step?: number | string | null;
+};
+
+type AttributeMeta = {
+  slug: string;
+  name: string;
+  displayType: "checkbox" | "range";
+  unit?: string;
+  step?: number;
+};
+
+const RANGE_ATTRIBUTE_FALLBACKS: Record<string, { unit?: string; step?: number }> = {
+  m2_connectors: { unit: "pcs", step: 1 }
+};
+
+/** Extract numeric from values like "0pcs", "1000 MB", or "3.5 inch". */
+function parseNumericValue(value: string | null): number | null {
+  if (value == null || value === "") return null;
+  const match = String(value).match(/\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const n = Number(match[0]);
+  return Number.isNaN(n) ? null : n;
+}
+
+function toAttributeMeta(row: AttributeRow): AttributeMeta {
+  const fallback = RANGE_ATTRIBUTE_FALLBACKS[row.slug];
+  const displayType = row.filter_display_type === "range" || fallback ? "range" : "checkbox";
+  const step =
+    row.filter_step != null && Number.isFinite(Number(row.filter_step))
+      ? Number(row.filter_step)
+      : fallback?.step;
+  const unit = row.filter_unit ?? fallback?.unit;
+
+  return {
+    slug: row.slug,
+    name: row.name ?? row.slug,
+    displayType,
+    ...(unit ? { unit } : {}),
+    ...(step != null ? { step } : {})
+  };
+}
 
 /**
  * Dynamic filters:
@@ -138,17 +190,33 @@ export async function GET(
     return NextResponse.json(result);
   }
 
-  const { data: attrRows } = await supabase
+  let attrRows: AttributeRow[] = [];
+  const { data: attrRowsWithMetadata, error: attrRowsWithMetadataError } = await supabase
     .from("attributes")
-    .select("id, slug, name")
+    .select("id, slug, name, filter_display_type, filter_unit, filter_step")
     .in("id", categoryAttributeIds);
 
-  const attributeMeta = new Map<string, { slug: string; name: string }>();
+  if (attrRowsWithMetadataError) {
+    const { data: fallbackAttrRows, error: fallbackAttrRowsError } = await supabase
+      .from("attributes")
+      .select("id, slug, name")
+      .in("id", categoryAttributeIds);
+
+    if (fallbackAttrRowsError) {
+      return NextResponse.json({ error: fallbackAttrRowsError.message }, { status: 500 });
+    }
+
+    attrRows = (fallbackAttrRows ?? []) as AttributeRow[];
+  } else {
+    attrRows = (attrRowsWithMetadata ?? []) as AttributeRow[];
+  }
+
+  const attributeMeta = new Map<string, AttributeMeta>();
   const orderedAttrIds: string[] = [];
   for (const aid of categoryAttributeIds) {
-    const attr = (attrRows ?? []).find((a) => a.id === aid);
+    const attr = attrRows.find((a) => a.id === aid);
     if (attr?.slug && !attributeMeta.has(aid)) {
-      attributeMeta.set(aid, { slug: attr.slug, name: attr.name ?? attr.slug });
+      attributeMeta.set(aid, toAttributeMeta(attr));
       orderedAttrIds.push(aid);
     }
   }
@@ -180,7 +248,29 @@ export async function GET(
     const valueSet = byAttributeId.get(attrId);
     if (!meta || !valueSet || valueSet.size === 0) continue;
     const values = Array.from(valueSet).sort((a, b) => String(a).localeCompare(String(b)));
-    result.filters.push({ slug: meta.slug, name: meta.name, values });
+    if (meta.displayType === "range") {
+      const numericValues = values
+        .map((value) => parseNumericValue(value))
+        .filter((value): value is number => value != null);
+
+      if (numericValues.length === 0) continue;
+
+      result.filters.push({
+        slug: meta.slug,
+        name: meta.name,
+        values,
+        displayType: "range",
+        range: {
+          min: Math.min(...numericValues),
+          max: Math.max(...numericValues)
+        },
+        ...(meta.unit ? { unit: meta.unit } : {}),
+        ...(meta.step != null ? { step: meta.step } : {})
+      });
+      continue;
+    }
+
+    result.filters.push({ slug: meta.slug, name: meta.name, values, displayType: "checkbox" });
   }
 
   return NextResponse.json(result);

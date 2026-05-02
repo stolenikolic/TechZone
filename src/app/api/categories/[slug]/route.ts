@@ -109,12 +109,12 @@ function parseListParam(param: string | null): string[] | null {
   return list.length ? list : null;
 }
 
-/** Extract numeric from values like "18TB", "512MB". */
+/** Extract numeric from values like "18TB", "512MB", or "3.5 inch". */
 function parseNumericValue(value: string | null): number | null {
   if (value == null || value === "") return null;
-  const digits = value.replace(/\D/g, "");
-  if (digits === "") return null;
-  const n = parseInt(digits, 10);
+  const match = String(value).match(/\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const n = Number(match[0]);
   return Number.isNaN(n) ? null : n;
 }
 
@@ -139,7 +139,7 @@ function parseParamAsRangeOrList(param: string | null): { type: "range"; min: nu
 const LIMIT = 30;
 const RESERVED_PARAMS = new Set(["page", "prices"]);
 /** Chunk size for product_attributes .in("product_id", ...) to avoid URI-too-long / request failure. */
-const PRODUCT_IDS_CHUNK_SIZE = 200;
+const PRODUCT_IDS_CHUNK_SIZE = 50;
 
 export async function GET(
   request: Request,
@@ -388,7 +388,55 @@ async function handleCategoryProducts(
   }
 
   if (productIdFilter?.length) {
-    query = query.in("id", productIdFilter);
+    const filteredRows: DbProduct[] = [];
+
+    for (let i = 0; i < productIdFilter.length; i += PRODUCT_IDS_CHUNK_SIZE) {
+      const chunk = productIdFilter.slice(i, i + PRODUCT_IDS_CHUNK_SIZE);
+      let chunkQuery = supabase
+        .from("products")
+        .select("id, name, slug, description, brand, main_image, price")
+        .eq("category_id", category.id)
+        .eq("is_active", true)
+        .in("id", chunk);
+
+      if (priceMin != null || priceMax != null) {
+        if (priceMin != null) chunkQuery = chunkQuery.gte("price", priceMin);
+        if (priceMax != null) chunkQuery = chunkQuery.lte("price", priceMax);
+        chunkQuery = chunkQuery.not("price", "is", null);
+      }
+
+      if (brandFilterNames?.length) {
+        chunkQuery = chunkQuery.in("brand", brandFilterNames);
+      }
+
+      const { data: chunkRows, error: chunkError } = await chunkQuery;
+      if (chunkError) {
+        return NextResponse.json(
+          { error: chunkError.message },
+          { status: 500 }
+        );
+      }
+
+      filteredRows.push(...((chunkRows ?? []) as DbProduct[]));
+    }
+
+    filteredRows.sort((a, b) => a.name.localeCompare(b.name));
+
+    const totalCount = filteredRows.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));
+    const clampedPage = Math.min(Math.max(1, page), totalPages);
+    const pageOffset = (clampedPage - 1) * LIMIT;
+    const products = filteredRows
+      .slice(pageOffset, pageOffset + LIMIT)
+      .map((row) => toProduct(row, category));
+
+    return NextResponse.json({
+      category,
+      products,
+      total: totalCount,
+      page: clampedPage,
+      totalPages
+    });
   }
 
   const { data: productRows, error: productsError, count: total } = await query.range(
