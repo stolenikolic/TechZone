@@ -22,16 +22,25 @@ interface Props {
 }
 // ==============================================================
 
+function leafCategoryHref(product: Product): string | null {
+  if (!product.category) return null;
+  if (product.parentCategory) {
+    return `/categories/${product.parentCategory.slug}/${product.category.slug}`;
+  }
+  return `/categories/${product.category.slug}`;
+}
+
 export default function ProductDetailsPageView(props: Props) {
   const { product } = props;
+  const leafHref = leafCategoryHref(product);
 
   return (
     <Container className="mt-2 mb-2">
-      {/* BREADCRUMBS: Home / Parent Category / Category / Product Name */}
+      {/* BREADCRUMBS: Početna / Parent / Child category / Product name */}
       <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
         <Link href="/" style={{ color: "inherit", textDecoration: "none" }}>
           <Typography variant="body2" color="text.primary" component="span">
-            Home
+            Početna
           </Typography>
         </Link>
         {product.parentCategory && (
@@ -41,8 +50,8 @@ export default function ProductDetailsPageView(props: Props) {
             </Typography>
           </Link>
         )}
-        {product.category && (
-          <Link href={`/categories/${product.category.slug}`} style={{ color: "inherit", textDecoration: "none" }}>
+        {product.category && leafHref && (
+          <Link href={leafHref} style={{ color: "inherit", textDecoration: "none" }}>
             <Typography variant="body2" color="text.primary" component="span">
               {product.category.name}
             </Typography>

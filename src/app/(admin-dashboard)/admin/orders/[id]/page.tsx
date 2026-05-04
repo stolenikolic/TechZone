@@ -1,8 +1,7 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { OrderDetailsPageView } from "pages-sections/vendor-dashboard/orders/page-view";
-// API FUNCTIONS
-import api from "utils/__api__/dashboard";
+import { getOrder } from "lib/orders/orders-service";
 // CUSTOM DATA MODEL
 import { IdParams } from "models/Common";
 
@@ -15,7 +14,7 @@ export const metadata: Metadata = {
 
 export default async function OrderDetails({ params }: IdParams) {
   const { id } = await params;
-  const order = await api.getOrder(id);
+  const order = await getOrder(id);
 
   if (!order) notFound();
 

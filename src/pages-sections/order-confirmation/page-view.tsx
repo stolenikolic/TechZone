@@ -7,7 +7,11 @@ import Typography from "@mui/material/Typography";
 // STYLED COMPONENT
 import { Wrapper, StyledButton } from "./styles";
 
-export default function OrderConfirmationPageView() {
+type Props = {
+  orderId?: string;
+};
+
+export default function OrderConfirmationPageView({ orderId }: Props) {
   return (
     <Container className="mt-2 mb-5">
       <Wrapper>
@@ -33,7 +37,7 @@ export default function OrderConfirmationPageView() {
         </Typography>
 
         <Typography fontSize={16} variant="body1" color="text.secondary">
-          Your order number is <strong>#1234567890</strong>.
+          Your order number is <strong>{orderId ? `#${orderId.split("-")[0]}` : "pending"}</strong>.
         </Typography>
 
         <StyledButton

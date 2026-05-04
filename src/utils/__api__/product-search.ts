@@ -63,7 +63,7 @@ interface Params {
 
 /**
  * Fetches paginated search results from /api/search?q=...&page=...
- * 30 products per page. Supabase FTS + trigram, is_active only.
+ * 30 products per page. Token search over name, brand, MPN, and EAN; is_active only.
  */
 export const getProducts = cache(
   async ({ q, page = "1", sort, sale, prices, colors, brands, rating, category }: Params) => {

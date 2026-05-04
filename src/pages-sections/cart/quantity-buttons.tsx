@@ -27,7 +27,8 @@ export default function QuantityButtons({
   return (
     <div
       className="quantity-buttons-wrapper"
-      style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+      dir="ltr"
+      style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexDirection: "row" }}
     >
       <QuantityButton disabled={value <= min} onClick={onDecrement}>
         <Remove fontSize="small" />

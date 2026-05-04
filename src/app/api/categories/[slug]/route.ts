@@ -10,7 +10,60 @@ type DbProduct = {
   brand: string | null;
   main_image: string | null;
   price?: number | null;
+  created_at?: string | null;
 };
+
+type SortMode = "relevance" | "date" | "asc" | "desc";
+
+function parseSortParam(raw: string | null): SortMode {
+  const v = raw?.trim().toLowerCase();
+  if (v === "asc" || v === "desc" || v === "date") return v;
+  return "relevance";
+}
+
+function timestampOrZero(iso: string | null | undefined): number {
+  if (iso == null || iso === "") return 0;
+  const t = Date.parse(String(iso));
+  return Number.isNaN(t) ? 0 : t;
+}
+
+function compareProductsBySort(a: DbProduct, b: DbProduct, sort: SortMode): number {
+  const nameCmp = String(a.name ?? "").localeCompare(String(b.name ?? ""));
+
+  switch (sort) {
+    case "asc": {
+      const pa = a.price;
+      const pb = b.price;
+      const aBad = pa == null || !Number.isFinite(Number(pa));
+      const bBad = pb == null || !Number.isFinite(Number(pb));
+      if (aBad && bBad) return nameCmp;
+      if (aBad) return 1;
+      if (bBad) return -1;
+      const diff = Number(pa) - Number(pb);
+      return diff !== 0 ? diff : nameCmp;
+    }
+    case "desc": {
+      const pa = a.price;
+      const pb = b.price;
+      const aBad = pa == null || !Number.isFinite(Number(pa));
+      const bBad = pb == null || !Number.isFinite(Number(pb));
+      if (aBad && bBad) return nameCmp;
+      if (aBad) return 1;
+      if (bBad) return -1;
+      const diff = Number(pb) - Number(pa);
+      return diff !== 0 ? diff : nameCmp;
+    }
+    case "date": {
+      const ta = timestampOrZero(a.created_at);
+      const tb = timestampOrZero(b.created_at);
+      if (tb !== ta) return tb - ta;
+      return nameCmp;
+    }
+    case "relevance":
+    default:
+      return nameCmp;
+  }
+}
 
 type CategoryPayload = { id: string; name: string; slug: string };
 
@@ -165,6 +218,7 @@ async function handleCategoryProducts(
 
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const offset = (page - 1) * LIMIT;
+  const sortMode = parseSortParam(searchParams.get("sort"));
   const prices = parseRangeParam(searchParams.get("prices"));
   const safeNum = (n: unknown): number | undefined =>
     typeof n === "number" && Number.isFinite(n) ? n : undefined;
@@ -387,6 +441,23 @@ async function handleCategoryProducts(
     query = query.in("brand", brandFilterNames);
   }
 
+  switch (sortMode) {
+    case "asc":
+      query = query.order("price", { ascending: true, nullsFirst: false }).order("name", { ascending: true });
+      break;
+    case "desc":
+      query = query.order("price", { ascending: false, nullsFirst: false }).order("name", { ascending: true });
+      break;
+    case "date":
+      query = query
+        .order("created_at", { ascending: false, nullsFirst: false })
+        .order("name", { ascending: true });
+      break;
+    case "relevance":
+    default:
+      query = query.order("name", { ascending: true });
+  }
+
   if (productIdFilter?.length) {
     const filteredRows: DbProduct[] = [];
 
@@ -420,7 +491,7 @@ async function handleCategoryProducts(
       filteredRows.push(...((chunkRows ?? []) as DbProduct[]));
     }
 
-    filteredRows.sort((a, b) => a.name.localeCompare(b.name));
+    filteredRows.sort((a, b) => compareProductsBySort(a, b, sortMode));
 
     const totalCount = filteredRows.length;
     const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));

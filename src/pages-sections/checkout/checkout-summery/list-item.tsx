@@ -18,7 +18,7 @@ export default function ListItem({ title, value }: Props) {
         {title}:
       </Typography>
 
-      <Typography variant="h6">{value ? currency(value) : "-"}</Typography>
+      <Typography variant="h6">{typeof value === "number" ? currency(value) : "-"}</Typography>
     </FlexBetween>
   );
 }

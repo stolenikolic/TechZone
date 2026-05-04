@@ -13,6 +13,7 @@ export type SearchResultItem = {
 const PER_PAGE = 30;
 const MAX_QUERY_LENGTH = 200;
 const MIN_QUERY_LENGTH = 2;
+const SEARCH_COLUMNS = ["name", "brand", "mpn", "ean"] as const;
 
 export type SearchResponse = {
   products: SearchResultItem[];
@@ -21,11 +22,23 @@ export type SearchResponse = {
   currentPage: number;
 };
 
+function getSearchTokens(query: string) {
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .map((token) => token.replace(/[%,()]/g, "").trim())
+    .filter(Boolean);
+}
+
+function buildTokenFilter(token: string) {
+  return SEARCH_COLUMNS.map((column) => `${column}.ilike.%${token}%`).join(",");
+}
+
 /**
  * GET /api/search?q=...&page=...
  *
- * Strict product search: only name and brand (no description, no fuzzy logic).
- * - Matches: name ILIKE '%query%' OR brand ILIKE '%query%'. Case-insensitive.
+ * Token product search across name, brand, MPN, and EAN (no description, no fuzzy logic).
+ * - Every query token must match somewhere in the product identity fields.
  * - 30 products per page, is_active = true only.
  */
 export async function GET(request: Request) {
@@ -48,16 +61,41 @@ export async function GET(request: Request) {
   }
 
   const safeQuery = q.slice(0, MAX_QUERY_LENGTH);
+  const tokens = getSearchTokens(safeQuery);
+
+  if (tokens.length === 0) {
+    return NextResponse.json(
+      {
+        products: [],
+        totalResults: 0,
+        totalPages: 0,
+        currentPage: 1,
+        error: "Query must contain searchable text"
+      },
+      { status: 400 }
+    );
+  }
 
   try {
     const supabase = createSupabaseServiceClient();
-    const { data, error } = await supabase.rpc("search_products", {
-      search_query: safeQuery,
-      page
-    });
+    const from = (page - 1) * PER_PAGE;
+    const to = from + PER_PAGE - 1;
+
+    let query = supabase
+      .from("products")
+      .select("id,name,brand,slug,main_image,price", { count: "exact" })
+      .eq("is_active", true)
+      .order("name", { ascending: true })
+      .range(from, to);
+
+    for (const token of tokens) {
+      query = query.or(buildTokenFilter(token));
+    }
+
+    const { data, error, count } = await query;
 
     if (error) {
-      console.error("[search] RPC error:", error.message);
+      console.error("[search] query error:", error.message);
       return NextResponse.json(
         {
           products: [],
@@ -70,8 +108,8 @@ export async function GET(request: Request) {
       );
     }
 
-    const rows = (data ?? []) as Array<Record<string, unknown> & { total_count?: number }>;
-    const totalResults = rows.length > 0 ? Number(rows[0].total_count ?? 0) : 0;
+    const rows = (data ?? []) as Array<Record<string, unknown>>;
+    const totalResults = Number(count ?? 0);
     const totalPages = Math.max(1, Math.ceil(totalResults / PER_PAGE));
     const currentPage = Math.min(page, totalPages);
 

@@ -38,13 +38,11 @@ export const ContentWrapper = styled("div")(({ theme }) => ({
 }));
 
 export const TagRoot = styled("div")(({ theme }) => ({
-  display: "flex",
-  alignItems: "center",
-  gap: theme.spacing(1),
-  "& p": {
-    fontSize: 11,
+  display: "block",
+  lineHeight: 1.5,
+  marginBottom: theme.spacing(0.25),
+  "& span": {
     fontWeight: 500,
-    display: "inline-block",
-    textDecoration: "underline"
+    letterSpacing: 0.2
   }
 }));

@@ -43,17 +43,11 @@ export function calculateDiscount(price: number, discount: number) {
 }
 
 /**
- * CHANGE THE CURRENCY FORMAT (legacy USD – use formatPrice for product display)
- * @param  price - PRODUCT PRICE
- * @param  fraction - HOW MANY FRACTION WANT TO SHOW
- * @returns - RETURN PRICE WITH CURRENCY
+ * Format money for dashboards, carts, summaries: "1234.56 KM" (dot as decimal separator).
  */
 export function currency(price: number, fraction: number = 2) {
-  return Intl.NumberFormat("en-US", {
-    currency: "USD",
-    style: "currency",
-    maximumFractionDigits: fraction
-  }).format(price);
+  if (!Number.isFinite(price)) return `${Number(0).toFixed(fraction)} KM`;
+  return `${Number(price).toFixed(fraction)} KM`;
 }
 
 /**

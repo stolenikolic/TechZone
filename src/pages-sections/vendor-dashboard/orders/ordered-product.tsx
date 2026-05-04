@@ -19,7 +19,8 @@ type Props = { product: Order["items"][0] };
 // ==============================================================
 
 export default function OrderedProduct({ product }: Props) {
-  const { product_img, product_name, product_price, product_quantity } = product || {};
+  const { product_img, product_name, product_price, product_quantity, supplier_name } = product || {};
+  const supplierDisplay = supplier_name?.trim() ? supplier_name.trim() : "–";
 
   return (
     <Box my={2} gap={2} display="grid" gridTemplateColumns={{ md: "1fr 1fr", xs: "1fr" }}>
@@ -45,12 +46,17 @@ export default function OrderedProduct({ product }: Props) {
         </div>
       </FlexBox>
 
-      <FlexBetween flexShrink={0}>
-        <Typography variant="body1" sx={{ color: "grey.600" }}>
-          Product properties: Black, L
-        </Typography>
+      <FlexBetween flexShrink={0} alignItems="flex-start" columnGap={2}>
+        <div>
+          <Typography variant="body1" sx={{ color: "grey.600", display: "block" }}>
+            Product properties: Najjeftinija
+          </Typography>
+          <Typography variant="body2" sx={{ color: "grey.600", mt: 0.5 }}>
+            Dobavljač: {supplierDisplay}
+          </Typography>
+        </div>
 
-        <IconButton>
+        <IconButton aria-label="remove line">
           <Delete sx={{ color: "grey.600", fontSize: 22 }} />
         </IconButton>
       </FlexBetween>

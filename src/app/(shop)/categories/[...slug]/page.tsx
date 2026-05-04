@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Grid from "@mui/material/Grid";
 import Container from "@mui/material/Container";
-import ProductFilters from "components/products-view/filters";
-import ProductsGridView from "components/products-view/products-grid-view";
-import ProductPagination from "components/shop/product-pagination";
+import CategoryProductsSection from "components/products-view/category-products-section";
 import CategoryBrowser, { type CategoryTreeNode } from "pages-sections/categories";
 import api from "utils/__api__/market-2";
 import type Filters from "models/Filters";
@@ -157,19 +154,14 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   return (
     <div className="bg-white pt-2 pb-4">
       <Container>
-        <Grid container spacing={4}>
-          <Grid size={{ xl: 2, md: 3 }} sx={{ display: { md: "block", xs: "none" } }}>
-            <ProductFilters key={filterKey} filters={sidebarFilters} />
-          </Grid>
-          <Grid size={{ xl: 10, md: 9, xs: 12 }}>
-            <ProductsGridView products={payload.products} />
-            <ProductPagination
-              page={payload.page}
-              perPage={30}
-              totalProducts={payload.total}
-            />
-          </Grid>
-        </Grid>
+        <CategoryProductsSection
+          filterKey={filterKey}
+          filters={sidebarFilters}
+          title={payload.category.name}
+          products={payload.products}
+          page={payload.page}
+          totalProducts={payload.total}
+        />
       </Container>
     </div>
   );

@@ -38,8 +38,8 @@ export default function MiniCart() {
   };
 
   return (
-    <Box height="100vh" width={380}>
-      <FlexBetween ml={3} mr={2} height={74}>
+    <Box sx={{ height: "100vh", width: 380, display: "flex", flexDirection: "column" }}>
+      <FlexBetween sx={{ ml: 3, mr: 2, height: 74, flexShrink: 0 }}>
         <Typography variant="h6">Your Cart ({CART_LENGTH})</Typography>
 
         <IconButton size="small" onClick={router.back}>
@@ -47,9 +47,9 @@ export default function MiniCart() {
         </IconButton>
       </FlexBetween>
 
-      <Divider />
+      <Divider sx={{ flexShrink: 0 }} />
 
-      <Box height={`calc(100% - ${CART_LENGTH ? "211px" : "75px"})`}>
+      <Box sx={{ flex: 1, minHeight: 0 }}>
         {CART_LENGTH > 0 ? (
           <OverlayScrollbar>
             {state.cart.map((item) => (
@@ -62,7 +62,14 @@ export default function MiniCart() {
       </Box>
 
       {CART_LENGTH > 0 && (
-        <Box p={2.5}>
+        <Box sx={{ p: 2.5, flexShrink: 0, borderTop: 1, borderColor: "divider" }}>
+          <FlexBetween sx={{ mb: 2 }}>
+            <Typography variant="body1" color="text.secondary">
+              Total
+            </Typography>
+            <Typography variant="h6">{currency(getTotalPrice())}</Typography>
+          </FlexBetween>
+
           <Button
             fullWidth
             color="primary"

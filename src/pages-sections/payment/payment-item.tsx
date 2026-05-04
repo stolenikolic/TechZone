@@ -14,7 +14,7 @@ export default function PaymentItem({ title, amount }: Props) {
         {title}
       </Typography>
 
-      <Typography variant="h6">{amount ? currency(amount) : "-"}</Typography>
+      <Typography variant="h6">{typeof amount === "number" ? currency(amount) : "-"}</Typography>
     </FlexBetween>
   );
 }

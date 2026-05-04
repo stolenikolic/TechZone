@@ -42,9 +42,12 @@ const ContentWrapper = styled("div")(() => ({
 const QuantityWrapper = styled("div")(({ theme }) => ({
   gap: "0.5rem",
   display: "flex",
+  flexDirection: "row",
   alignItems: "center",
   border: `1px solid ${theme.palette.divider}`,
   borderRadius: 6,
+  /** Uvijek [ − ] [ qty ] [ + ] čak i u RTL layoutu. */
+  direction: "ltr",
   "& .MuiButtonBase-root": {
     height: 24,
     width: 24,
@@ -84,9 +87,10 @@ export default function MiniCartItem({ item, onCart }: Props) {
               size="small"
               color="primary"
               variant="text"
-              onClick={onCart(item.qty + 1, item)}
+              disabled={item.qty === 1}
+              onClick={onCart(item.qty - 1, item)}
             >
-              <Add fontSize="small" />
+              <Remove fontSize="small" />
             </Button>
 
             <Typography variant="body1" fontSize={13}>
@@ -97,10 +101,9 @@ export default function MiniCartItem({ item, onCart }: Props) {
               size="small"
               color="primary"
               variant="text"
-              disabled={item.qty === 1}
-              onClick={onCart(item.qty - 1, item)}
+              onClick={onCart(item.qty + 1, item)}
             >
-              <Remove fontSize="small" />
+              <Add fontSize="small" />
             </Button>
           </QuantityWrapper>
 

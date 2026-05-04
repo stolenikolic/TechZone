@@ -5,16 +5,19 @@ import KeyboardArrowDown from "@mui/icons-material/KeyboardArrowDown";
 import { format } from "date-fns/format";
 // GLOBAL CUSTOM COMPONENTS
 import FlexBox from "components/flex-box/flex-box";
+// CUSTOM DATA MODEL
+import { OrderStatus } from "models/Order.model";
 
 // ==============================================================
 interface Props {
   id: string;
-  status: string;
-  createdAt: Date;
+  status: OrderStatus;
+  createdAt: Date | string;
+  onStatusChange: (status: OrderStatus) => void;
 }
 // ==============================================================
 
-export default function OrderActions({ id, createdAt, status }: Props) {
+export default function OrderActions({ id, createdAt, status, onStatusChange }: Props) {
   return (
     <div>
       <FlexBox flexWrap="wrap" alignItems="center" columnGap={4} rowGap={1}>
@@ -42,8 +45,9 @@ export default function OrderActions({ id, createdAt, status }: Props) {
           fullWidth
           color="info"
           size="medium"
-          defaultValue={status}
+          value={status}
           label="Order Status"
+          onChange={(event) => onStatusChange(event.target.value as OrderStatus)}
           slotProps={{
             select: {
               IconComponent: () => <KeyboardArrowDown sx={{ color: "grey.600", mr: 1 }} />

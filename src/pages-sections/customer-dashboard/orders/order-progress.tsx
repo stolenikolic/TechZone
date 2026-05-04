@@ -75,7 +75,7 @@ const DeliveryDateBox = styled("div")(({ theme }) => ({
 // ==============================================================
 interface Props {
   status: OrderStatus;
-  deliveredAt: Date;
+  deliveredAt: Date | string;
   isDelivered: boolean;
 }
 // ==============================================================
