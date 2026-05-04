@@ -26,6 +26,13 @@ export default interface Product {
   parentCategory?: { name: string; slug: string };
   reviews?: Review[];
   published?: boolean;
+  masterStatus?: {
+    value: "unlinked" | "linked" | "needs_attributes" | "ready";
+    label: string;
+    tooltip: string;
+    missing: string[];
+    supplierOffers: number;
+  };
   /** Product specs from product_attributes + attributes; only set when present. */
   specifications?: { name: string; slug: string; value: string }[];
 }

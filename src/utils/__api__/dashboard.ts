@@ -5,6 +5,7 @@ import Order from "models/Order.model";
 import Review from "models/Review.model";
 import Product from "models/Product.model";
 import Category from "models/Category.model";
+import type { SupplierOfferRow } from "app/api/admin/supplier-products/route";
 
 // dashboard
 const getAllCard = cache(async () => {
@@ -27,6 +28,11 @@ const products = cache(async (): Promise<Product[]> => {
   const response = await axios.get("/api/admin/products");
   return response.data;
 });
+
+const supplierOffers = async (): Promise<SupplierOfferRow[]> => {
+  const response = await axios.get("/api/admin/supplier-products");
+  return response.data;
+};
 
 const category = cache(async (): Promise<Category[]> => {
   const response = await axios.get("/api/admin/category");
@@ -99,6 +105,7 @@ export default {
   sellers,
   payouts,
   products,
+  supplierOffers,
   category,
   getOrder,
   customers,

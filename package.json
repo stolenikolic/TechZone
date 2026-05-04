@@ -23,7 +23,8 @@
     "ipon:scrape-details:maticne-ploce:dry": "cross-env IPON_SCRAPE_CATEGORY=maticne-ploce IPON_SCRAPE_DRY_RUN=1 tsx scripts/run-ipon-scrape-details.ts",
     "ipon:sync": "tsx scripts/run-ipon-sync.ts",
     "pcx:import-products": "tsx scripts/run-pcx-import-products.ts",
-    "pcx:import-products:full": "cross-env PCX_MAX_PRODUCTS_PER_RUN=0 tsx scripts/run-pcx-import-products.ts"
+    "pcx:import-products:full": "cross-env PCX_MAX_PRODUCTS_PER_RUN=0 tsx scripts/run-pcx-import-products.ts",
+    "test:auto-link": "tsx scripts/test-match-supplier-product.ts && tsx scripts/test-auto-link-import-integration.ts"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",

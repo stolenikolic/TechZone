@@ -8,6 +8,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { aggregatePrices } from "lib/pricing";
+import { mergeMatchAudit, resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
+import { normalizeEan, normalizeMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { IPON_SUPPLIER_ID, IPON_CATEGORIES, getIponSupplierGroupId, type IponCategory } from "./categories";
 import {
   fetchIponProductDataPage,
@@ -20,6 +22,31 @@ import {
 import { processProductImages } from "./processProductImages";
 import { withPostgrestTransientRetry } from "./transient-retry";
 import { slugify, toSupplierProductId, type IponProductItem } from "./transformProduct";
+
+function firstString(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function pickMpn(item: IponProductItem) {
+  return firstString(item.mpn) ?? firstString(item.manufacturerPartNumber) ?? firstString(item.partNumber);
+}
+
+function pickEan(item: IponProductItem) {
+  return (
+    firstString(item.ean) ??
+    firstString(item.gtin) ??
+    firstString(item.gtin13) ??
+    firstString(item.barcode) ??
+    firstString(item.gtin14)
+  );
+}
+
+export function extractIponIdentifiers(item: IponProductItem) {
+  return {
+    mpn: normalizeMpn(pickMpn(item)),
+    ean: normalizeEan(pickEan(item))
+  };
+}
 
 async function ensureUniqueProductSlug(
   supabase: SupabaseClient,
@@ -180,6 +207,48 @@ async function upsertIponListItem(
     return "updated";
   }
 
+  const { mpn: offerMpn, ean: offerEan } = extractIponIdentifiers(item);
+  const match = await resolveSupplierProductMatch(supabase, { ean: offerEan, mpn: offerMpn });
+  if (match.productId) {
+    const { error: upsertLinkedError } = await withPostgrestTransientRetry(
+      "supplier_products.autolink-upsert",
+      async () =>
+        await supabase.from("supplier_products").upsert(
+          {
+            supplier_id: IPON_SUPPLIER_ID,
+            supplier_product_id: supplierProductId,
+            product_id: match.productId,
+            price_amount: item.grossPrice,
+            currency: "HUF",
+            mpn: offerMpn,
+            ean: offerEan,
+            raw_json: mergeMatchAudit(item as unknown as Record<string, unknown>, match.audit),
+            enrichment_status: "pending",
+            master_match_status: "linked",
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: "supplier_id,supplier_product_id" }
+        )
+    );
+    if (upsertLinkedError) {
+      throw new Error(`supplier_products autolink upsert failed: ${upsertLinkedError.message}`);
+    }
+
+    const upPr = await withPostgrestTransientRetry(
+      "products.reactivate-autolink",
+      async () =>
+        await supabase
+          .from("products")
+          .update({ is_active: true, updated_at: new Date().toISOString() })
+          .eq("id", match.productId)
+    );
+    if (upPr.error) {
+      throw new Error(`products update failed: ${upPr.error.message}`);
+    }
+
+    return "updated";
+  }
+
   const baseSlug = slugify(item.displayName);
   const slug = await ensureUniqueProductSlug(supabase, baseSlug, supplierProductId);
   const mainImage =
@@ -219,7 +288,9 @@ async function upsertIponListItem(
         supplier_product_id: supplierProductId,
         price_amount: item.grossPrice,
         currency: "HUF",
-        raw_json: item as unknown as Record<string, unknown>,
+        mpn: offerMpn,
+        ean: offerEan,
+        raw_json: mergeMatchAudit(item as unknown as Record<string, unknown>, match.audit),
         enrichment_status: "pending",
         master_match_status: "linked"
       })

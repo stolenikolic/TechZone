@@ -4,6 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
 import { normalizeEan, normalizeMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { PCX_CATEGORIES } from "./categories";
@@ -195,15 +196,6 @@ function getSupabase(): SupabaseClient {
   return supabaseSingleton;
 }
 
-async function resolveProductIdByMpn(supabase: SupabaseClient, mpn: string | null): Promise<string | null> {
-  if (!mpn) return null;
-  const { data, error } = await supabase.from("products").select("id").eq("mpn", mpn).maybeSingle();
-  if (error) {
-    throw new Error(`[PCX] products MPN lookup: ${error.message}`);
-  }
-  return data?.id ?? null;
-}
-
 /**
  * Import one category until the global per-run cap is reached.
  */
@@ -254,7 +246,8 @@ export async function importCategory(category: (typeof PCX_CATEGORIES)[number]):
         continue;
       }
 
-      const productId = await resolveProductIdByMpn(supabase, mpnN);
+      const match = await resolveSupplierProductMatch(supabase, { ean: eanN, mpn: mpnN });
+      const productId = match.productId;
 
       const row = {
         supplier_id: PCX_SUPPLIER_ID,
@@ -270,7 +263,8 @@ export async function importCategory(category: (typeof PCX_CATEGORIES)[number]):
           source: "pcx",
           category: category.name,
           listing_name: item.name,
-          url: item.supplierProductUrl
+          url: item.supplierProductUrl,
+          matchAudit: match.audit
         } as Record<string, unknown>,
         updated_at: new Date().toISOString()
       };
@@ -285,7 +279,7 @@ export async function importCategory(category: (typeof PCX_CATEGORIES)[number]):
 
       remainingSlots -= 1;
       console.log(
-        `[PCX] ${category.name} — ${item.name.slice(0, 60)}… → mpn=${mpnN ?? "(null)"} ean=${eanN ?? "(null)"} product_id=${productId ?? "NULL"} price=${priceAmount} HUF`
+        `[PCX] ${category.name} — ${item.name.slice(0, 60)}… → mpn=${mpnN ?? "(null)"} ean=${eanN ?? "(null)"} product_id=${productId ?? "NULL"} match=${match.audit.method}:${match.audit.result} price=${priceAmount} HUF`
       );
     }
 

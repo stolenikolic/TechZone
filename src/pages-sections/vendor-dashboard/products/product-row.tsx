@@ -2,7 +2,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
 import Avatar from "@mui/material/Avatar";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 // MUI ICON COMPONENTS
 import Edit from "@mui/icons-material/Edit";
@@ -26,15 +28,41 @@ interface Product {
   image: string;
   category: string;
   published: boolean;
+  masterStatus?: {
+    value: "unlinked" | "linked" | "needs_attributes" | "ready";
+    label: string;
+    tooltip: string;
+    missing: string[];
+    supplierOffers: number;
+  };
 }
 
 type Props = { product: Product };
 // ========================================================================
 
+function masterStatusColor(status?: Product["masterStatus"]): "success" | "warning" | "error" | "info" | "default" {
+  if (!status) return "default";
+  if (status.value === "ready") return "success";
+  if (status.value === "unlinked") return "error";
+  if (status.value === "needs_attributes") return "warning";
+  return "info";
+}
+
+function MasterStatusChip({ status }: { status?: Product["masterStatus"] }) {
+  if (!status) return <Chip label="unknown" size="small" variant="outlined" />;
+
+  return (
+    <Tooltip title={status.tooltip} arrow>
+      <Chip label={status.label} color={masterStatusColor(status)} size="small" variant="outlined" />
+    </Tooltip>
+  );
+}
+
 export default function ProductRow({ product }: Props) {
-  const { category, name, price, image, brand, id, published, slug } = product;
+  const { category, name, price, image, brand, id, published, slug, masterStatus } = product;
 
   const [productPublish, setProductPublish] = useState(published);
+  const brandImage = brand?.startsWith("/") || brand?.startsWith("http");
 
   return (
     <StyledTableRow tabIndex={-1} role="checkbox">
@@ -59,9 +87,19 @@ export default function ProductRow({ product }: Props) {
       </StyledTableCell>
 
       <StyledTableCell align="left">
-        <Box sx={{ width: 55, height: 25, position: "relative", img: { objectFit: "contain" } }}>
-          <Image fill src={brand} alt={name} sizes="(55px, 25px)" />
-        </Box>
+        {brandImage ? (
+          <Box sx={{ width: 55, height: 25, position: "relative", img: { objectFit: "contain" } }}>
+            <Image fill src={brand} alt={name} sizes="(55px, 25px)" />
+          </Box>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            {brand || "-"}
+          </Typography>
+        )}
+      </StyledTableCell>
+
+      <StyledTableCell align="left">
+        <MasterStatusChip status={masterStatus} />
       </StyledTableCell>
 
       <StyledTableCell align="left">{currency(price)}</StyledTableCell>

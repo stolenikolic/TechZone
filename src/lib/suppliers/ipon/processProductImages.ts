@@ -43,8 +43,8 @@ export async function processProductImages(
   supabase: SupabaseClient,
   productId: string,
   imageUrls: string[]
-): Promise<void> {
-  if (!imageUrls.length) return;
+): Promise<string[]> {
+  if (!imageUrls.length) return [];
 
   const { data: existing } = await supabase
     .from("product_images")
@@ -53,7 +53,12 @@ export async function processProductImages(
     .limit(1);
 
   if (existing && existing.length > 0) {
-    return;
+    const { data: existingRows } = await supabase
+      .from("product_images")
+      .select("image_url")
+      .eq("product_id", productId)
+      .order("sort_order", { ascending: true });
+    return (existingRows ?? []).map((row) => row.image_url).filter((url): url is string => typeof url === "string");
   }
 
   const rows: { product_id: string; image_url: string; sort_order: number }[] = [];
@@ -96,4 +101,6 @@ export async function processProductImages(
       console.error(`[IPON images] product_images insert failed for product ${productId}:`, insertError.message);
     }
   }
+
+  return rows.map((row) => row.image_url);
 }

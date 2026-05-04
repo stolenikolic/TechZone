@@ -20,7 +20,9 @@ export default function VendorDashboardLayout({ children }: PropsWithChildren) {
         <DashboardNavbar />
 
         {/* MAIN CONTENT AREA */}
-        <Container maxWidth="lg">{children}</Container>
+        <Container maxWidth={false} sx={{ px: { xs: 2, md: 3 } }}>
+          {children}
+        </Container>
       </BodyWrapper>
     </LayoutProvider>
   );

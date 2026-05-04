@@ -13,6 +13,7 @@ const axiosInstance = axios.create({
 // Mock only admin dashboard endpoints; all other requests pass through.
 export const Mock = new MockAdapter(axiosInstance);
 AdminDashboardEndpoints(Mock);
+Mock.onGet("/api/admin/products").passThrough();
 Mock.onAny().passThrough();
 
 export default axiosInstance;
