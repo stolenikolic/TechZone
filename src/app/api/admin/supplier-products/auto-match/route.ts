@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { aggregatePrices } from "lib/pricing";
 import { mergeMatchAudit, resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
+import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type PendingSupplierRow = {
@@ -191,11 +192,28 @@ export async function POST() {
           supplierProductId: row.supplier_product_id,
           matchedProductId: match.productId
         });
+        const { data: masterIdentifiers, error: masterIdentifiersError } = await supabase
+          .from("products")
+          .select("mpn, ean")
+          .eq("id", match.productId)
+          .maybeSingle();
+        if (masterIdentifiersError) {
+          errorsCount += 1;
+          await insertEvent(runId, "error", `Master identifiers lookup failed: ${masterIdentifiersError.message}`, {
+            supplierProductId: row.supplier_product_id
+          });
+          continue;
+        }
+        const identifierSync = getIdentifierSyncUpdate(
+          { mpn: row.mpn, ean: row.ean },
+          { mpn: masterIdentifiers?.mpn ?? null, ean: masterIdentifiers?.ean ?? null }
+        );
         const { error: linkError } = await supabase
           .from("supplier_products")
           .update({
             product_id: match.productId,
             master_match_status: "linked",
+            ...identifierSync.update,
             raw_json: mergeMatchAudit(row.raw_json, match.audit),
             updated_at: new Date().toISOString()
           })

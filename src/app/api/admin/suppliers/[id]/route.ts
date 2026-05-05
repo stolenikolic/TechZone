@@ -1,0 +1,50 @@
+import { NextResponse } from "next/server";
+import { createSupabaseServiceClient } from "utils/supabase";
+
+export const dynamic = "force-dynamic";
+
+function isAllowedFormula(f: string | null | undefined): boolean {
+  if (f == null || f === "") return true;
+  return f === "ipon_huf" || f === "hungary_huf_alza_tax" || f === "domestic_custom";
+}
+
+/** PATCH /api/admin/suppliers/:id — body: { pricing_formula?: string | null, cost_adjustment_multiplier?: number } */
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await context.params;
+    const body = (await request.json()) as {
+      pricing_formula?: string | null;
+      cost_adjustment_multiplier?: number;
+    };
+
+    const patch: Record<string, unknown> = {};
+
+    if ("pricing_formula" in body) {
+      const f = body.pricing_formula;
+      if (!isAllowedFormula(f)) {
+        return NextResponse.json({ error: "Invalid pricing_formula." }, { status: 400 });
+      }
+      patch.pricing_formula = f === "" ? null : f;
+    }
+
+    if ("cost_adjustment_multiplier" in body) {
+      const m = body.cost_adjustment_multiplier;
+      if (typeof m !== "number" || !Number.isFinite(m) || m <= 0) {
+        return NextResponse.json({ error: "cost_adjustment_multiplier must be a positive number." }, { status: 400 });
+      }
+      patch.cost_adjustment_multiplier = m;
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return NextResponse.json({ error: "No valid fields to update." }, { status: 400 });
+    }
+
+    const supabase = createSupabaseServiceClient();
+    const { error } = await supabase.from("suppliers").update(patch).eq("id", id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

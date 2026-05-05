@@ -1,4 +1,8 @@
-import { convertToDisplayCurrency } from "lib/pricing/convert";
+import {
+  computeAcquisitionKm,
+  resolvePricingSettingsRow,
+  type PricingSettingsRow
+} from "lib/pricing";
 import Order, { OrderStatus } from "models/Order.model";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { STANDARD_SHIPPING_FEE_KM } from "./constants";
@@ -77,7 +81,7 @@ async function fetchCheapestSupplierNamesByProductIds(
 
   const { data: rows, error } = await supabase
     .from("supplier_products")
-    .select("product_id, price_amount, currency, supplier_id")
+    .select("product_id, price_amount, currency, supplier_id, suppliers(id, name, pricing_formula, cost_adjustment_multiplier)")
     .in("product_id", ids);
 
   if (error || !rows?.length) return new Map();
@@ -87,30 +91,39 @@ async function fetchCheapestSupplierNamesByProductIds(
     price_amount: number | string;
     currency: string | null;
     supplier_id: string;
+    suppliers:
+      | { id: string; name: string | null; pricing_formula: string | null; cost_adjustment_multiplier: number | null }
+      | {
+          id: string;
+          name: string | null;
+          pricing_formula: string | null;
+          cost_adjustment_multiplier: number | null;
+        }[]
+      | null;
   };
 
   const typedRows = rows as SupplierProductRow[];
-  const supplierIds = Array.from(new Set(typedRows.map((row) => row.supplier_id).filter(Boolean)));
-
-  const { data: supplierRows } =
-    supplierIds.length > 0
-      ? await supabase.from("suppliers").select("id, name").in("id", supplierIds)
-      : { data: [] };
-
-  const nameBySupplierId = new Map<string, string>(
-    ((supplierRows ?? []) as { id: string; name: string | null }[]).map((s) => [
-      s.id,
-      String(s.name ?? "").trim()
-    ])
-  );
+  const { data: settingsRows } = await supabase.from("pricing_settings").select("*").limit(1);
+  const { settings } = resolvePricingSettingsRow((settingsRows?.[0] ?? null) as PricingSettingsRow | null);
 
   const bestKmByProduct = new Map<string, { km: number; name: string }>();
 
   for (const row of typedRows) {
-    const km = convertToDisplayCurrency(Number(row.price_amount), row.currency ?? "", row.supplier_id);
+    const supplier =
+      row.suppliers == null ? null : Array.isArray(row.suppliers) ? row.suppliers[0] ?? null : row.suppliers;
+    const km = computeAcquisitionKm(
+      Number(row.price_amount),
+      row.currency ?? "",
+      {
+        id: supplier?.id ?? row.supplier_id,
+        pricing_formula: supplier?.pricing_formula ?? null,
+        cost_adjustment_multiplier: supplier?.cost_adjustment_multiplier ?? 1
+      },
+      settings
+    );
     if (!Number.isFinite(km) || km <= 0) continue;
 
-    const supplierName = nameBySupplierId.get(row.supplier_id) ?? "";
+    const supplierName = String(supplier?.name ?? "").trim();
     const prev = bestKmByProduct.get(row.product_id);
 
     if (!prev || km < prev.km) {

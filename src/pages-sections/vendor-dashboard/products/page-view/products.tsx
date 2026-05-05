@@ -1,14 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
+import Collapse from "@mui/material/Collapse";
 import Grid from "@mui/material/Grid";
+import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 // GLOBAL CUSTOM COMPONENTS
@@ -21,6 +27,7 @@ import ProductRow from "../product-row";
 import PageWrapper from "../../page-wrapper";
 // CUSTOM DATA MODEL
 import Product from "models/Product.model";
+import { currency } from "lib";
 
 // TABLE HEADING DATA LIST
 const tableHeading = [
@@ -42,6 +49,98 @@ type QuickFilter = "all" | MasterStatusValue;
 export default function ProductsPageView({ products }: Props) {
   const [query, setQuery] = useState("");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
+  const [parentCategoryFilter, setParentCategoryFilter] = useState("all");
+  const [childCategoryFilter, setChildCategoryFilter] = useState("all");
+  const [brandFilter, setBrandFilter] = useState("all");
+  const [publishedFilter, setPublishedFilter] = useState("all");
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
+  const [offersByProduct, setOffersByProduct] = useState<
+    Record<
+      string,
+      {
+        loading: boolean;
+        error: string | null;
+        rows: {
+          id: string;
+          supplierProductId: string;
+          supplierName: string;
+          supplierCode: string;
+          priceAmountHuf: number | null;
+          currency: string;
+          acquisitionKm: number | null;
+          sellingKm: number | null;
+          updatedAt: string;
+        }[];
+      }
+    >
+  >({});
+
+  const formatDate = (value: string) => {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
+  };
+
+  const huf = (value: number | null) => {
+    if (value == null || !Number.isFinite(value)) return "-";
+    return `${Math.round(value)} HUF`;
+  };
+
+  const loadOffers = async (product: {
+    id: string;
+    name: string;
+  }) => {
+    setOffersByProduct((prev) => ({
+      ...prev,
+      [product.id]: { loading: true, error: null, rows: prev[product.id]?.rows ?? [] }
+    }));
+    try {
+      const response = await fetch(`/api/admin/products/${product.id}/offers`, {
+        cache: "no-store"
+      });
+      const data = (await response.json()) as
+        | {
+            error?: string;
+          }
+        | {
+            id: string;
+            supplierProductId: string;
+            supplierName: string;
+            supplierCode: string;
+            priceAmountHuf: number | null;
+            currency: string;
+            acquisitionKm: number | null;
+            sellingKm: number | null;
+            updatedAt: string;
+          }[];
+      if (!response.ok || !Array.isArray(data)) {
+        const err = !Array.isArray(data) ? data.error : "Failed to load offers.";
+        throw new Error(err || "Failed to load offers.");
+      }
+      setOffersByProduct((prev) => ({
+        ...prev,
+        [product.id]: { loading: false, error: null, rows: data }
+      }));
+    } catch (err) {
+      setOffersByProduct((prev) => ({
+        ...prev,
+        [product.id]: {
+          loading: false,
+          error: err instanceof Error ? err.message : "Failed to load offers.",
+          rows: []
+        }
+      }));
+    }
+  };
+
+  const toggleExpand = async (product: { id: string; name: string }) => {
+    setExpandedProductId((current) => (current === product.id ? null : product.id));
+    const existing = offersByProduct[product.id];
+    if (!existing || (!existing.loading && existing.rows.length === 0 && !existing.error)) {
+      await loadOffers(product);
+    }
+  };
 
   const counters = useMemo(
     () => ({
@@ -62,6 +161,55 @@ export default function ProductsPageView({ products }: Props) {
     { value: "needs_attributes", label: "Needs Attributes", count: counters.needs_attributes }
   ];
 
+  const categoryTree = useMemo(() => {
+    const tree = new Map<string, { name: string; children: { slug: string; name: string }[] }>();
+    for (const item of products) {
+      const childSlug = item.category?.slug;
+      const childName = item.category?.name ?? item.categories[0] ?? "-";
+      const parentSlug = item.parentCategory?.slug ?? childSlug ?? "";
+      const parentName = item.parentCategory?.name ?? childName;
+      if (!parentSlug) continue;
+      const parent: { name: string; children: { slug: string; name: string }[] } =
+        tree.get(parentSlug) ?? { name: parentName, children: [] };
+      if (
+        childSlug &&
+        childSlug !== parentSlug &&
+        !parent.children.some((c) => c.slug === childSlug)
+      ) {
+        parent.children.push({ slug: childSlug, name: childName });
+      }
+      tree.set(parentSlug, parent);
+    }
+    return tree;
+  }, [products]);
+
+  const parentCategoryOptions = useMemo(() => {
+    return [
+      { value: "all", label: "all" },
+      ...Array.from(categoryTree.entries())
+        .sort((a, b) => a[1].name.localeCompare(b[1].name))
+        .map(([slug, value]) => ({ value: slug, label: value.name }))
+    ];
+  }, [categoryTree]);
+
+  const childCategoryOptions = useMemo(() => {
+    if (parentCategoryFilter === "all") return [{ value: "all", label: "all" }];
+    const parent = categoryTree.get(parentCategoryFilter);
+    if (!parent) return [{ value: "all", label: "all" }];
+    return [
+      { value: "all", label: "all" },
+      ...[...parent.children]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((c) => ({ value: c.slug, label: c.name }))
+    ];
+  }, [parentCategoryFilter, categoryTree]);
+
+  const brandOptions = useMemo(() => {
+    const values = Array.from(new Set(products.map((item) => item.brand ?? "-")));
+    values.sort((a, b) => a.localeCompare(b));
+    return ["all", ...values];
+  }, [products]);
+
   // RESHAPE THE PRODUCT LIST BASED TABLE HEAD CELL ID
   const reshapedProducts = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -69,6 +217,27 @@ export default function ProductsPageView({ products }: Props) {
       .filter((item) => {
         const status = item.masterStatus?.value ?? "linked";
         if (quickFilter !== "all" && status !== quickFilter) return false;
+        if (parentCategoryFilter !== "all") {
+          const parentSlug = item.parentCategory?.slug ?? item.category?.slug ?? "";
+          if (parentSlug !== parentCategoryFilter) return false;
+        }
+        if (childCategoryFilter !== "all") {
+          const childSlug = item.category?.slug ?? "";
+          if (childSlug !== childCategoryFilter) return false;
+        }
+        if (brandFilter !== "all" && (item.brand ?? "-") !== brandFilter) return false;
+        if (publishedFilter !== "all") {
+          const shouldBePublished = publishedFilter === "published";
+          if ((item.published ?? false) !== shouldBePublished) return false;
+        }
+        if (priceMin.trim() !== "") {
+          const min = Number(priceMin);
+          if (Number.isFinite(min) && item.price < min) return false;
+        }
+        if (priceMax.trim() !== "") {
+          const max = Number(priceMax);
+          if (Number.isFinite(max) && item.price > max) return false;
+        }
         if (!q) return true;
 
         const haystack = [
@@ -91,17 +260,26 @@ export default function ProductsPageView({ products }: Props) {
         price: item.price,
         image: item.thumbnail,
         published: item.published!,
-        category: item.categories[0] ?? "-",
+        category:
+          item.parentCategory && item.category
+            ? `${item.parentCategory.name} / ${item.category.name}`
+            : item.categories[0] ?? "-",
         masterStatus: item.masterStatus,
         masterStatusSort: item.masterStatus?.label ?? ""
       }));
-  }, [products, query, quickFilter]);
+  }, [products, query, quickFilter, parentCategoryFilter, childCategoryFilter, brandFilter, publishedFilter, priceMin, priceMax]);
 
   const { order, orderBy, rowsPerPage, filteredList, handleChangePage, handleRequestSort } =
     useMuiTable({ listData: reshapedProducts });
 
   return (
     <PageWrapper title="Product List">
+      <Stack direction="row" justifyContent="flex-end" mb={2}>
+        <Button href="/admin/products/create" color="info" variant="contained" LinkComponent={Link}>
+          Add Product
+        </Button>
+      </Stack>
+
       <Grid container spacing={2} sx={{ mb: 2 }}>
         {quickFilters.map((item) => (
           <Grid key={item.value} size={{ lg: 2.4, md: 4, sm: 6, xs: 12 }}>
@@ -124,20 +302,114 @@ export default function ProductsPageView({ products }: Props) {
         ))}
       </Grid>
 
-      <Stack direction={{ md: "row", xs: "column" }} justifyContent="space-between" gap={2} mb={2}>
-        <TextField
-          size="small"
-          label="Search products"
-          placeholder="Name, brand, category, status..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          sx={{ minWidth: { md: 420, xs: "100%" } }}
-        />
-
-        <Button href="/admin/products/create" color="info" variant="contained" LinkComponent={Link}>
-          Add Product
-        </Button>
-      </Stack>
+      <Card sx={{ p: 2, mb: 2 }}>
+        <Stack
+          direction={{ xl: "row", xs: "column" }}
+          spacing={1.5}
+          alignItems={{ xl: "center", xs: "stretch" }}
+          sx={{ flexWrap: "wrap" }}
+        >
+          <TextField
+            size="small"
+            label="Search products"
+            placeholder="Name, brand, category, status..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            sx={{ minWidth: 220, flex: 1 }}
+          />
+          <TextField
+            select
+            size="small"
+            label="Category"
+            value={parentCategoryFilter}
+            onChange={(e) => {
+              setParentCategoryFilter(e.target.value);
+              setChildCategoryFilter("all");
+            }}
+            sx={{ minWidth: 180 }}
+          >
+            {parentCategoryOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            size="small"
+            label="Subcategory"
+            value={childCategoryFilter}
+            onChange={(e) => setChildCategoryFilter(e.target.value)}
+            sx={{ minWidth: 180 }}
+            disabled={parentCategoryFilter === "all"}
+          >
+            {childCategoryOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            size="small"
+            label="Brand"
+            value={brandFilter}
+            onChange={(e) => setBrandFilter(e.target.value)}
+            sx={{ minWidth: 150 }}
+          >
+            {brandOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            size="small"
+            type="number"
+            label="Price min"
+            value={priceMin}
+            onChange={(e) => setPriceMin(e.target.value)}
+            sx={{ width: 110 }}
+            inputProps={{ min: 0, max: 99999 }}
+          />
+          <TextField
+            size="small"
+            type="number"
+            label="Price max"
+            value={priceMax}
+            onChange={(e) => setPriceMax(e.target.value)}
+            sx={{ width: 110 }}
+            inputProps={{ min: 0, max: 99999 }}
+          />
+          <TextField
+            select
+            size="small"
+            label="Published"
+            value={publishedFilter}
+            onChange={(e) => setPublishedFilter(e.target.value)}
+            sx={{ minWidth: 130 }}
+          >
+            <MenuItem value="all">all</MenuItem>
+            <MenuItem value="published">published</MenuItem>
+            <MenuItem value="unpublished">unpublished</MenuItem>
+          </TextField>
+          <Button
+            size="small"
+            onClick={() => {
+              setParentCategoryFilter("all");
+              setChildCategoryFilter("all");
+              setBrandFilter("all");
+              setPublishedFilter("all");
+              setPriceMin("");
+              setPriceMax("");
+              setQuery("");
+              setQuickFilter("all");
+            }}
+          >
+            Reset filters
+          </Button>
+        </Stack>
+      </Card>
 
       <Card>
         <OverlayScrollbar>
@@ -152,7 +424,71 @@ export default function ProductsPageView({ products }: Props) {
 
               <TableBody>
                 {filteredList.map((product, index) => (
-                  <ProductRow key={index} product={product} />
+                  <Fragment key={index}>
+                    <ProductRow product={product} onToggleExpand={(p) => void toggleExpand({ id: p.id, name: p.name })} />
+                    <TableRow>
+                      <TableCell colSpan={tableHeading.length} sx={{ py: 0 }}>
+                        <Collapse in={expandedProductId === product.id} timeout="auto" unmountOnExit>
+                          <Box sx={{ p: 2 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                              Linked supplier offers
+                            </Typography>
+                            {offersByProduct[product.id]?.loading ? (
+                              <Typography>Loading offers...</Typography>
+                            ) : offersByProduct[product.id]?.error ? (
+                              <Typography color="error">{offersByProduct[product.id]?.error}</Typography>
+                            ) : (offersByProduct[product.id]?.rows ?? []).length === 0 ? (
+                              <Typography>No linked offers for this product.</Typography>
+                            ) : (
+                              <Table size="small">
+                                <TableHead>
+                                  <TableRow>
+                                    <TableCell>Supplier</TableCell>
+                                    <TableCell>Supplier Product ID</TableCell>
+                                    <TableCell align="right">Price (HUF)</TableCell>
+                                    <TableCell align="right">Nabavna (KM)</TableCell>
+                                    <TableCell align="right">Prodajna (KM)</TableCell>
+                                    <TableCell align="right">Updated</TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {(offersByProduct[product.id]?.rows ?? []).map((row) => (
+                                    <TableRow key={row.id}>
+                                      <TableCell>
+                                        {row.supplierName}
+                                        <Typography variant="caption" display="block" color="text.secondary">
+                                          {row.supplierCode}
+                                        </Typography>
+                                      </TableCell>
+                                      <TableCell
+                                        sx={{
+                                          maxWidth: 220,
+                                          overflow: "hidden",
+                                          textOverflow: "ellipsis",
+                                          whiteSpace: "nowrap"
+                                        }}
+                                        title={row.supplierProductId}
+                                      >
+                                        {row.supplierProductId}
+                                      </TableCell>
+                                      <TableCell align="right">{huf(row.priceAmountHuf)}</TableCell>
+                                      <TableCell align="right">
+                                        {row.acquisitionKm != null ? currency(row.acquisitionKm) : "-"}
+                                      </TableCell>
+                                      <TableCell align="right">
+                                        {row.sellingKm != null ? currency(row.sellingKm) : "-"}
+                                      </TableCell>
+                                      <TableCell align="right">{formatDate(row.updatedAt)}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            )}
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>

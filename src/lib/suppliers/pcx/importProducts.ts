@@ -6,6 +6,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
 import { normalizeEan, normalizeMpn } from "lib/suppliers/normalizeProductIdentifiers";
+import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
+import { aggregatePrices } from "lib/pricing";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { PCX_CATEGORIES } from "./categories";
 
@@ -248,6 +250,24 @@ export async function importCategory(category: (typeof PCX_CATEGORIES)[number]):
 
       const match = await resolveSupplierProductMatch(supabase, { ean: eanN, mpn: mpnN });
       const productId = match.productId;
+      let resolvedMpn = mpnN;
+      let resolvedEan = eanN;
+      if (productId) {
+        const { data: masterIdentifiers, error: masterIdentifiersError } = await supabase
+          .from("products")
+          .select("mpn, ean")
+          .eq("id", productId)
+          .maybeSingle();
+        if (masterIdentifiersError) {
+          throw new Error(`[PCX] products identifiers lookup: ${masterIdentifiersError.message}`);
+        }
+        const identifierSync = getIdentifierSyncUpdate(
+          { mpn: mpnN, ean: eanN },
+          { mpn: masterIdentifiers?.mpn ?? null, ean: masterIdentifiers?.ean ?? null }
+        );
+        resolvedMpn = identifierSync.update.mpn ?? mpnN;
+        resolvedEan = identifierSync.update.ean ?? eanN;
+      }
 
       const row = {
         supplier_id: PCX_SUPPLIER_ID,
@@ -255,8 +275,8 @@ export async function importCategory(category: (typeof PCX_CATEGORIES)[number]):
         product_id: productId,
         price_amount: priceAmount,
         currency: "HUF",
-        mpn: mpnN,
-        ean: eanN,
+        mpn: resolvedMpn,
+        ean: resolvedEan,
         enrichment_status: "complete" as const,
         master_match_status: productId ? ("linked" as const) : ("pending_review" as const),
         raw_json: {
@@ -305,6 +325,10 @@ export async function runPcxImportProducts(): Promise<PcxImportResult> {
   try {
     for (const category of PCX_CATEGORIES) {
       await importCategory(category);
+    }
+    const agg = await aggregatePrices();
+    if (agg.error) {
+      console.warn("[PCX] aggregate-prices:", agg.error);
     }
     return { success: true, remainingSlots };
   } catch (e) {

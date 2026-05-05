@@ -10,13 +10,15 @@ type DbRow = {
   brand: string | null;
   main_image: string | null;
   price: number | null;
+  custom_price: number | null;
   original_price: number | null;
   rating: number | null;
 };
 
 function rowToProduct(row: DbRow): Product {
   const thumbnail = row.main_image ?? "/assets/images/placeholder.png";
-  const price = row.price != null ? Number(row.price) : 0;
+  const price =
+    row.custom_price != null ? Number(row.custom_price) : row.price != null ? Number(row.price) : 0;
   const originalPrice =
     row.original_price != null && row.original_price > price
       ? Number(row.original_price)
@@ -44,7 +46,7 @@ async function fetchActiveProducts(limit: number, offset: number): Promise<Produ
     const supabase = createSupabaseServiceClient();
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, slug, description, brand, main_image, price, original_price, rating")
+      .select("id, name, slug, description, brand, main_image, price, custom_price, original_price, rating")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);

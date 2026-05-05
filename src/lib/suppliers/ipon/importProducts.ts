@@ -10,6 +10,7 @@ import { createSupabaseServiceClient } from "utils/supabase";
 import { aggregatePrices } from "lib/pricing";
 import { mergeMatchAudit, resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
 import { normalizeEan, normalizeMpn } from "lib/suppliers/normalizeProductIdentifiers";
+import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
 import { IPON_SUPPLIER_ID, IPON_CATEGORIES, getIponSupplierGroupId, type IponCategory } from "./categories";
 import {
   fetchIponProductDataPage,
@@ -210,6 +211,23 @@ async function upsertIponListItem(
   const { mpn: offerMpn, ean: offerEan } = extractIponIdentifiers(item);
   const match = await resolveSupplierProductMatch(supabase, { ean: offerEan, mpn: offerMpn });
   if (match.productId) {
+    const { data: masterIdentifiers, error: masterIdentifiersError } = await withPostgrestTransientRetry(
+      "products.identifiers-autolink",
+      async () =>
+        await supabase
+          .from("products")
+          .select("mpn, ean")
+          .eq("id", match.productId)
+          .maybeSingle()
+    );
+    if (masterIdentifiersError) {
+      throw new Error(`products identifiers lookup failed: ${masterIdentifiersError.message}`);
+    }
+    const identifierSync = getIdentifierSyncUpdate(
+      { mpn: offerMpn, ean: offerEan },
+      { mpn: masterIdentifiers?.mpn ?? null, ean: masterIdentifiers?.ean ?? null }
+    );
+
     const { error: upsertLinkedError } = await withPostgrestTransientRetry(
       "supplier_products.autolink-upsert",
       async () =>
@@ -220,8 +238,8 @@ async function upsertIponListItem(
             product_id: match.productId,
             price_amount: item.grossPrice,
             currency: "HUF",
-            mpn: offerMpn,
-            ean: offerEan,
+            mpn: identifierSync.update.mpn ?? offerMpn,
+            ean: identifierSync.update.ean ?? offerEan,
             raw_json: mergeMatchAudit(item as unknown as Record<string, unknown>, match.audit),
             enrichment_status: "pending",
             master_match_status: "linked",

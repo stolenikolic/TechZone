@@ -15,11 +15,13 @@ export default function LogoArea() {
       maxHeight={TOP_HEADER_AREA}
       justifyContent={COMPACT ? "center" : "space-between"}
     >
-      <Avatar
-        alt="Bazaar Logo"
-        src={COMPACT ? "/assets/images/bazaar-white-sm.svg" : "/assets/images/logo.svg"}
-        sx={{ borderRadius: 0, width: "auto", marginLeft: COMPACT ? 0 : 1 }}
-      />
+      {!COMPACT ? (
+        <Avatar
+          alt="Tech Zone Logo"
+          src="/assets/images/logo.svg"
+          sx={{ borderRadius: 0, width: "auto", marginLeft: 1 }}
+        />
+      ) : null}
 
       <ChevronLeftIcon
         color="disabled"

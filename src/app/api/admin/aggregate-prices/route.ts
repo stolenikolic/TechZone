@@ -4,12 +4,11 @@ import { aggregatePrices } from "lib/pricing";
 /**
  * POST /api/admin/aggregate-prices
  *
- * Runs price aggregation: reads supplier_products, converts to KM, computes min
- * price per product, batch-updates products.price. Idempotent; safe to call
- * repeatedly or after supplier sync.
+ * Runs price aggregation: reads supplier_products + supplier formulas, min acquisition KM,
+ * applies tiers / margins / rounding, batch-updates products.price.
  *
- * Returns: { updated, batches, error? }
- * Requires: Supabase secret key. Conversion uses PRICING_* env vars (optional).
+ * Returns: { updated, batches, error?, warnings? }
+ * Requires: Supabase secret key. Fill `pricing_settings` (and tiers) via /admin/pricing; env PRICING_* only fills missing FX fields.
  */
 export async function POST() {
   try {

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
 import { createSupabaseServiceClient } from "utils/supabase";
 
-type DbCategory = { id: string; name: string; slug: string };
+type DbCategory = { id: string; name: string; slug: string; parent_id: string | null };
 
 type DbProduct = {
   id: string;
@@ -78,8 +78,8 @@ function getMasterStatus(
 
 function toProduct(row: DbProduct, masterStatus: MasterStatus): Product {
   const thumbnail = row.main_image ?? "/assets/images/placeholder.png";
-  const rawCategory = row.categories;
-  const category = rawCategory == null ? null : Array.isArray(rawCategory) ? rawCategory[0] ?? null : rawCategory;
+    const rawCategory = row.categories;
+    const category = rawCategory == null ? null : Array.isArray(rawCategory) ? rawCategory[0] ?? null : rawCategory;
 
   return {
     id: row.id,
@@ -92,6 +92,7 @@ function toProduct(row: DbProduct, masterStatus: MasterStatus): Product {
     images: [thumbnail],
     brand: row.brand ?? undefined,
     categories: category ? [category.name] : [],
+      ...(category && { category: { name: category.name, slug: category.slug } }),
     description: row.description ?? undefined,
     published: row.is_active,
     masterStatus
@@ -101,30 +102,74 @@ function toProduct(row: DbProduct, masterStatus: MasterStatus): Product {
 export async function GET() {
   try {
     const supabase = createSupabaseServiceClient();
-    const { data, error } = await supabase
-      .from("products")
-      .select("id, name, slug, description, brand, main_image, price, rating, is_active, mpn, ean, attributes, categories(id, name, slug)")
-      .order("created_at", { ascending: false });
+    const rows: DbProduct[] = [];
+    const pageSize = 1000;
+    let productOffset = 0;
+    for (;;) {
+      const { data, error } = await supabase
+        .from("products")
+      .select("id, name, slug, description, brand, main_image, price, rating, is_active, mpn, ean, attributes, categories(id, name, slug, parent_id)")
+        .order("created_at", { ascending: false })
+        .range(productOffset, productOffset + pageSize - 1);
 
-    if (error) {
-      console.error("[admin/products]", error.message);
-      return NextResponse.json([], { status: 200 });
+      if (error) {
+        console.error("[admin/products]", error.message);
+        return NextResponse.json([], { status: 200 });
+      }
+
+      const page = (data ?? []) as DbProduct[];
+      if (page.length === 0) break;
+      rows.push(...page);
+      productOffset += page.length;
+      if (page.length < pageSize) break;
     }
 
-    const rows = (data ?? []) as DbProduct[];
     const supplierCountByProduct = new Map<string, number>();
+
+    const parentCategoryIdSet = new Set<string>();
+    const rootCategoryById = new Map<string, { name: string; slug: string }>();
+    for (const row of rows) {
+      const rawCategory = row.categories;
+      const category = rawCategory == null ? null : Array.isArray(rawCategory) ? rawCategory[0] ?? null : rawCategory;
+      if (!category) continue;
+      if (category.parent_id) {
+        parentCategoryIdSet.add(category.parent_id);
+      } else {
+        rootCategoryById.set(category.id, { name: category.name, slug: category.slug });
+      }
+    }
+
+    const parentCategoryById = new Map<string, { name: string; slug: string }>();
+    for (const [id, root] of Array.from(rootCategoryById.entries())) {
+      parentCategoryById.set(id, root);
+    }
+    const parentIds = Array.from(parentCategoryIdSet);
+    if (parentIds.length > 0) {
+      const chunkSize = 200;
+      for (let i = 0; i < parentIds.length; i += chunkSize) {
+        const chunk = parentIds.slice(i, i + chunkSize);
+        const { data: parentRows, error: parentError } = await supabase
+          .from("categories")
+          .select("id, name, slug")
+          .in("id", chunk);
+        if (parentError) throw new Error(parentError.message);
+        for (const parent of parentRows ?? []) {
+          parentCategoryById.set(parent.id, { name: parent.name, slug: parent.slug });
+        }
+      }
+    }
 
     // PostgREST `.in()` with hundreds of UUIDs can exceed URL length limits and fail silently in some setups.
     // Instead, scan linked supplier rows in pages and aggregate counts in memory.
-    const pageSize = 1000;
-    let offset = 0;
+    const supplierPageSize = 1000;
+    let supplierOffset = 0;
     for (;;) {
       const { data: supplierRows, error: supplierError } = await supabase
         .from("supplier_products")
         .select("product_id")
         .not("product_id", "is", null)
         .order("id", { ascending: true })
-        .range(offset, offset + pageSize - 1);
+        .range(supplierOffset, supplierOffset + supplierPageSize - 1);
 
       if (supplierError) throw new Error(supplierError.message);
 
@@ -136,19 +181,19 @@ export async function GET() {
         supplierCountByProduct.set(row.product_id, (supplierCountByProduct.get(row.product_id) ?? 0) + 1);
       }
 
-      offset += page.length;
-      if (page.length < pageSize) break;
+      supplierOffset += page.length;
+      if (page.length < supplierPageSize) break;
     }
 
     const productsWithAttributes = new Set<string>();
-    offset = 0;
+    let attributeOffset = 0;
     for (;;) {
       const { data: attributeRows, error: attributeError } = await supabase
         .from("product_attributes")
         .select("product_id")
         .order("product_id", { ascending: true })
         .order("attribute_id", { ascending: true })
-        .range(offset, offset + pageSize - 1);
+        .range(attributeOffset, attributeOffset + supplierPageSize - 1);
 
       if (attributeError) throw new Error(attributeError.message);
 
@@ -159,17 +204,24 @@ export async function GET() {
         if (row.product_id) productsWithAttributes.add(row.product_id);
       }
 
-      offset += page.length;
-      if (page.length < pageSize) break;
+      attributeOffset += page.length;
+      if (page.length < supplierPageSize) break;
     }
 
     return NextResponse.json(
-      rows.map((row) =>
-        toProduct(
+      rows.map((row) => {
+        const product = toProduct(
           row,
           getMasterStatus(row, supplierCountByProduct.get(row.id) ?? 0, productsWithAttributes.has(row.id))
-        )
-      )
+        );
+        const rawCategory = row.categories;
+        const category = rawCategory == null ? null : Array.isArray(rawCategory) ? rawCategory[0] ?? null : rawCategory;
+        if (category?.parent_id) {
+          const parent = parentCategoryById.get(category.parent_id);
+          if (parent) product.parentCategory = parent;
+        }
+        return product;
+      })
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

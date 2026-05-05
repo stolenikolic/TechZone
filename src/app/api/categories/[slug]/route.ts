@@ -10,6 +10,7 @@ type DbProduct = {
   brand: string | null;
   main_image: string | null;
   price?: number | null;
+  custom_price?: number | null;
   created_at?: string | null;
 };
 
@@ -69,7 +70,8 @@ type CategoryPayload = { id: string; name: string; slug: string };
 
 function toProduct(row: DbProduct, category: CategoryPayload): Product {
   const thumbnail = row.main_image ?? "/assets/images/placeholder.png";
-  const price = row.price != null ? Number(row.price) : 0;
+  const price =
+    row.custom_price != null ? Number(row.custom_price) : row.price != null ? Number(row.price) : 0;
   return {
     id: row.id,
     slug: row.slug,
@@ -318,9 +320,6 @@ async function handleCategoryProducts(
       const parsed = parseParamAsRangeOrList(paramValue);
       if (!parsed) continue;
 
-      // Diagnostic: param accepted for filtering
-      console.log("[categories GET] filter param", { paramKey, paramValue, attrId });
-
       type PaRow = { product_id: string; value: string | null };
       const allPaRows: PaRow[] = [];
       for (let i = 0; i < categoryProductIds.length; i += PRODUCT_IDS_CHUNK_SIZE) {
@@ -339,9 +338,6 @@ async function handleCategoryProducts(
         }
         if (paChunk?.length) allPaRows.push(...(paChunk as PaRow[]));
       }
-
-      // Diagnostic: rows loaded from product_attributes
-      console.log("[categories GET] product_attributes rows", { paramKey, allPaRowsLength: allPaRows.length });
 
       const matchingIds = new Set<string>();
 
@@ -373,24 +369,6 @@ async function handleCategoryProducts(
         });
       }
 
-      // Diagnostic: matchingIds built; for list type log value mismatch sample
-      console.log("[categories GET] matchingIds", { paramKey, matchingIdsSize: matchingIds.size });
-      if (parsed.type === "list" && allPaRows.length > 0) {
-        const normalizedWantSample = Array.from(
-          new Set(parsed.values.map((v) => String(v).trim().toLowerCase()))
-        ).slice(0, 3);
-        const rowSamples = allPaRows.slice(0, 5).map((row) => ({
-          raw: row.value,
-          normalized: row.value != null ? String(row.value).trim().toLowerCase() : null
-        }));
-        console.log("[categories GET] list match sample", {
-          paramKey,
-          parsedValues: parsed.values.slice(0, 3),
-          normalizedWantSample,
-          rowSamples
-        });
-      }
-
       if (matchingIds.size === 0) {
         return NextResponse.json({
           category,
@@ -408,11 +386,6 @@ async function handleCategoryProducts(
       const intersection =
         rest.length === 0 ? first : new Set(Array.from(first).filter((id) => rest.every((s) => s.has(id))));
       productIdFilter = Array.from(intersection);
-      // Diagnostic: intersection result
-      console.log("[categories GET] intersection", {
-        attributeSetsLength: attributeSets.length,
-        productIdFilterLength: productIdFilter.length
-      });
       if (productIdFilter.length === 0) {
         return NextResponse.json({
           category,
@@ -427,7 +400,7 @@ async function handleCategoryProducts(
 
   let query = supabase
     .from("products")
-    .select("id, name, slug, description, brand, main_image, price", { count: "exact" })
+    .select("id, name, slug, description, brand, main_image, price, custom_price", { count: "exact" })
     .eq("category_id", category.id)
     .eq("is_active", true);
 
@@ -465,7 +438,7 @@ async function handleCategoryProducts(
       const chunk = productIdFilter.slice(i, i + PRODUCT_IDS_CHUNK_SIZE);
       let chunkQuery = supabase
         .from("products")
-        .select("id, name, slug, description, brand, main_image, price")
+        .select("id, name, slug, description, brand, main_image, price, custom_price")
         .eq("category_id", category.id)
         .eq("is_active", true)
         .in("id", chunk);

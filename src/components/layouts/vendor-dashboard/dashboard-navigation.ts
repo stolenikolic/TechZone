@@ -18,6 +18,11 @@ export const navigation = [
     ]
   },
   {
+    name: "Pricing",
+    icon: duotone.Pricing,
+    path: "/admin/pricing"
+  },
+  {
     name: "Categories",
     icon: duotone.Accounts,
     children: [

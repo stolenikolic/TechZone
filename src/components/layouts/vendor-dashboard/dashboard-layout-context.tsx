@@ -37,7 +37,7 @@ export const LayoutProvider = ({ children }: PropsWithChildren) => {
   // HANDLE DASHBOARD SIDE BAR HOVER
   const handleSidebarHover = (value: boolean) => setIsSidebarHover(value);
 
-  const COMPACT = sidebarCompact && !isSidebarHover ? 1 : 0;
+  const COMPACT = sidebarCompact ? 1 : 0;
 
   return (
     <LayoutContext.Provider

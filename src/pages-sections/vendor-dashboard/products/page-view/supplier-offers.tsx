@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Alert from "@mui/material/Alert";
+import Collapse from "@mui/material/Collapse";
 import Card from "@mui/material/Card";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -17,11 +18,14 @@ import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
+import IconButton from "@mui/material/IconButton";
 import TableContainer from "@mui/material/TableContainer";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
+import KeyboardArrowDown from "@mui/icons-material/KeyboardArrowDown";
+import KeyboardArrowUp from "@mui/icons-material/KeyboardArrowUp";
 import OverlayScrollbar from "components/overlay-scrollbar";
 import { TableHeader, TablePagination } from "components/data-table";
 import useMuiTable from "hooks/useMuiTable";
@@ -35,11 +39,11 @@ const tableHeading = [
   { id: "supplier", label: "Supplier", align: "left" },
   { id: "supplierProductId", label: "Supplier Product ID", align: "left" },
   { id: "masterProductName", label: "Master Product", align: "left" },
-  { id: "productId", label: "Product ID", align: "left" },
   { id: "masterMatchStatus", label: "Match", align: "left" },
   { id: "enrichmentStatus", label: "Enrichment", align: "left" },
-  { id: "priceSort", label: "Price", align: "left" },
-  { id: "currency", label: "Currency", align: "left" },
+  { id: "priceSort", label: "Price (HUF)", align: "left" },
+  { id: "acquisitionKm", label: "Nabavna (KM)", align: "left" },
+  { id: "sellingKm", label: "Prodajna (KM)", align: "left" },
   { id: "mpn", label: "MPN", align: "left" },
   { id: "ean", label: "EAN", align: "left" },
   { id: "updatedAt", label: "Updated", align: "left" },
@@ -88,7 +92,13 @@ type AutoMatchStatusResponse = {
 function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
+  // Keep SSR and client output identical to avoid hydration mismatch.
+  return date.toISOString().replace("T", " ").slice(0, 16);
+}
+
+function huf(value: number) {
+  if (!Number.isFinite(value)) return "0 HUF";
+  return `${Math.round(Number(value))} HUF`;
 }
 
 function statusColor(value: string): "success" | "warning" | "error" | "info" | "default" {
@@ -107,6 +117,7 @@ function StatusBadge({ value }: { value: string }) {
 function matchAuditLabel(offer: SupplierOfferRow) {
   const audit = offer.matchAudit;
   if (!audit || audit.result !== "skipped") return null;
+  if (offer.productId) return null;
   const reason = audit.reason?.replace(/_/g, " ") ?? "skipped";
   const method = audit.method.toUpperCase();
   const count = typeof audit.candidateCount === "number" ? ` (${audit.candidateCount} candidates)` : "";
@@ -134,6 +145,12 @@ function priceRefreshMessage(prefix: string, result: SupplierOfferActionResult) 
   return `${prefix}. Prices refreshed: ${refresh?.updated ?? 0} products updated in ${refresh?.batches ?? 0} batch(es).`;
 }
 
+function linkedMethodLabel(offer: SupplierOfferRow) {
+  const method = offer.matchAudit?.method;
+  if (method === "ean" || method === "mpn") return method.toUpperCase();
+  return "manual";
+}
+
 export default function SupplierOffersPageView({ offers }: Props) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -155,6 +172,7 @@ export default function SupplierOffersPageView({ offers }: Props) {
   const [autoMatchRun, setAutoMatchRun] = useState<AutoMatchRun | null>(null);
   const [autoMatchEvents, setAutoMatchEvents] = useState<AutoMatchEvent[]>([]);
   const [autoMatchLoading, setAutoMatchLoading] = useState(false);
+  const [expandedOfferId, setExpandedOfferId] = useState<string | null>(null);
 
   const counters = useMemo(
     () => ({
@@ -588,7 +606,8 @@ export default function SupplierOffersPageView({ offers }: Props) {
 
               <TableBody>
                 {filteredList.map((offer) => (
-                  <StyledTableRow key={offer.id}>
+                  <Fragment key={offer.id}>
+                    <StyledTableRow>
                     <StyledTableCell align="left">
                       <Typography variant="body2" fontWeight={600}>
                         {offer.supplier}
@@ -598,7 +617,19 @@ export default function SupplierOffersPageView({ offers }: Props) {
                       </Typography>
                     </StyledTableCell>
 
-                    <StyledTableCell align="left">{offer.supplierProductId}</StyledTableCell>
+                    <StyledTableCell
+                      align="left"
+                      sx={{
+                        maxWidth: 180,
+                        width: 180,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap"
+                      }}
+                      title={offer.supplierProductId}
+                    >
+                      {offer.supplierProductId}
+                    </StyledTableCell>
                     <StyledTableCell align="left">
                       {offer.masterProduct ? (
                         <Box display="flex" alignItems="center" gap={1.2}>
@@ -626,9 +657,27 @@ export default function SupplierOffersPageView({ offers }: Props) {
                         <StatusBadge value="unlinked" />
                       )}
                     </StyledTableCell>
-                    <StyledTableCell align="left">{offer.productId ?? "-"}</StyledTableCell>
                     <StyledTableCell align="left">
-                      <StatusBadge value={offer.masterMatchStatus} />
+                      {offer.productId ? (
+                        <Stack direction="row" spacing={0.5} alignItems="center">
+                          <Button
+                            size="small"
+                            color="success"
+                            variant={expandedOfferId === offer.id ? "contained" : "outlined"}
+                            onClick={() => setExpandedOfferId((current) => (current === offer.id ? null : offer.id))}
+                          >
+                            linked
+                          </Button>
+                          <IconButton
+                            size="small"
+                            onClick={() => setExpandedOfferId((current) => (current === offer.id ? null : offer.id))}
+                          >
+                            {expandedOfferId === offer.id ? <KeyboardArrowUp fontSize="small" /> : <KeyboardArrowDown fontSize="small" />}
+                          </IconButton>
+                        </Stack>
+                      ) : (
+                        <StatusBadge value={offer.masterMatchStatus} />
+                      )}
                       {matchAuditLabel(offer) ? (
                         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.4 }}>
                           {matchAuditLabel(offer)}
@@ -639,9 +688,14 @@ export default function SupplierOffersPageView({ offers }: Props) {
                       <StatusBadge value={offer.enrichmentStatus} />
                     </StyledTableCell>
                     <StyledTableCell align="left">
-                      {offer.priceAmount != null ? currency(offer.priceAmount) : "-"}
+                      {offer.priceAmount != null ? huf(offer.priceAmount) : "-"}
                     </StyledTableCell>
-                    <StyledTableCell align="left">{offer.currency || "-"}</StyledTableCell>
+                    <StyledTableCell align="left">
+                      {offer.acquisitionKm != null ? currency(offer.acquisitionKm) : "-"}
+                    </StyledTableCell>
+                    <StyledTableCell align="left">
+                      {offer.sellingKm != null ? currency(offer.sellingKm) : "-"}
+                    </StyledTableCell>
                     <StyledTableCell align="left">{offer.mpn ?? "-"}</StyledTableCell>
                     <StyledTableCell align="left">{offer.ean ?? "-"}</StyledTableCell>
                     <StyledTableCell align="left">{formatDate(offer.updatedAt)}</StyledTableCell>
@@ -684,7 +738,48 @@ export default function SupplierOffersPageView({ offers }: Props) {
                         )}
                       </Stack>
                     </StyledTableCell>
-                  </StyledTableRow>
+                    </StyledTableRow>
+                    <StyledTableRow>
+                      <StyledTableCell sx={{ py: 0 }} colSpan={tableHeading.length}>
+                        <Collapse in={expandedOfferId === offer.id && Boolean(offer.productId)} timeout="auto" unmountOnExit>
+                          <Box sx={{ py: 2 }}>
+                            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                              Linked master details
+                            </Typography>
+                            <Stack spacing={0.5}>
+                              <Typography variant="body2">
+                                Master: {offer.masterProduct?.name ?? "-"} ({offer.masterProduct?.slug ?? "-"})
+                              </Typography>
+                              <Typography variant="body2">Product ID: {offer.productId ?? "-"}</Typography>
+                              <Typography variant="body2">
+                                Match method: {linkedMethodLabel(offer)}
+                              </Typography>
+                              <Typography variant="body2">Supplier MPN/EAN: {offer.mpn ?? "-"} / {offer.ean ?? "-"}</Typography>
+                            </Stack>
+                            {offer.masterProduct ? (
+                              <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+                                <Button
+                                  size="small"
+                                  color="info"
+                                  variant="text"
+                                  LinkComponent={Link}
+                                  href={`/admin/products/${offer.masterProduct.slug}`}
+                                >
+                                  View Master
+                                </Button>
+                                <Button size="small" color="info" variant="outlined" onClick={() => openLinkDialog(offer)}>
+                                  Change Link
+                                </Button>
+                                <Button size="small" color="error" variant="text" onClick={() => setUnlinkOffer(offer)}>
+                                  Unlink
+                                </Button>
+                              </Stack>
+                            ) : null}
+                          </Box>
+                        </Collapse>
+                      </StyledTableCell>
+                    </StyledTableRow>
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>

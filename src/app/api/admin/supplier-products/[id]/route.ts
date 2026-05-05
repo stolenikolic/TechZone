@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { aggregatePrices } from "lib/pricing";
 import { processProductImages } from "lib/suppliers/ipon/processProductImages";
+import { syncMissingIdentifiersFromMaster } from "lib/suppliers/syncSupplierIdentifiers";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type LinkBody = {
@@ -13,18 +14,6 @@ type UnlinkBody = {
 };
 
 type Body = LinkBody | UnlinkBody;
-
-type SupplierProductRow = {
-  id: string;
-  mpn: string | null;
-  ean: string | null;
-};
-
-type ProductRow = {
-  id: string;
-  mpn: string | null;
-  ean: string | null;
-};
 
 type DbSupplier =
   | { name: string | null; code: string | null }
@@ -98,11 +87,6 @@ type CategoryAttributeRow = {
     | { slug: string | null }[]
     | null;
 };
-
-function normalized(value: string | null | undefined) {
-  const text = value?.trim();
-  return text ? text.toLowerCase() : null;
-}
 
 function supplierValue(row: DbSupplier) {
   const value = row == null ? null : Array.isArray(row) ? row[0] ?? null : row;
@@ -212,28 +196,6 @@ async function insertProductAttributes(
 
   const { error: insertError } = await supabase.from("product_attributes").insert(inserts);
   if (insertError) throw new Error(`product_attributes insert failed: ${insertError.message}`);
-}
-
-function getIdentifierUpdates(offer: SupplierProductRow, product: ProductRow) {
-  const update: Record<string, string> = {};
-  const synced: string[] = [];
-  const conflicts: string[] = [];
-
-  if (!offer.mpn && product.mpn) {
-    update.mpn = product.mpn;
-    synced.push("mpn");
-  } else if (offer.mpn && product.mpn && normalized(offer.mpn) !== normalized(product.mpn)) {
-    conflicts.push("mpn");
-  }
-
-  if (!offer.ean && product.ean) {
-    update.ean = product.ean;
-    synced.push("ean");
-  } else if (offer.ean && product.ean && normalized(offer.ean) !== normalized(product.ean)) {
-    conflicts.push("ean");
-  }
-
-  return { update, synced, conflicts };
 }
 
 export async function GET(
@@ -414,17 +376,19 @@ export async function POST(
 
     await insertProductAttributes(supabase, productId, attributes);
 
-    const { update: identifierUpdate } = getIdentifierUpdates(
-      offer as SupplierProductRow,
-      product as ProductRow
-    );
+    const identifierSync = await syncMissingIdentifiersFromMaster(supabase, {
+      supplierProductId: id,
+      productId,
+      supplier: { mpn: offer.mpn, ean: offer.ean },
+      master: { mpn: product.mpn, ean: product.ean }
+    });
 
     const { error: linkError } = await supabase
       .from("supplier_products")
       .update({
         product_id: productId,
         master_match_status: "linked",
-        ...identifierUpdate,
+        ...identifierSync.update,
         updated_at: new Date().toISOString()
       })
       .eq("id", id);
@@ -506,17 +470,19 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: "Master product not found." }, { status: 404 });
     }
 
-    const { update: identifierUpdate, synced, conflicts } = getIdentifierUpdates(
-      offer as SupplierProductRow,
-      product as ProductRow
-    );
+    const identifierSync = await syncMissingIdentifiersFromMaster(supabase, {
+      supplierProductId: id,
+      productId: product.id,
+      supplier: { mpn: offer.mpn, ean: offer.ean },
+      master: { mpn: product.mpn, ean: product.ean }
+    });
 
     const { error: updateError } = await supabase
       .from("supplier_products")
       .update({
         product_id: product.id,
         master_match_status: "linked",
-        ...identifierUpdate,
+        ...identifierSync.update,
         updated_at: new Date().toISOString()
       })
       .eq("id", id);
@@ -529,8 +495,8 @@ export async function PATCH(
     return NextResponse.json({
       success: true,
       action: "link",
-      synced,
-      conflicts,
+      synced: identifierSync.synced,
+      conflicts: identifierSync.conflicts,
       priceRefresh
     });
   } catch (err) {

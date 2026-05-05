@@ -38,6 +38,7 @@ interface Product {
 }
 
 type Props = { product: Product };
+type RowActions = { onToggleExpand?: (product: Product) => void };
 // ========================================================================
 
 function masterStatusColor(status?: Product["masterStatus"]): "success" | "warning" | "error" | "info" | "default" {
@@ -58,14 +59,20 @@ function MasterStatusChip({ status }: { status?: Product["masterStatus"] }) {
   );
 }
 
-export default function ProductRow({ product }: Props) {
+export default function ProductRow({ product, onToggleExpand }: Props & RowActions) {
   const { category, name, price, image, brand, id, published, slug, masterStatus } = product;
 
   const [productPublish, setProductPublish] = useState(published);
   const brandImage = brand?.startsWith("/") || brand?.startsWith("http");
 
   return (
-    <StyledTableRow tabIndex={-1} role="checkbox">
+    <StyledTableRow
+      tabIndex={-1}
+      role="checkbox"
+      hover
+      onClick={() => onToggleExpand?.(product)}
+      sx={{ cursor: "pointer" }}
+    >
       <StyledTableCell align="left">
         <FlexBox alignItems="center" gap={1.5}>
           <Avatar variant="rounded">
@@ -119,9 +126,16 @@ export default function ProductRow({ product }: Props) {
           </StyledIconButton>
         </Link>
 
-        <StyledIconButton>
-          <RemoveRedEye />
-        </StyledIconButton>
+        <Link
+          href={`/products/${slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <StyledIconButton title="View product page">
+            <RemoveRedEye />
+          </StyledIconButton>
+        </Link>
 
         <StyledIconButton>
           <Delete />

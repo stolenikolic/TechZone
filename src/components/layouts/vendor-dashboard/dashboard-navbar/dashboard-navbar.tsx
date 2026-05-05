@@ -1,5 +1,4 @@
 import Box from "@mui/material/Box";
-import Container from "@mui/material/Container";
 // LOCAL CUSTOM COMPONENTS
 import LeftContent from "./left-content";
 import RightContent from "./right-content";
@@ -9,7 +8,7 @@ import { StyledToolBar, DashboardNavbarRoot } from "./styles";
 export default function DashboardNavbar() {
   return (
     <DashboardNavbarRoot position="sticky">
-      <Container maxWidth="xl">
+      <Box sx={{ px: { xs: 2, md: 3 } }}>
         <StyledToolBar disableGutters>
           {/* BROWSE WEBSITE & TOGGLE BUTTON */}
           <LeftContent />
@@ -19,7 +18,7 @@ export default function DashboardNavbar() {
           {/* PROFILE & NOTIFICATION BUTTONS AREA */}
           <RightContent />
         </StyledToolBar>
-      </Container>
+      </Box>
     </DashboardNavbarRoot>
   );
 }

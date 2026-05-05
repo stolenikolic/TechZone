@@ -13,6 +13,7 @@ type DbProduct = {
   main_image: string | null;
   rating: number | null;
   price: number | null;
+  custom_price: number | null;
   original_price: number | null;
   categories: DbCategory | DbCategory[] | null;
 };
@@ -26,11 +27,9 @@ function toProduct(
   const category =
     raw == null ? null : Array.isArray(raw) ? raw[0] ?? null : raw;
   const rating = product.rating != null ? Number(product.rating) : 0;
-  const price = product.price != null ? Number(product.price) : 0;
-  const originalPrice =
-    product.original_price != null && product.original_price > price
-      ? Number(product.original_price)
-      : undefined;
+  const price =
+    product.custom_price != null ? Number(product.custom_price) : product.price != null ? Number(product.price) : 0;
+  const originalPrice = product.original_price != null ? Number(product.original_price) : undefined;
   return {
     id: product.id,
     slug: product.slug,
@@ -60,7 +59,7 @@ export async function GET(
 
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, slug, description, brand, main_image, rating, price, original_price, categories(id, name, slug, parent_id)")
+      .select("id, name, slug, description, brand, main_image, rating, price, custom_price, original_price, categories(id, name, slug, parent_id)")
       .eq("slug", slug)
       .eq("is_active", true)
       .maybeSingle();

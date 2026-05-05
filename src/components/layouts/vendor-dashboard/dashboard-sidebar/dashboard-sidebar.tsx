@@ -16,7 +16,6 @@ export default function DashboardSidebar() {
     sidebarCompact,
     TOP_HEADER_AREA,
     showMobileSideBar,
-    handleSidebarHover,
     handleCloseMobileSidebar
   } = useLayout();
 
@@ -43,8 +42,6 @@ export default function DashboardSidebar() {
   return (
     <SidebarWrapper
       compact={sidebarCompact ? 1 : 0}
-      onMouseEnter={() => handleSidebarHover(true)}
-      onMouseLeave={() => sidebarCompact && handleSidebarHover(false)}
     >
       {/* SIDEBAR TOP LOGO SECTION */}
       <LogoArea />

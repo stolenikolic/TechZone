@@ -21,7 +21,7 @@ const SidebarWrapper = styled("div", {
   zIndex: theme.zIndex.drawer,
   color: theme.palette.common.white,
   backgroundColor: theme.palette.grey[900],
-  ...(compact && { width: 86, "&:hover": { width: 280 } })
+  ...(compact && { width: 86 })
 }));
 
 const NavItemButton = styled(ButtonBase, {
@@ -118,8 +118,10 @@ const ChevronLeftIcon = styled(ChevronLeft, {
   cursor: "pointer",
   borderRadius: "50%",
   transition: "all 0.3s",
+  position: "relative",
+  zIndex: 2,
   color: "rgba(255, 255, 255, .6)",
-  display: compact ? "none" : "block",
+  display: "block",
   transform: sidebar_compact ? "rotate(180deg)" : "rotate(0deg)",
   "&:hover": {
     color: "rgba(255, 255, 255, 1)",
