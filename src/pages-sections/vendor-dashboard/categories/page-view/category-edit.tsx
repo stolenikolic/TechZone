@@ -7,7 +7,7 @@ import PageWrapper from "../../page-wrapper";
 export default function EditCategoryPageView() {
   return (
     <PageWrapper title="Edit Category">
-      <CategoryForm />
+      <CategoryForm mode="edit" />
     </PageWrapper>
   );
 }

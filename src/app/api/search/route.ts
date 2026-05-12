@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getEffectivePrice } from "lib/effective-price";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 export type SearchResultItem = {
@@ -8,6 +9,9 @@ export type SearchResultItem = {
   slug: string;
   main_image: string | null;
   price: number | null;
+  category_id?: string | null;
+  topPick?: boolean;
+  topPickLabel?: string;
 };
 
 const PER_PAGE = 30;
@@ -83,7 +87,9 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("products")
-      .select("id,name,brand,slug,main_image,price", { count: "exact" })
+      .select("id,name,brand,slug,main_image,price,custom_price,category_id,created_at", {
+        count: "exact"
+      })
       .eq("is_active", true)
       .order("name", { ascending: true })
       .range(from, to);
@@ -113,13 +119,49 @@ export async function GET(request: Request) {
     const totalPages = Math.max(1, Math.ceil(totalResults / PER_PAGE));
     const currentPage = Math.min(page, totalPages);
 
-    const products: SearchResultItem[] = rows.map((row) => ({
+    const productRows = rows.map((row) => ({
       id: String(row.id),
       name: String(row.name ?? ""),
       brand: row.brand != null ? String(row.brand) : null,
       slug: String(row.slug ?? ""),
       main_image: row.main_image != null ? String(row.main_image) : null,
-      price: row.price != null ? Number(row.price) : null
+      price: getEffectivePrice(row.custom_price, row.price),
+      categoryId: row.category_id != null ? String(row.category_id) : null,
+      createdAt: row.created_at != null ? String(row.created_at) : null
+    }));
+
+    const byCategory = new Map<string, string[]>();
+    productRows.forEach((row) => {
+      if (!row.categoryId) return;
+      const list = byCategory.get(row.categoryId) ?? [];
+      list.push(row.id);
+      byCategory.set(row.categoryId, list);
+    });
+
+    const topPickByProductId = new Map<string, { priority: number; createdAt: string }>();
+    for (const [categoryId, ids] of Array.from(byCategory.entries())) {
+      const { data: picks } = await supabase
+        .from("category_featured_products")
+        .select("product_id, priority, created_at")
+        .eq("category_id", categoryId)
+        .in("product_id", ids);
+      (picks ?? []).forEach((pick) => {
+        topPickByProductId.set(pick.product_id, {
+          priority: pick.priority ?? 100,
+          createdAt: pick.created_at ?? ""
+        });
+      });
+    }
+
+    const products: SearchResultItem[] = productRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      brand: row.brand,
+      slug: row.slug,
+      main_image: row.main_image,
+      price: row.price,
+      category_id: row.categoryId,
+      ...(topPickByProductId.has(row.id) && { topPick: true, topPickLabel: "Top pick" })
     }));
 
     const response: SearchResponse = {

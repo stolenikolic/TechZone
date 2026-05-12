@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { getEffectivePrice, getOriginalPriceForDisplay } from "lib/effective-price";
 import Product from "models/Product.model";
 
 type DbRow = {
@@ -17,12 +18,8 @@ type DbRow = {
 
 function rowToProduct(row: DbRow): Product {
   const thumbnail = row.main_image ?? "/assets/images/placeholder.png";
-  const price =
-    row.custom_price != null ? Number(row.custom_price) : row.price != null ? Number(row.price) : 0;
-  const originalPrice =
-    row.original_price != null && row.original_price > price
-      ? Number(row.original_price)
-      : undefined;
+  const price = getEffectivePrice(row.custom_price, row.price);
+  const originalPrice = getOriginalPriceForDisplay(row.original_price, price);
   const rating = row.rating != null ? Number(row.rating) : 0;
   return {
     id: row.id,

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
+import { getEffectivePrice, getOriginalPriceForDisplay } from "lib/effective-price";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type DbProduct = {
@@ -10,17 +11,15 @@ type DbProduct = {
   brand: string | null;
   main_image: string | null;
   price: number | null;
+  custom_price: number | null;
   original_price: number | null;
   rating: number | null;
 };
 
 function toProduct(product: DbProduct): Product {
   const thumbnail = product.main_image ?? "/assets/images/placeholder.png";
-  const price = product.price != null ? Number(product.price) : 0;
-  const originalPrice =
-    product.original_price != null && product.original_price > price
-      ? Number(product.original_price)
-      : undefined;
+  const price = getEffectivePrice(product.custom_price, product.price);
+  const originalPrice = getOriginalPriceForDisplay(product.original_price, price);
   const rating = product.rating != null ? Number(product.rating) : 0;
   return {
     id: product.id,
@@ -45,7 +44,7 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("products")
-      .select("id, name, slug, description, brand, main_image, price, original_price, rating")
+      .select("id, name, slug, description, brand, main_image, price, custom_price, original_price, rating")
       .eq("is_active", true)
       .limit(3);
 

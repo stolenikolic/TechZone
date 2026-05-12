@@ -1,6 +1,7 @@
 import { cache } from "react";
 import axios from "utils/axiosInstance";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { getEffectivePrice, getOriginalPriceForDisplay } from "lib/effective-price";
 // CUSTOM DATA MODEL
 import { SlugParams } from "models/Common";
 import Product from "models/Product.model";
@@ -26,10 +27,8 @@ function rowToProduct(product: DbProduct, parentCategory?: { name: string; slug:
   const raw = product.categories;
   const category = raw == null ? null : Array.isArray(raw) ? raw[0] ?? null : raw;
   const rating = product.rating != null ? Number(product.rating) : 0;
-  const price =
-    product.custom_price != null ? Number(product.custom_price) : product.price != null ? Number(product.price) : 0;
-  const originalPrice =
-    product.original_price != null && product.original_price > price ? Number(product.original_price) : undefined;
+  const price = getEffectivePrice(product.custom_price, product.price);
+  const originalPrice = getOriginalPriceForDisplay(product.original_price, price);
 
   return {
     id: product.id,
@@ -99,20 +98,40 @@ const getProduct = cache(async (slug: string): Promise<Product | null> => {
       product.thumbnail = product.images[0];
     }
 
+    const attributeSortOrder = new Map<string, number>();
+    if (category?.id) {
+      const { data: categoryAttributeRows } = await supabase
+        .from("category_attributes")
+        .select("attribute_id, sort_order")
+        .eq("category_id", category.id)
+        .order("sort_order", { ascending: true });
+      (categoryAttributeRows ?? []).forEach((row) => {
+        if (row.attribute_id) attributeSortOrder.set(row.attribute_id, row.sort_order ?? 0);
+      });
+    }
+
     const { data: specRows } = await supabase
       .from("product_attributes")
-      .select("value, attributes(name, slug)")
+      .select("value, attributes(id, name, slug)")
       .eq("product_id", row.id);
 
     if (specRows?.length) {
       const specifications = specRows
-        .map((r: { value: string; attributes: { name: string; slug: string } | { name: string; slug: string }[] | null }) => {
+        .map((r: { value: string; attributes: { id: string; name: string; slug: string } | { id: string; name: string; slug: string }[] | null }) => {
           const raw = r.attributes;
           const a = raw == null ? null : Array.isArray(raw) ? raw[0] ?? null : raw;
-          return a ? { name: a.name, slug: a.slug, value: r.value } : null;
+          return a ? { id: a.id, name: a.name, slug: a.slug, value: r.value } : null;
         })
-        .filter((x): x is { name: string; slug: string; value: string } => x != null)
-        .sort((a, b) => a.name.localeCompare(b.name));
+        .filter((x): x is { id: string; name: string; slug: string; value: string } => x != null)
+        .sort((a, b) => {
+          const aOrder = attributeSortOrder.get(a.id);
+          const bOrder = attributeSortOrder.get(b.id);
+          if (aOrder != null && bOrder != null && aOrder !== bOrder) return aOrder - bOrder;
+          if (aOrder != null && bOrder == null) return -1;
+          if (aOrder == null && bOrder != null) return 1;
+          return a.name.localeCompare(b.name);
+        })
+        .map(({ name, slug, value }) => ({ name, slug, value }));
       if (specifications.length) product.specifications = specifications;
     }
 

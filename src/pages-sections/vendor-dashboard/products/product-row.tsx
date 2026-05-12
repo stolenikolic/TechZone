@@ -24,6 +24,9 @@ interface Product {
   slug: string;
   name: string;
   price: number;
+  effectivePrice: number;
+  basePrice: number | null;
+  customPrice: number | null;
   brand: string;
   image: string;
   category: string;
@@ -60,7 +63,19 @@ function MasterStatusChip({ status }: { status?: Product["masterStatus"] }) {
 }
 
 export default function ProductRow({ product, onToggleExpand }: Props & RowActions) {
-  const { category, name, price, image, brand, id, published, slug, masterStatus } = product;
+  const {
+    category,
+    name,
+    effectivePrice,
+    basePrice,
+    customPrice,
+    image,
+    brand,
+    id,
+    published,
+    slug,
+    masterStatus
+  } = product;
 
   const [productPublish, setProductPublish] = useState(published);
   const brandImage = brand?.startsWith("/") || brand?.startsWith("http");
@@ -109,7 +124,9 @@ export default function ProductRow({ product, onToggleExpand }: Props & RowActio
         <MasterStatusChip status={masterStatus} />
       </StyledTableCell>
 
-      <StyledTableCell align="left">{currency(price)}</StyledTableCell>
+      <StyledTableCell align="left">{currency(effectivePrice)}</StyledTableCell>
+      <StyledTableCell align="left">{basePrice != null ? currency(basePrice) : "-"}</StyledTableCell>
+      <StyledTableCell align="left">{customPrice != null ? currency(customPrice) : "-"}</StyledTableCell>
 
       <StyledTableCell align="left">
         <BazaarSwitch

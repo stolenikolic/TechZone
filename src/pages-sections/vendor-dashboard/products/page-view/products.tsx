@@ -35,18 +35,26 @@ const tableHeading = [
   { id: "category", label: "Category", align: "left" },
   { id: "brand", label: "Brand", align: "left" },
   { id: "masterStatusSort", label: "Master Status", align: "left" },
-  { id: "price", label: "Price", align: "left" },
+  { id: "effectivePrice", label: "Effective Price", align: "left" },
+  { id: "basePrice", label: "Price (Engine)", align: "left" },
+  { id: "customPrice", label: "Custom Price", align: "left" },
   { id: "published", label: "Published", align: "left" },
   { id: "action", label: "Action", align: "center" }
 ];
 
 // =============================================================================
+type AdminProduct = Product & {
+  basePrice?: number | null;
+  customPrice?: number | null;
+  effectivePrice?: number;
+};
 type Props = { products: Product[] };
 type MasterStatusValue = NonNullable<Product["masterStatus"]>["value"];
 type QuickFilter = "all" | MasterStatusValue;
 // =============================================================================
 
 export default function ProductsPageView({ products }: Props) {
+  const adminProducts = products as AdminProduct[];
   const [query, setQuery] = useState("");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [parentCategoryFilter, setParentCategoryFilter] = useState("all");
@@ -144,13 +152,13 @@ export default function ProductsPageView({ products }: Props) {
 
   const counters = useMemo(
     () => ({
-      all: products.length,
-      ready: products.filter((item) => item.masterStatus?.value === "ready").length,
-      unlinked: products.filter((item) => item.masterStatus?.value === "unlinked").length,
-      linked: products.filter((item) => item.masterStatus?.value === "linked").length,
-      needs_attributes: products.filter((item) => item.masterStatus?.value === "needs_attributes").length
+      all: adminProducts.length,
+      ready: adminProducts.filter((item) => item.masterStatus?.value === "ready").length,
+      unlinked: adminProducts.filter((item) => item.masterStatus?.value === "unlinked").length,
+      linked: adminProducts.filter((item) => item.masterStatus?.value === "linked").length,
+      needs_attributes: adminProducts.filter((item) => item.masterStatus?.value === "needs_attributes").length
     }),
-    [products]
+    [adminProducts]
   );
 
   const quickFilters: { value: QuickFilter; label: string; count: number }[] = [
@@ -163,7 +171,7 @@ export default function ProductsPageView({ products }: Props) {
 
   const categoryTree = useMemo(() => {
     const tree = new Map<string, { name: string; children: { slug: string; name: string }[] }>();
-    for (const item of products) {
+    for (const item of adminProducts) {
       const childSlug = item.category?.slug;
       const childName = item.category?.name ?? item.categories[0] ?? "-";
       const parentSlug = item.parentCategory?.slug ?? childSlug ?? "";
@@ -181,7 +189,7 @@ export default function ProductsPageView({ products }: Props) {
       tree.set(parentSlug, parent);
     }
     return tree;
-  }, [products]);
+  }, [adminProducts]);
 
   const parentCategoryOptions = useMemo(() => {
     return [
@@ -205,15 +213,15 @@ export default function ProductsPageView({ products }: Props) {
   }, [parentCategoryFilter, categoryTree]);
 
   const brandOptions = useMemo(() => {
-    const values = Array.from(new Set(products.map((item) => item.brand ?? "-")));
+    const values = Array.from(new Set(adminProducts.map((item) => item.brand ?? "-")));
     values.sort((a, b) => a.localeCompare(b));
     return ["all", ...values];
-  }, [products]);
+  }, [adminProducts]);
 
   // RESHAPE THE PRODUCT LIST BASED TABLE HEAD CELL ID
   const reshapedProducts = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return products
+    return adminProducts
       .filter((item) => {
         const status = item.masterStatus?.value ?? "linked";
         if (quickFilter !== "all" && status !== quickFilter) return false;
@@ -230,13 +238,14 @@ export default function ProductsPageView({ products }: Props) {
           const shouldBePublished = publishedFilter === "published";
           if ((item.published ?? false) !== shouldBePublished) return false;
         }
+        const effectivePrice = Number(item.effectivePrice ?? item.price ?? 0);
         if (priceMin.trim() !== "") {
           const min = Number(priceMin);
-          if (Number.isFinite(min) && item.price < min) return false;
+          if (Number.isFinite(min) && effectivePrice < min) return false;
         }
         if (priceMax.trim() !== "") {
           const max = Number(priceMax);
-          if (Number.isFinite(max) && item.price > max) return false;
+          if (Number.isFinite(max) && effectivePrice > max) return false;
         }
         if (!q) return true;
 
@@ -252,22 +261,28 @@ export default function ProductsPageView({ products }: Props) {
 
         return haystack.includes(q);
       })
-      .map((item) => ({
-        id: item.id,
-        slug: item.slug,
-        name: item.title,
-        brand: item.brand ?? "",
-        price: item.price,
-        image: item.thumbnail,
-        published: item.published!,
-        category:
-          item.parentCategory && item.category
-            ? `${item.parentCategory.name} / ${item.category.name}`
-            : item.categories[0] ?? "-",
-        masterStatus: item.masterStatus,
-        masterStatusSort: item.masterStatus?.label ?? ""
-      }));
-  }, [products, query, quickFilter, parentCategoryFilter, childCategoryFilter, brandFilter, publishedFilter, priceMin, priceMax]);
+      .map((item) => {
+        const effectivePrice = Number(item.effectivePrice ?? item.price ?? 0);
+        return {
+          id: item.id,
+          slug: item.slug,
+          name: item.title,
+          brand: item.brand ?? "",
+          effectivePrice,
+          basePrice: item.basePrice ?? null,
+          customPrice: item.customPrice ?? null,
+          price: effectivePrice,
+          image: item.thumbnail,
+          published: item.published!,
+          category:
+            item.parentCategory && item.category
+              ? `${item.parentCategory.name} / ${item.category.name}`
+              : item.categories[0] ?? "-",
+          masterStatus: item.masterStatus,
+          masterStatusSort: item.masterStatus?.label ?? ""
+        };
+      });
+  }, [adminProducts, query, quickFilter, parentCategoryFilter, childCategoryFilter, brandFilter, publishedFilter, priceMin, priceMax]);
 
   const { order, orderBy, rowsPerPage, filteredList, handleChangePage, handleRequestSort } =
     useMuiTable({ listData: reshapedProducts });

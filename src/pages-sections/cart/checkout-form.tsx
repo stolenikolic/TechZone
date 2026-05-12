@@ -1,9 +1,11 @@
 import Link from "next/link";
 // MUI
 import Card from "@mui/material/Card";
+import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import MenuItem from "@mui/material/MenuItem";
+import Snackbar from "@mui/material/Snackbar";
 import TextField from "@mui/material/TextField";
 import Autocomplete from "@mui/material/Autocomplete";
 import Typography from "@mui/material/Typography";
@@ -141,6 +143,15 @@ export default function CheckoutForm() {
       <Button fullWidth color="primary" href="/checkout" variant="contained" LinkComponent={Link}>
         Checkout Now
       </Button>
+      <Snackbar
+        open={Boolean(state.warning)}
+        autoHideDuration={7000}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert severity="warning" variant="filled" sx={{ width: "100%" }}>
+          {state.warning}
+        </Alert>
+      </Snackbar>
     </Card>
   );
 }

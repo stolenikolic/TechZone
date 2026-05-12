@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getEffectivePrice } from "lib/effective-price";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type Body = { ids?: unknown };
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
       : [];
 
     if (ids.length === 0) {
-      return NextResponse.json({ prices: [] });
+      return NextResponse.json({ prices: [], unavailableIds: [] });
     }
 
     const uniqueIds = Array.from(new Set(ids));
@@ -26,14 +27,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const prices = (data ?? [])
+    const rows = data ?? [];
+    const availableIds = new Set(rows.map((row) => String(row.id)));
+    const unavailableIds = uniqueIds.filter((id) => !availableIds.has(id));
+    const prices = rows
       .map((row) => ({
         id: String(row.id),
-        price: row.custom_price != null ? Number(row.custom_price) : Number(row.price)
+        price: getEffectivePrice(row.custom_price, row.price)
       }))
       .filter((row) => Number.isFinite(row.price) && row.price >= 0);
 
-    return NextResponse.json({ prices });
+    return NextResponse.json({ prices, unavailableIds });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: message }, { status: 500 });

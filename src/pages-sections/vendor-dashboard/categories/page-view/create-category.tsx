@@ -5,7 +5,7 @@ import PageWrapper from "../../page-wrapper";
 export default function CreateCategoryPageView() {
   return (
     <PageWrapper title="Create Category">
-      <CategoryForm />
+      <CategoryForm mode="create" />
     </PageWrapper>
   );
 }

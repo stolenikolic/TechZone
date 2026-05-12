@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
+import { compareTopPickThenDate } from "lib/category-top-picks";
+import { getEffectivePrice } from "lib/effective-price";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type DbCategory = { id: string; name: string; slug: string };
@@ -12,15 +14,16 @@ type DbProduct = {
   brand: string | null;
   main_image: string | null;
   price: number | null;
+  custom_price: number | null;
   rating: number | null;
   discount_percent: number | null;
   categories: DbCategory | DbCategory[] | null;
 };
 
 const selectFields =
-  "id, name, slug, description, brand, main_image, price, rating, discount_percent, categories(id, name, slug)";
+  "id, name, slug, description, brand, main_image, price, custom_price, rating, discount_percent, categories(id, name, slug)";
 
-function toProduct(product: DbProduct): Product {
+function toProduct(product: DbProduct, isTopPick: boolean): Product {
   const thumbnail = product.main_image ?? "/assets/images/placeholder.png";
   const raw = product.categories;
   const category =
@@ -29,7 +32,7 @@ function toProduct(product: DbProduct): Product {
     id: product.id,
     slug: product.slug,
     title: product.name,
-    price: product.price != null ? Number(product.price) : 0,
+    price: getEffectivePrice(product.custom_price, product.price),
     rating: product.rating != null ? Number(product.rating) : 0,
     discount: product.discount_percent ?? 0,
     thumbnail,
@@ -37,12 +40,13 @@ function toProduct(product: DbProduct): Product {
     brand: product.brand ?? undefined,
     categories: category ? [category.name] : [],
     description: product.description ?? undefined,
-    published: true
+    published: true,
+    ...(isTopPick && { topPick: true, topPickLabel: "Top pick" })
   };
 }
 
 /** Minimal select for fallback (no is_flash_deal, no discount_percent, no relation). */
-const selectFieldsMinimal = "id, name, slug, description, brand, main_image, price, rating";
+const selectFieldsMinimal = "id, name, slug, description, brand, main_image, price, custom_price, rating";
 
 function toProductMinimal(row: {
   id: string;
@@ -52,14 +56,16 @@ function toProductMinimal(row: {
   brand: string | null;
   main_image: string | null;
   price: number | null;
+  custom_price: number | null;
   rating: number | null;
-}): Product {
+  category_id?: string | null;
+}, isTopPick: boolean): Product {
   const thumbnail = row.main_image ?? "/assets/images/placeholder.png";
   return {
     id: row.id,
     slug: row.slug,
     title: row.name,
-    price: row.price != null ? Number(row.price) : 0,
+    price: getEffectivePrice(row.custom_price, row.price),
     rating: row.rating != null ? Number(row.rating) : 0,
     discount: 0,
     thumbnail,
@@ -67,8 +73,38 @@ function toProductMinimal(row: {
     brand: row.brand ?? undefined,
     categories: [],
     description: row.description ?? undefined,
-    published: true
+    published: true,
+    ...(isTopPick && { topPick: true, topPickLabel: "Top pick" })
   };
+}
+
+async function loadTopPickIds(
+  supabase: ReturnType<typeof createSupabaseServiceClient>,
+  rows: Array<{ id: string; categoryId: string | null }>
+): Promise<Map<string, { productId: string; priority: number; createdAt: string }>> {
+  const map = new Map<string, string[]>();
+  rows.forEach((row) => {
+    if (!row.categoryId) return;
+    const list = map.get(row.categoryId) ?? [];
+    list.push(row.id);
+    map.set(row.categoryId, list);
+  });
+  const ids = new Map<string, { productId: string; priority: number; createdAt: string }>();
+  for (const [categoryId, productIds] of Array.from(map.entries())) {
+    const { data } = await supabase
+      .from("category_featured_products")
+      .select("product_id, priority, created_at")
+      .eq("category_id", categoryId)
+      .in("product_id", productIds);
+    (data ?? []).forEach((row) =>
+      ids.set(row.product_id, {
+        productId: row.product_id,
+        priority: row.priority ?? 100,
+        createdAt: row.created_at ?? ""
+      })
+    );
+  }
+  return ids;
 }
 
 /**
@@ -91,7 +127,7 @@ export async function GET() {
     if (flashError) {
       const fallback = await supabase
         .from("products")
-        .select(selectFieldsMinimal)
+        .select(`${selectFieldsMinimal}, category_id`)
         .eq("is_active", true)
         .order("created_at", { ascending: false })
         .limit(6);
@@ -99,12 +135,36 @@ export async function GET() {
         console.error("[flash-deals] fallback failed:", fallback.error.message);
         return NextResponse.json([], { status: 200 });
       }
-      const rows = (fallback.data ?? []) as { id: string; name: string; slug: string; description: string | null; brand: string | null; main_image: string | null; price: number | null; rating: number | null }[];
-      return NextResponse.json(rows.map(toProductMinimal));
+      const rows = (fallback.data ?? []) as {
+        id: string;
+        name: string;
+        slug: string;
+        description: string | null;
+        brand: string | null;
+        main_image: string | null;
+        price: number | null;
+        custom_price: number | null;
+        rating: number | null;
+        category_id?: string | null;
+      }[];
+      const topPickMap = await loadTopPickIds(
+        supabase,
+        rows.map((row) => ({ id: row.id, categoryId: row.category_id ?? null }))
+      );
+      rows.sort((a, b) => compareTopPickThenDate(a.id, b.id, null, null, topPickMap));
+      return NextResponse.json(rows.map((row) => toProductMinimal(row, topPickMap.has(row.id))));
     }
 
     const flashRows = (flashData ?? []) as DbProduct[];
-    let products: Product[] = flashRows.map(toProduct);
+    const topPickMap = await loadTopPickIds(
+      supabase,
+      flashRows.map((row) => ({
+        id: row.id,
+        categoryId: (Array.isArray(row.categories) ? row.categories[0]?.id : row.categories?.id) ?? null
+      }))
+    );
+    flashRows.sort((a, b) => compareTopPickThenDate(a.id, b.id, null, null, topPickMap));
+    let products: Product[] = flashRows.map((row) => toProduct(row, topPickMap.has(row.id)));
 
     if (products.length < 6) {
       const existingIds = new Set(flashRows.map((r) => r.id));
@@ -122,7 +182,15 @@ export async function GET() {
           (r) => !existingIds.has(r.id)
         );
         const toAdd = fallbackRows.slice(0, need);
-        products = [...products, ...toAdd.map(toProduct)];
+        const fallbackTopPickIds = await loadTopPickIds(
+          supabase,
+          toAdd.map((row) => ({
+            id: row.id,
+            categoryId: (Array.isArray(row.categories) ? row.categories[0]?.id : row.categories?.id) ?? null
+          }))
+        );
+        toAdd.sort((a, b) => compareTopPickThenDate(a.id, b.id, null, null, fallbackTopPickIds));
+        products = [...products, ...toAdd.map((row) => toProduct(row, fallbackTopPickIds.has(row.id)))];
       }
     }
 

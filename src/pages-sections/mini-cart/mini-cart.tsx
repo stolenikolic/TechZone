@@ -6,6 +6,8 @@ import Stack from "@mui/material/Stack";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 import Typography from "@mui/material/Typography";
 import Clear from "@mui/icons-material/Clear";
 // GLOBAL CUSTOM HOOK
@@ -93,6 +95,21 @@ export default function MiniCart() {
           </Button>
         </Box>
       )}
+      <Snackbar
+        open={Boolean(state.warning)}
+        autoHideDuration={7000}
+        onClose={() => dispatch({ type: "CLEAR_CART_WARNING" })}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          onClose={() => dispatch({ type: "CLEAR_CART_WARNING" })}
+          severity="warning"
+          variant="filled"
+          sx={{ width: "100%" }}
+        >
+          {state.warning}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

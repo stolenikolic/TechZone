@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Chip from "@mui/material/Chip";
 import Rating from "@mui/material/Rating";
 import Typography from "@mui/material/Typography";
 // GLOBAL CUSTOM COMPONENTS
@@ -52,11 +53,21 @@ function buildProductCardTags(product: Product): string[] {
 }
 
 export default function ProductCard9({ product }: Props) {
-  const { thumbnail, title, price, discount, rating, slug } = product;
+  const { thumbnail, title, price, discount, rating, slug, topPick, topPickLabel } = product;
   const tags = buildProductCardTags(product);
 
   return (
-    <Wrapper>
+    <Wrapper
+      sx={
+        topPick
+          ? {
+              border: "2px solid",
+              borderColor: "info.main",
+              boxShadow: "0 0 0 1px rgba(3, 169, 244, 0.2), 0 8px 18px rgba(3, 169, 244, 0.14)"
+            }
+          : undefined
+      }
+    >
       {/* PRODUCT FAVORITE BUTTON */}
       <FavoriteButton />
 
@@ -64,6 +75,14 @@ export default function ProductCard9({ product }: Props) {
         <div className="img-wrapper">
           {/* DISCOUNT PERCENT CHIP IF AVAILABLE */}
           <DiscountChip discount={discount} />
+          {topPick ? (
+            <Chip
+              size="small"
+              color="info"
+              label={topPickLabel ?? "Top pick"}
+              sx={{ position: "absolute", left: 15, top: discount ? 44 : 15, zIndex: 1 }}
+            />
+          ) : null}
 
           {/* PRODUCT IMAGE / THUMBNAIL */}
           <LazyImage src={thumbnail} alt={title} width={500} height={500} />

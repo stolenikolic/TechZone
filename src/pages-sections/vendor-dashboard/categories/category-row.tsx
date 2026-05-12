@@ -1,12 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
 import Avatar from "@mui/material/Avatar";
+import Chip from "@mui/material/Chip";
 // MUI ICON COMPONENTS
 import Edit from "@mui/icons-material/Edit";
 import Delete from "@mui/icons-material/Delete";
-// GLOBAL CUSTOM COMPONENT
-import BazaarSwitch from "components/BazaarSwitch";
 // STYLED COMPONENTS
 import { StyledTableRow, CategoryWrapper, StyledTableCell, StyledIconButton } from "../styles";
 
@@ -17,16 +15,15 @@ interface Category {
   slug: string;
   image: string;
   level: number;
-  featured: boolean;
+  productCount: number;
+  topPickCount: number;
 }
 
 type Props = { category: Category };
 // ========================================================================
 
 export default function CategoryRow({ category }: Props) {
-  const { image, name, level, featured, id, slug } = category;
-
-  const [featuredCategory, setFeaturedCategory] = useState(featured);
+  const { image, name, slug, level, id, productCount, topPickCount } = category;
 
   return (
     <StyledTableRow tabIndex={-1} role="checkbox">
@@ -35,6 +32,7 @@ export default function CategoryRow({ category }: Props) {
       <StyledTableCell align="left">
         <CategoryWrapper>{name}</CategoryWrapper>
       </StyledTableCell>
+      <StyledTableCell align="left">{slug}</StyledTableCell>
 
       <StyledTableCell align="left">
         <Avatar variant="rounded">
@@ -51,11 +49,10 @@ export default function CategoryRow({ category }: Props) {
       <StyledTableCell align="left">{level}</StyledTableCell>
 
       <StyledTableCell align="left">
-        <BazaarSwitch
-          color="info"
-          checked={featuredCategory}
-          onChange={() => setFeaturedCategory((state) => !state)}
-        />
+        {productCount}
+      </StyledTableCell>
+      <StyledTableCell align="left">
+        {topPickCount > 0 ? <Chip size="small" color="info" label={`${topPickCount} Top pick`} /> : "0"}
       </StyledTableCell>
 
       <StyledTableCell align="center">

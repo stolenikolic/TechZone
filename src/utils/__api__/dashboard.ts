@@ -4,7 +4,6 @@ import Brand from "models/Brand.model";
 import Order from "models/Order.model";
 import Review from "models/Review.model";
 import Product from "models/Product.model";
-import Category from "models/Category.model";
 import type { SupplierOfferRow } from "app/api/admin/supplier-products/route";
 
 // dashboard
@@ -34,8 +33,18 @@ const supplierOffers = async (): Promise<SupplierOfferRow[]> => {
   return response.data;
 };
 
-const category = cache(async (): Promise<Category[]> => {
-  const response = await axios.get("/api/admin/category");
+type AdminCategoryListItem = {
+  id: string;
+  name: string;
+  slug: string;
+  parent_id: string | null;
+  image_url: string | null;
+  productCount: number;
+  topPickCount: number;
+};
+
+const category = cache(async (): Promise<AdminCategoryListItem[]> => {
+  const response = await axios.get("/api/admin/categories");
   return response.data;
 });
 

@@ -20,6 +20,7 @@ import SettingsProvider from "contexts/SettingContext";
 // GLOBAL CUSTOM COMPONENTS
 import RTL from "components/rtl";
 import ProgressBar from "components/progress";
+import LastNonCartRouteTracker from "components/last-non-cart-route-tracker";
 
 // IMPORT i18n SUPPORT FILE
 import "i18n";
@@ -39,6 +40,7 @@ export default function RootLayout({ children, modal }: RootLayoutProps) {
           <SettingsProvider>
             <ThemeProvider>
               <RTL>
+                <LastNonCartRouteTracker />
                 {modal}
                 {children}
               </RTL>

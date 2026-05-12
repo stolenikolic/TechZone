@@ -10,6 +10,8 @@ type SearchResultItem = {
   slug: string;
   main_image: string | null;
   price: number | null;
+  topPick?: boolean;
+  topPickLabel?: string;
 };
 
 const PER_PAGE = 30;
@@ -36,7 +38,8 @@ function searchResultToProduct(row: SearchResultItem): Product {
     images: [thumbnail],
     categories: [],
     published: true,
-    ...(row.brand != null && { brand: row.brand })
+    ...(row.brand != null && { brand: row.brand }),
+    ...(row.topPick && { topPick: true, topPickLabel: row.topPickLabel ?? "Top pick" })
   };
 }
 

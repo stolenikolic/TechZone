@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import Chip from "@mui/material/Chip";
 import Rating from "@mui/material/Rating";
 import Typography from "@mui/material/Typography";
 // LOCAL CUSTOM COMPONENTS
@@ -17,10 +18,20 @@ type Props = { product: Product };
 // ==============================================================
 
 export default function ProductCard16({ product }: Props) {
-  const { slug, title, thumbnail, price, discount, rating } = product;
+  const { slug, title, thumbnail, price, discount, rating, topPick, topPickLabel } = product;
 
   return (
-    <StyledRoot>
+    <StyledRoot
+      style={
+        topPick
+          ? {
+              borderWidth: 2,
+              borderColor: "var(--mui-palette-info-main)",
+              boxShadow: "0 0 0 1px rgba(3, 169, 244, 0.2), 0 8px 18px rgba(3, 169, 244, 0.14)"
+            }
+          : undefined
+      }
+    >
       <Link href={`/products/${slug}`}>
         <div className="img-wrapper">
           <Image
@@ -30,6 +41,14 @@ export default function ProductCard16({ product }: Props) {
             sizes="(max-width: 768px) 100vw, 380px"
             style={{ objectFit: "contain" }}
           />
+          {topPick ? (
+            <Chip
+              size="small"
+              color="info"
+              label={topPickLabel ?? "Top pick"}
+              sx={{ position: "absolute", left: 20, top: discount ? 48 : 20, zIndex: 1 }}
+            />
+          ) : null}
           {discount ? <DiscountChip discount={discount} sx={{ left: 20, top: 20 }} /> : null}
         </div>
       </Link>

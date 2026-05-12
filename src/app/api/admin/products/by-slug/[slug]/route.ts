@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import {
   computeAcquisitionKm,
   computeFinalSellingKm,
@@ -429,6 +430,15 @@ export async function PATCH(
         }
       }
     }
+
+    // Invalidate key storefront surfaces that cache product/category/search listings.
+    revalidatePath(`/products/${slug}`);
+    revalidatePath(`/categories`, "layout");
+    revalidatePath(`/api/categories`);
+    revalidatePath(`/api/search`);
+    revalidatePath(`/api/market-2/products`);
+    revalidatePath(`/api/market-2/flash-deals`);
+    revalidatePath(`/api/market-2/top-rated`);
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getEffectivePrice } from "lib/effective-price";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type CategoryPayload = { id: string; name: string; slug: string };
@@ -136,28 +137,17 @@ export async function GET(
 
   const result: CategoryFiltersResponse = { filters: [] };
 
-  const { data: minPriceRow } = await supabase
+  const { data: priceRows } = await supabase
     .from("products")
-    .select("price")
+    .select("price, custom_price")
     .eq("category_id", category.id)
-    .eq("is_active", true)
-    .not("price", "is", null)
-    .order("price", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .eq("is_active", true);
 
-  const { data: maxPriceRow } = await supabase
-    .from("products")
-    .select("price")
-    .eq("category_id", category.id)
-    .eq("is_active", true)
-    .not("price", "is", null)
-    .order("price", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const priceMin = minPriceRow?.price != null ? Number(minPriceRow.price) : null;
-  const priceMax = maxPriceRow?.price != null ? Number(maxPriceRow.price) : null;
+  const effectivePrices = (priceRows ?? [])
+    .map((row) => getEffectivePrice(row.custom_price, row.price))
+    .filter((value) => Number.isFinite(value));
+  const priceMin = effectivePrices.length ? Math.min(...effectivePrices) : null;
+  const priceMax = effectivePrices.length ? Math.max(...effectivePrices) : null;
   if (priceMin != null && priceMax != null && priceMin <= priceMax) {
     result.priceRange = { min: priceMin, max: priceMax };
   }
@@ -182,10 +172,13 @@ export async function GET(
 
   const { data: caRows } = await supabase
     .from("category_attributes")
-    .select("attribute_id")
-    .eq("category_id", category.id);
+    .select("attribute_id, sort_order")
+    .eq("category_id", category.id)
+    .order("sort_order", { ascending: true });
 
-  const categoryAttributeIds = Array.from(new Set((caRows ?? []).map((r) => r.attribute_id).filter(Boolean))) as string[];
+  const categoryAttributeIds = Array.from(
+    new Set((caRows ?? []).map((r) => r.attribute_id).filter(Boolean))
+  ) as string[];
   if (categoryAttributeIds.length === 0) {
     return NextResponse.json(result);
   }

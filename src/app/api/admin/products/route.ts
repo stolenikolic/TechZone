@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
+import { getEffectivePrice } from "lib/effective-price";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type DbCategory = { id: string; name: string; slug: string; parent_id: string | null };
@@ -12,6 +13,7 @@ type DbProduct = {
   brand: string | null;
   main_image: string | null;
   price: number | null;
+  custom_price: number | null;
   rating: number | null;
   is_active: boolean;
   mpn: string | null;
@@ -21,6 +23,11 @@ type DbProduct = {
 };
 
 type MasterStatus = NonNullable<Product["masterStatus"]>;
+type AdminProduct = Product & {
+  basePrice: number | null;
+  customPrice: number | null;
+  effectivePrice: number;
+};
 
 function hasAttributesJson(value: Record<string, unknown> | null) {
   return Boolean(value && typeof value === "object" && Object.keys(value).length > 0);
@@ -42,7 +49,8 @@ function getMasterStatus(
   }
 
   const missing: string[] = [];
-  if (row.price == null || Number(row.price) <= 0) missing.push("price");
+  const effectivePrice = getEffectivePrice(row.custom_price, row.price);
+  if (!Number.isFinite(effectivePrice) || effectivePrice <= 0) missing.push("price");
   if (!row.categories || (Array.isArray(row.categories) && row.categories.length === 0)) missing.push("category");
   if (!row.main_image) missing.push("image");
   if (!row.mpn && !row.ean) missing.push("MPN or EAN");
@@ -76,16 +84,17 @@ function getMasterStatus(
   };
 }
 
-function toProduct(row: DbProduct, masterStatus: MasterStatus): Product {
+function toProduct(row: DbProduct, masterStatus: MasterStatus): AdminProduct {
   const thumbnail = row.main_image ?? "/assets/images/placeholder.png";
     const rawCategory = row.categories;
     const category = rawCategory == null ? null : Array.isArray(rawCategory) ? rawCategory[0] ?? null : rawCategory;
+  const effectivePrice = getEffectivePrice(row.custom_price, row.price);
 
   return {
     id: row.id,
     slug: row.slug,
     title: row.name,
-    price: row.price != null ? Number(row.price) : 0,
+    price: effectivePrice,
     rating: row.rating != null ? Number(row.rating) : 0,
     discount: 0,
     thumbnail,
@@ -95,7 +104,11 @@ function toProduct(row: DbProduct, masterStatus: MasterStatus): Product {
       ...(category && { category: { name: category.name, slug: category.slug } }),
     description: row.description ?? undefined,
     published: row.is_active,
-    masterStatus
+    masterStatus,
+    // Admin-only enrichment for table columns.
+    basePrice: row.price != null ? Number(row.price) : null,
+    customPrice: row.custom_price != null ? Number(row.custom_price) : null,
+    effectivePrice
   };
 }
 
@@ -108,7 +121,7 @@ export async function GET() {
     for (;;) {
       const { data, error } = await supabase
         .from("products")
-      .select("id, name, slug, description, brand, main_image, price, rating, is_active, mpn, ean, attributes, categories(id, name, slug, parent_id)")
+      .select("id, name, slug, description, brand, main_image, price, custom_price, rating, is_active, mpn, ean, attributes, categories(id, name, slug, parent_id)")
         .order("created_at", { ascending: false })
         .range(productOffset, productOffset + pageSize - 1);
 

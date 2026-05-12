@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
+import { compareTopPickThenDate, loadTopPickMapByCategory } from "lib/category-top-picks";
+import { getEffectivePrice } from "lib/effective-price";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type DbProduct = {
@@ -30,28 +32,26 @@ function timestampOrZero(iso: string | null | undefined): number {
 
 function compareProductsBySort(a: DbProduct, b: DbProduct, sort: SortMode): number {
   const nameCmp = String(a.name ?? "").localeCompare(String(b.name ?? ""));
+  const aEff = getEffectivePrice(a.custom_price, a.price);
+  const bEff = getEffectivePrice(b.custom_price, b.price);
 
   switch (sort) {
     case "asc": {
-      const pa = a.price;
-      const pb = b.price;
-      const aBad = pa == null || !Number.isFinite(Number(pa));
-      const bBad = pb == null || !Number.isFinite(Number(pb));
+      const aBad = !Number.isFinite(aEff);
+      const bBad = !Number.isFinite(bEff);
       if (aBad && bBad) return nameCmp;
       if (aBad) return 1;
       if (bBad) return -1;
-      const diff = Number(pa) - Number(pb);
+      const diff = aEff - bEff;
       return diff !== 0 ? diff : nameCmp;
     }
     case "desc": {
-      const pa = a.price;
-      const pb = b.price;
-      const aBad = pa == null || !Number.isFinite(Number(pa));
-      const bBad = pb == null || !Number.isFinite(Number(pb));
+      const aBad = !Number.isFinite(aEff);
+      const bBad = !Number.isFinite(bEff);
       if (aBad && bBad) return nameCmp;
       if (aBad) return 1;
       if (bBad) return -1;
-      const diff = Number(pb) - Number(pa);
+      const diff = bEff - aEff;
       return diff !== 0 ? diff : nameCmp;
     }
     case "date": {
@@ -68,10 +68,14 @@ function compareProductsBySort(a: DbProduct, b: DbProduct, sort: SortMode): numb
 
 type CategoryPayload = { id: string; name: string; slug: string };
 
-function toProduct(row: DbProduct, category: CategoryPayload): Product {
+function toProduct(
+  row: DbProduct,
+  category: CategoryPayload,
+  topPickMap: Map<string, { productId: string; priority: number; createdAt: string }>
+): Product {
   const thumbnail = row.main_image ?? "/assets/images/placeholder.png";
-  const price =
-    row.custom_price != null ? Number(row.custom_price) : row.price != null ? Number(row.price) : 0;
+  const price = getEffectivePrice(row.custom_price, row.price);
+  const isTopPick = topPickMap.has(row.id);
   return {
     id: row.id,
     slug: row.slug,
@@ -84,7 +88,8 @@ function toProduct(row: DbProduct, category: CategoryPayload): Product {
     categories: [category.name],
     published: true,
     description: row.description ?? undefined,
-    brand: row.brand ?? undefined
+    brand: row.brand ?? undefined,
+    ...(isTopPick && { topPick: true, topPickLabel: "Top pick" })
   };
 }
 
@@ -219,7 +224,6 @@ async function handleCategoryProducts(
   const searchParams = url.searchParams;
 
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
-  const offset = (page - 1) * LIMIT;
   const sortMode = parseSortParam(searchParams.get("sort"));
   const prices = parseRangeParam(searchParams.get("prices"));
   const safeNum = (n: unknown): number | undefined =>
@@ -243,6 +247,7 @@ async function handleCategoryProducts(
       { status: 404 }
     );
   }
+  const topPickMap = await loadTopPickMapByCategory(category.id);
 
   // Load category filter attributes: which slugs are valid for this category
   const { data: caRows } = await supabase
@@ -398,56 +403,17 @@ async function handleCategoryProducts(
     }
   }
 
-  let query = supabase
-    .from("products")
-    .select("id, name, slug, description, brand, main_image, price, custom_price", { count: "exact" })
-    .eq("category_id", category.id)
-    .eq("is_active", true);
-
-  if (priceMin != null || priceMax != null) {
-    if (priceMin != null) query = query.gte("price", priceMin);
-    if (priceMax != null) query = query.lte("price", priceMax);
-    query = query.not("price", "is", null);
-  }
-
-  if (brandFilterNames?.length) {
-    query = query.in("brand", brandFilterNames);
-  }
-
-  switch (sortMode) {
-    case "asc":
-      query = query.order("price", { ascending: true, nullsFirst: false }).order("name", { ascending: true });
-      break;
-    case "desc":
-      query = query.order("price", { ascending: false, nullsFirst: false }).order("name", { ascending: true });
-      break;
-    case "date":
-      query = query
-        .order("created_at", { ascending: false, nullsFirst: false })
-        .order("name", { ascending: true });
-      break;
-    case "relevance":
-    default:
-      query = query.order("name", { ascending: true });
-  }
+  const candidateRows: DbProduct[] = [];
 
   if (productIdFilter?.length) {
-    const filteredRows: DbProduct[] = [];
-
     for (let i = 0; i < productIdFilter.length; i += PRODUCT_IDS_CHUNK_SIZE) {
       const chunk = productIdFilter.slice(i, i + PRODUCT_IDS_CHUNK_SIZE);
       let chunkQuery = supabase
         .from("products")
-        .select("id, name, slug, description, brand, main_image, price, custom_price")
+        .select("id, name, slug, description, brand, main_image, price, custom_price, created_at")
         .eq("category_id", category.id)
         .eq("is_active", true)
         .in("id", chunk);
-
-      if (priceMin != null || priceMax != null) {
-        if (priceMin != null) chunkQuery = chunkQuery.gte("price", priceMin);
-        if (priceMax != null) chunkQuery = chunkQuery.lte("price", priceMax);
-        chunkQuery = chunkQuery.not("price", "is", null);
-      }
 
       if (brandFilterNames?.length) {
         chunkQuery = chunkQuery.in("brand", brandFilterNames);
@@ -460,46 +426,59 @@ async function handleCategoryProducts(
           { status: 500 }
         );
       }
-
-      filteredRows.push(...((chunkRows ?? []) as DbProduct[]));
+      candidateRows.push(...((chunkRows ?? []) as DbProduct[]));
     }
+  } else {
+    let fetchOffset = 0;
+    while (true) {
+      let pageQuery = supabase
+        .from("products")
+        .select("id, name, slug, description, brand, main_image, price, custom_price, created_at")
+        .eq("category_id", category.id)
+        .eq("is_active", true)
+        .range(fetchOffset, fetchOffset + LIMIT - 1);
 
-    filteredRows.sort((a, b) => compareProductsBySort(a, b, sortMode));
+      if (brandFilterNames?.length) {
+        pageQuery = pageQuery.in("brand", brandFilterNames);
+      }
 
-    const totalCount = filteredRows.length;
-    const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));
-    const clampedPage = Math.min(Math.max(1, page), totalPages);
-    const pageOffset = (clampedPage - 1) * LIMIT;
-    const products = filteredRows
-      .slice(pageOffset, pageOffset + LIMIT)
-      .map((row) => toProduct(row, category));
+      const { data: pageRows, error: pageError } = await pageQuery;
+      if (pageError) {
+        return NextResponse.json(
+          { error: pageError.message },
+          { status: 500 }
+        );
+      }
 
-    return NextResponse.json({
-      category,
-      products,
-      total: totalCount,
-      page: clampedPage,
-      totalPages
-    });
+      const rows = (pageRows ?? []) as DbProduct[];
+      if (rows.length === 0) break;
+      candidateRows.push(...rows);
+      fetchOffset += rows.length;
+      if (rows.length < LIMIT) break;
+    }
   }
 
-  const { data: productRows, error: productsError, count: total } = await query.range(
-    offset,
-    offset + LIMIT - 1
-  );
+  const filteredRows = candidateRows.filter((row) => {
+    const effectivePrice = getEffectivePrice(row.custom_price, row.price);
+    if (!Number.isFinite(effectivePrice)) return false;
+    if (priceMin != null && effectivePrice < priceMin) return false;
+    if (priceMax != null && effectivePrice > priceMax) return false;
+    return true;
+  });
 
-  if (productsError) {
-    return NextResponse.json(
-      { error: productsError.message },
-      { status: 500 }
-    );
-  }
+  filteredRows.sort((a, b) => {
+    const topPickDiff = compareTopPickThenDate(a.id, b.id, a.created_at, b.created_at, topPickMap);
+    if (topPickDiff !== 0) return topPickDiff;
+    return compareProductsBySort(a, b, sortMode);
+  });
 
-  const rows = (productRows ?? []) as DbProduct[];
-  const products: Product[] = rows.map((row) => toProduct(row, category));
-  const totalCount = total ?? 0;
+  const totalCount = filteredRows.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));
   const clampedPage = Math.min(Math.max(1, page), totalPages);
+  const pageOffset = (clampedPage - 1) * LIMIT;
+  const products = filteredRows
+    .slice(pageOffset, pageOffset + LIMIT)
+    .map((row) => toProduct(row, category, topPickMap));
 
   return NextResponse.json({
     category,
