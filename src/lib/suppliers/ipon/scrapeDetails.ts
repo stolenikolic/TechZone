@@ -3,10 +3,12 @@
  * Run: npx tsx scripts/run-ipon-scrape-details.ts
  */
 
+import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizeEan, normalizeMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { fetchWithSession } from "lib/suppliers/shared/http-session";
+import { buildAttributeSlugResolver, loadAttributeMappings } from "lib/suppliers/registry";
 import { IPON_SUPPLIER_ID, getDefaultIponListingUrl, getIponListingUrlByInternalCategoryId } from "./categories";
 import {
   IPON_ACCEPT_LANGUAGE,
@@ -83,6 +85,13 @@ type ParsedIponJsonLd = {
   ean: string | null;
   specRows: SpecRow[];
   productEntityCount: number;
+  /**
+   * Raw `Product` JSON-LD objekti pronađeni u HTML-u. Koristi se za snapshot
+   * u `products.source_jsonld` (FAZA 6 — re-extraction bez novog HTTP poziva).
+   * Za parser iz raw_json-a (`parseIponProductDetailsFromRawJson`) ostaje prazan jer
+   * ne raspolažemo izvornim JSON-LD blokovima.
+   */
+  rawProductJsonLd?: Record<string, unknown>[];
 };
 
 function extractJsonLdBlocks(html: string): unknown[] {
@@ -192,7 +201,8 @@ function parseIponProductJsonLdFromHtml(html: string): ParsedIponJsonLd {
     mpn,
     ean,
     specRows,
-    productEntityCount: products.length
+    productEntityCount: products.length,
+    rawProductJsonLd: products
   };
 }
 
@@ -274,6 +284,74 @@ function splitIntegratedVga(props: SpecRow[]): { vga: string | null; chip: strin
   return { vga: vgas[0].value.trim(), chip: vgas[1].value.trim() };
 }
 
+function stableStringify(value: unknown): string {
+  return JSON.stringify(value, (_key, val) => {
+    if (val && typeof val === "object" && !Array.isArray(val)) {
+      const keys = Object.keys(val as Record<string, unknown>).sort();
+      const sorted: Record<string, unknown> = {};
+      for (const k of keys) sorted[k] = (val as Record<string, unknown>)[k];
+      return sorted;
+    }
+    return val;
+  });
+}
+
+/**
+ * Idempotentno upisuje `products.source_jsonld` (+ hash, fetched_at, supplier_id,
+ * supplier_product_id). Ako se hash ne mijenja, ne pravimo bespotreban WRITE.
+ *
+ * Greške ovdje su non-fatal — JSON-LD snapshot je dodatak, ne briše postojeću
+ * logiku obogaćivanja.
+ */
+async function maybeSaveProductJsonLdSnapshot(
+  supabase: SupabaseClient,
+  productId: string,
+  supplierProductId: string,
+  rawProducts: Record<string, unknown>[]
+): Promise<void> {
+  try {
+    const snapshot = rawProducts.length === 1 ? rawProducts[0] : rawProducts;
+    const stable = stableStringify(snapshot);
+    const hash = createHash("sha256").update(stable).digest("hex");
+
+    const { data: existing, error: readErr } = await withPostgrestTransientRetry(
+      "products.jsonld-current",
+      async () =>
+        await supabase
+          .from("products")
+          .select("source_jsonld_hash")
+          .eq("id", productId)
+          .maybeSingle()
+    );
+    if (readErr) {
+      console.warn("[iPon JSON-LD snapshot] read current hash failed:", readErr.message);
+      return;
+    }
+    const currentHash = (existing as { source_jsonld_hash: string | null } | null)?.source_jsonld_hash ?? null;
+    if (currentHash === hash) return;
+
+    const { error: updateErr } = await withPostgrestTransientRetry(
+      "products.jsonld-update",
+      async () =>
+        await supabase
+          .from("products")
+          .update({
+            source_jsonld: snapshot,
+            source_jsonld_hash: hash,
+            source_jsonld_fetched_at: new Date().toISOString(),
+            source_jsonld_supplier_id: IPON_SUPPLIER_ID,
+            source_jsonld_supplier_product_id: supplierProductId
+          })
+          .eq("id", productId)
+    );
+    if (updateErr) {
+      console.warn("[iPon JSON-LD snapshot] update failed:", updateErr.message);
+    }
+  } catch (err) {
+    console.warn("[iPon JSON-LD snapshot] unexpected error:", err instanceof Error ? err.message : String(err));
+  }
+}
+
 async function applyIponParsedDetailsToDatabase(
   supabase: SupabaseClient,
   productId: string,
@@ -281,16 +359,26 @@ async function applyIponParsedDetailsToDatabase(
   parsed: ParsedIponJsonLd,
   slugToAttributeId: Map<string, string>,
   detailAttributeSlugs: readonly string[],
-  options?: { markComplete?: boolean; dryRun?: boolean }
+  options?: {
+    markComplete?: boolean;
+    dryRun?: boolean;
+    /**
+     * Pre-built mapper from supplier spec name to internal attribute slug.
+     * Falls back to the hardcoded `mapSpecNameToSlug` if not provided so existing
+     * callers (and the no-DB-config case) keep identical behaviour.
+     */
+    nameToSlug?: (name: string) => string | null;
+  }
 ): Promise<{ ok: boolean; wrote: boolean }> {
   const mpnN = normalizeMpn(parsed.mpn);
   const eanN = normalizeEan(parsed.ean);
   const markComplete = options?.markComplete ?? true;
   const dryRun = options?.dryRun ?? false;
+  const nameToSlug = options?.nameToSlug ?? mapSpecNameToSlug;
 
   const bySlug = new Map<string, string>();
   for (const row of parsed.specRows) {
-    const slug = mapSpecNameToSlug(row.name);
+    const slug = nameToSlug(row.name);
     if (slug && !bySlug.has(slug)) bySlug.set(slug, row.value.trim());
   }
   const { vga: vgaP, chip: chipP } = splitIntegratedVga(parsed.specRows);
@@ -778,6 +866,7 @@ export async function runIponScrapeDetails(
 ): Promise<IponScrapeDetailsResult> {
   const supabase = createSupabaseServiceClient();
   const slugToAttributeId = await loadAttributeSlugMap(supabase);
+  const supplierAttributeMappings = await loadAttributeMappings(IPON_SUPPLIER_ID, { supabase });
 
   const categoryId = options?.categoryId;
   const listingUrl = options?.listingWarmupUrl ?? getIponListingUrlByInternalCategoryId(categoryId) ?? getDefaultIponListingUrl();
@@ -896,6 +985,11 @@ export async function runIponScrapeDetails(
       let rowWrote = false;
 
       if (rawParsed.productEntityCount > 0) {
+        const rowNameToSlug = buildAttributeSlugResolver(
+          supplierAttributeMappings,
+          row.category_id,
+          mapSpecNameToSlug
+        );
         const rawOut = await applyIponParsedDetailsToDatabase(
           supabase,
           row.product_id,
@@ -903,7 +997,7 @@ export async function runIponScrapeDetails(
           rawParsed,
           slugToAttributeId,
           row.detailSlugs,
-          { markComplete: rawCoversMissing, dryRun }
+          { markComplete: rawCoversMissing, dryRun, nameToSlug: rowNameToSlug }
         );
         rowWrote = rawOut.wrote;
         if (rawCoversMissing) {
@@ -960,6 +1054,21 @@ export async function runIponScrapeDetails(
         break;
       }
 
+      const htmlNameToSlug = buildAttributeSlugResolver(
+        supplierAttributeMappings,
+        row.category_id,
+        mapSpecNameToSlug
+      );
+
+      if (parsed.rawProductJsonLd && parsed.rawProductJsonLd.length > 0) {
+        await maybeSaveProductJsonLdSnapshot(
+          supabase,
+          row.product_id,
+          row.supplier_product_id,
+          parsed.rawProductJsonLd
+        );
+      }
+
       const out = await applyIponParsedDetailsToDatabase(
         supabase,
         row.product_id,
@@ -967,7 +1076,7 @@ export async function runIponScrapeDetails(
         parsed,
         slugToAttributeId,
         row.detailSlugs,
-        { markComplete: true, dryRun: false }
+        { markComplete: true, dryRun: false, nameToSlug: htmlNameToSlug }
       );
 
       if (out.ok && (out.wrote || rowWrote)) processed += 1;

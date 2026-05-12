@@ -11,6 +11,7 @@ import { aggregatePrices } from "lib/pricing";
 import { mergeMatchAudit, resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
 import { normalizeEan, normalizeMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
+import { getSupplierCategories } from "lib/suppliers/registry";
 import { IPON_SUPPLIER_ID, IPON_CATEGORIES, getIponSupplierGroupId, type IponCategory } from "./categories";
 import {
   fetchIponProductDataPage,
@@ -486,8 +487,9 @@ export async function runIponImportFromFixtureFile(
  * `IPON_IMPORT_FIXTURE=./fixtures/ipon-list.json`
  */
 export async function runIponImportProducts(
-  categories: IponCategory[] = IPON_CATEGORIES
+  categoriesOverride?: IponCategory[]
 ): Promise<IponImportProductsResult> {
+  const categories = categoriesOverride ?? (await resolveIponCategoriesFromRegistry());
   const fixture = process.env.IPON_IMPORT_FIXTURE?.trim();
   if (fixture) {
     return runIponImportFromFixtureFile(fixture, categories);
@@ -525,6 +527,31 @@ export async function runIponImportProducts(
     pricesAggregated: agg.updated,
     categoriesProcessed: categories.length
   };
+}
+
+/**
+ * Učitava listu iPon kategorija iz `supplier_categories` (DB-first). Ako je tabela
+ * prazna ili nedostupna, registry vraća `IPON_CATEGORIES` kao fallback — ponašanje
+ * je identično postojećem hardcoded toku.
+ */
+async function resolveIponCategoriesFromRegistry(): Promise<IponCategory[]> {
+  const rows = await getSupplierCategories(IPON_SUPPLIER_ID);
+  if (rows.length === 0) return IPON_CATEGORIES;
+
+  const result: IponCategory[] = [];
+  for (const row of rows) {
+    const supplierCategoryId = row.supplierCategoryKey ? Number.parseInt(row.supplierCategoryKey, 10) : NaN;
+    const fallback = IPON_CATEGORIES.find((c) => c.internalCategoryId === row.internalCategoryId);
+    const url = row.listingUrl ?? fallback?.url;
+    if (!url) continue;
+    result.push({
+      name: fallback?.name ?? `category-${row.internalCategoryId.slice(0, 8)}`,
+      url,
+      internalCategoryId: row.internalCategoryId,
+      supplierCategoryId: Number.isFinite(supplierCategoryId) ? supplierCategoryId : fallback?.supplierCategoryId
+    });
+  }
+  return result.length > 0 ? result : IPON_CATEGORIES;
 }
 
 export type ImportCategoryResult = {

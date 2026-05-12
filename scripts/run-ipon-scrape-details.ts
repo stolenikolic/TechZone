@@ -8,8 +8,11 @@ import path from "path";
 dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
 
 async function main() {
-  const { getIponCategoryInternalIdByName } = await import("../src/lib/suppliers/ipon/categories");
+  const { getIponCategoryInternalIdByName, IPON_SUPPLIER_ID } = await import(
+    "../src/lib/suppliers/ipon/categories"
+  );
   const { runIponScrapeDetails } = await import("../src/lib/suppliers/ipon/scrapeDetails");
+  const { withJobRun } = await import("../src/lib/jobs/job-runner");
 
   const catName = process.env.IPON_SCRAPE_CATEGORY?.trim();
   let categoryId: string | undefined;
@@ -25,11 +28,19 @@ async function main() {
     process.env.IPON_SCRAPE_UNTIL_EMPTY === "1" || /^true$/i.test(process.env.IPON_SCRAPE_UNTIL_EMPTY ?? "");
   const dryRun = process.env.IPON_SCRAPE_DRY_RUN === "1" || /^true$/i.test(process.env.IPON_SCRAPE_DRY_RUN ?? "");
 
-  const result = await runIponScrapeDetails({
-    categoryId,
-    runUntilQueueEmpty: runUntil,
-    dryRun
-  });
+  const { value: result } = await withJobRun(
+    {
+      jobType: "ipon_scrape_details",
+      supplierId: IPON_SUPPLIER_ID,
+      initialSummary: { categoryId: categoryId ?? null, runUntilQueueEmpty: runUntil, dryRun }
+    },
+    async () =>
+      runIponScrapeDetails({
+        categoryId,
+        runUntilQueueEmpty: runUntil,
+        dryRun
+      })
+  );
   console.log("iPon scrapeDetails finished:", JSON.stringify(result, null, 2));
 }
 

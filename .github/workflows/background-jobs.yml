@@ -1,0 +1,135 @@
+name: Background jobs
+
+on:
+  schedule:
+    # NOTE: cron strings must be unique within a workflow if we want to filter
+    # by `github.event.schedule`. Times are UTC.
+    - cron: "0 */6 * * *"   # ipon_import — every 6h on the hour
+    - cron: "10 */4 * * *"  # pcx_import — every 4h, offset +10 min
+    - cron: "*/30 * * * *"  # ipon_scrape_details — every 30 minutes
+    - cron: "20 * * * *"    # aggregate_prices — hourly at :20
+    - cron: "40 * * * *"    # auto_match — hourly at :40
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "Which job to run on demand"
+        required: true
+        type: choice
+        options:
+          - ipon_import
+          - ipon_scrape_details
+          - pcx_import
+          - aggregate_prices
+          - auto_match
+
+concurrency:
+  # Allow at most one workflow per job kind. Cancel queued duplicates so a slow
+  # ipon_scrape_details run doesn't stack up every 30 minutes.
+  group: background-jobs-${{ github.event.schedule || inputs.job }}
+  cancel-in-progress: false
+
+jobs:
+  ipon_import:
+    name: iPon import
+    if: github.event.schedule == '0 */6 * * *' || inputs.job == 'ipon_import'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      JOB_TRIGGERED_BY: cron
+      JOB_TYPE: ipon_import
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npx tsx scripts/check-job-paused.ts
+      - run: npx tsx scripts/run-ipon-import-products.ts
+
+  ipon_scrape_details:
+    name: iPon scrape details
+    if: github.event.schedule == '*/30 * * * *' || inputs.job == 'ipon_scrape_details'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      JOB_TRIGGERED_BY: cron
+      JOB_TYPE: ipon_scrape_details
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npx tsx scripts/check-job-paused.ts
+      - run: npx tsx scripts/run-ipon-scrape-details.ts
+
+  pcx_import:
+    name: PCX import
+    if: github.event.schedule == '10 */4 * * *' || inputs.job == 'pcx_import'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      JOB_TRIGGERED_BY: cron
+      JOB_TYPE: pcx_import
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npx tsx scripts/check-job-paused.ts
+      - run: npx tsx scripts/run-pcx-import-products.ts
+
+  aggregate_prices:
+    name: Aggregate prices
+    if: github.event.schedule == '20 * * * *' || inputs.job == 'aggregate_prices'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      JOB_TRIGGERED_BY: cron
+      JOB_TYPE: aggregate_prices
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npx tsx scripts/check-job-paused.ts
+      - run: npx tsx scripts/run-aggregate-prices.ts
+
+  auto_match:
+    name: Auto match (supplier_products → products)
+    if: github.event.schedule == '40 * * * *' || inputs.job == 'auto_match'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      JOB_TRIGGERED_BY: cron
+      JOB_TYPE: auto_match
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - run: npx tsx scripts/check-job-paused.ts
+      - run: npx tsx scripts/run-auto-match.ts

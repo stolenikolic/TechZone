@@ -9,9 +9,29 @@ import { normalizeEan, normalizeMpn } from "lib/suppliers/normalizeProductIdenti
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
 import { aggregatePrices } from "lib/pricing";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { getSupplierCategories } from "lib/suppliers/registry";
 import { PCX_CATEGORIES } from "./categories";
 
 const PCX_SUPPLIER_ID = "f4a8b2c0-9d1e-4f3a-bc5d-6e7f8091a2b3";
+
+type PcxCategory = (typeof PCX_CATEGORIES)[number];
+
+/**
+ * DB-first list of PCX categories. Falls back to hardcoded `PCX_CATEGORIES`
+ * (the registry already encapsulates that fallback, but the local check is
+ * defensive against an unexpected empty result).
+ */
+async function resolvePcxCategoriesFromRegistry(): Promise<PcxCategory[]> {
+  const rows = await getSupplierCategories(PCX_SUPPLIER_ID);
+  if (rows.length === 0) return PCX_CATEGORIES;
+  const out: PcxCategory[] = [];
+  for (const row of rows) {
+    if (!row.listingUrl) continue;
+    const fallback = PCX_CATEGORIES.find((c) => c.url === row.listingUrl);
+    out.push({ name: fallback?.name ?? row.supplierCategoryKey ?? "category", url: row.listingUrl });
+  }
+  return out.length > 0 ? out : PCX_CATEGORIES;
+}
 const BASE_ORIGIN = "https://www.pcx.hu";
 /** Default cap per run (original spec). Set env `PCX_MAX_PRODUCTS_PER_RUN=0` for no limit (full category). */
 const DEFAULT_MAX_PRODUCTS_PER_RUN = 5;
@@ -323,7 +343,8 @@ export async function runPcxImportProducts(): Promise<PcxImportResult> {
   supabaseSingleton = createSupabaseServiceClient();
 
   try {
-    for (const category of PCX_CATEGORIES) {
+    const categories = await resolvePcxCategoriesFromRegistry();
+    for (const category of categories) {
       await importCategory(category);
     }
     const agg = await aggregatePrices();

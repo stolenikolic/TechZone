@@ -23,6 +23,16 @@ export const navigation = [
     path: "/admin/pricing"
   },
   {
+    name: "Jobs",
+    icon: duotone.TodoList,
+    path: "/admin/jobs"
+  },
+  {
+    name: "Suppliers",
+    icon: duotone.Seller,
+    path: "/admin/suppliers"
+  },
+  {
     name: "Categories",
     icon: duotone.Accounts,
     children: [

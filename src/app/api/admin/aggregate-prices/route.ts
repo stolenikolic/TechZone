@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { aggregatePrices } from "lib/pricing";
+import { withJobRun } from "lib/jobs/job-runner";
 
 /**
  * POST /api/admin/aggregate-prices
@@ -9,10 +10,16 @@ import { aggregatePrices } from "lib/pricing";
  *
  * Returns: { updated, batches, error?, warnings? }
  * Requires: Supabase secret key. Fill `pricing_settings` (and tiers) via /admin/pricing; env PRICING_* only fills missing FX fields.
+ *
+ * The full run is logged into `job_runs` via `withJobRun`. Failures still return HTTP 500
+ * with the original payload shape so existing UI callers keep working.
  */
 export async function POST() {
   try {
-    const result = await aggregatePrices();
+    const { value: result } = await withJobRun(
+      { jobType: "aggregate_prices", triggeredBy: "manual" },
+      async () => aggregatePrices()
+    );
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
