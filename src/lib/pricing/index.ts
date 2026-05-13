@@ -5,8 +5,10 @@ export {
 } from "./convert";
 export {
   aggregatePrices,
+  wrapAggregatePricesJobResult,
   type AggregatePricesResult
 } from "./aggregate-prices";
+export { reconcileProductsIsActiveFromSupplierOffers } from "./reconcile-product-active";
 export {
   applyRoundingPipeline,
   computeFinalSellingKm,

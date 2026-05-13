@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
-import { compareTopPickThenDate, loadTopPickMapByCategory } from "lib/category-top-picks";
+import { loadTopPickMapByCategory, type CategoryTopPick } from "lib/category-top-picks";
 import { getEffectivePrice } from "lib/effective-price";
 import { createSupabaseServiceClient } from "utils/supabase";
 
@@ -66,12 +66,38 @@ function compareProductsBySort(a: DbProduct, b: DbProduct, sort: SortMode): numb
   }
 }
 
+/**
+ * Shop category PLP: featured (top pick) products always first; within featured and within
+ * non-featured, order by the user's `sortMode`. Tie-break two featured rows by admin priority.
+ */
+function compareCategoryListingRows(
+  a: DbProduct,
+  b: DbProduct,
+  sortMode: SortMode,
+  topPickMap: Map<string, CategoryTopPick>
+): number {
+  const aFeatured = topPickMap.has(a.id);
+  const bFeatured = topPickMap.has(b.id);
+  if (aFeatured !== bFeatured) return aFeatured ? -1 : 1;
+
+  const byUser = compareProductsBySort(a, b, sortMode);
+  if (byUser !== 0) return byUser;
+
+  if (aFeatured && bFeatured) {
+    const pa = topPickMap.get(a.id)?.priority ?? 100;
+    const pb = topPickMap.get(b.id)?.priority ?? 100;
+    if (pa !== pb) return pa - pb;
+  }
+
+  return String(a.id).localeCompare(String(b.id));
+}
+
 type CategoryPayload = { id: string; name: string; slug: string };
 
 function toProduct(
   row: DbProduct,
   category: CategoryPayload,
-  topPickMap: Map<string, { productId: string; priority: number; createdAt: string }>
+  topPickMap: Map<string, CategoryTopPick>
 ): Product {
   const thumbnail = row.main_image ?? "/assets/images/placeholder.png";
   const price = getEffectivePrice(row.custom_price, row.price);
@@ -466,11 +492,7 @@ async function handleCategoryProducts(
     return true;
   });
 
-  filteredRows.sort((a, b) => {
-    const topPickDiff = compareTopPickThenDate(a.id, b.id, a.created_at, b.created_at, topPickMap);
-    if (topPickDiff !== 0) return topPickDiff;
-    return compareProductsBySort(a, b, sortMode);
-  });
+  filteredRows.sort((a, b) => compareCategoryListingRows(a, b, sortMode, topPickMap));
 
   const totalCount = filteredRows.length;
   const totalPages = Math.max(1, Math.ceil(totalCount / LIMIT));

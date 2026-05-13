@@ -82,7 +82,8 @@ async function fetchCheapestSupplierNamesByProductIds(
   const { data: rows, error } = await supabase
     .from("supplier_products")
     .select("product_id, price_amount, currency, supplier_id, suppliers(id, name, pricing_formula, cost_adjustment_multiplier)")
-    .in("product_id", ids);
+    .in("product_id", ids)
+    .eq("is_active", true);
 
   if (error || !rows?.length) return new Map();
 

@@ -526,9 +526,10 @@ async function applyIponParsedDetailsToDatabase(
   }
 
   const spNow = new Date().toISOString();
-  const supplierUpdate: Record<string, string> = {
+  const supplierUpdate: Record<string, unknown> = {
     enrichment_status: markComplete ? "complete" : "pending",
-    updated_at: spNow
+    updated_at: spNow,
+    is_active: true
   };
   if (mpnN && !normalizeMpn(currentSupplierProduct?.mpn)) supplierUpdate.mpn = mpnN;
   if (eanN && !normalizeEan(currentSupplierProduct?.ean)) supplierUpdate.ean = eanN;

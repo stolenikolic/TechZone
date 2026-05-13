@@ -7,7 +7,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceClient } from "utils/supabase";
-import { aggregatePrices } from "lib/pricing";
+import { aggregatePrices, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
 import { mergeMatchAudit, resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
 import { normalizeEan, normalizeMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
@@ -97,26 +97,24 @@ async function deactivateInactiveIponInCategory(
     return 0;
   }
 
-  const staleIds = new Set<string>();
-  for (const row of sprows) {
-    if (!fetchedSupplierIds.has(row.supplier_product_id)) {
-      staleIds.add(row.product_id);
-    }
-  }
+  const staleSupplierProductIds = sprows
+    .filter((row) => !fetchedSupplierIds.has(row.supplier_product_id))
+    .map((row) => row.supplier_product_id);
 
-  if (staleIds.size === 0) return 0;
+  if (staleSupplierProductIds.length === 0) return 0;
 
   const { error: uErr } = await supabase
-    .from("products")
+    .from("supplier_products")
     .update({ is_active: false, updated_at: new Date().toISOString() })
-    .in("id", Array.from(staleIds));
+    .eq("supplier_id", IPON_SUPPLIER_ID)
+    .in("supplier_product_id", staleSupplierProductIds);
 
   if (uErr) {
-    console.error("[iPon] deactivate:", uErr.message);
+    console.error("[iPon] deactivate offers:", uErr.message);
     return 0;
   }
 
-  return staleIds.size;
+  return staleSupplierProductIds.length;
 }
 
 function normalizeListItem(raw: Record<string, unknown>): IponProductItem | null {
@@ -184,6 +182,7 @@ async function upsertIponListItem(
           .update({
             price_amount: item.grossPrice,
             currency: "HUF",
+            is_active: true,
             raw_json: item as unknown as Record<string, unknown>,
             updated_at: new Date().toISOString()
           })
@@ -192,18 +191,6 @@ async function upsertIponListItem(
     );
     if (upSp.error) {
       throw new Error(`supplier_products update failed: ${upSp.error.message}`);
-    }
-
-    const upPr = await withPostgrestTransientRetry(
-      "products.reactivate",
-      async () =>
-        await supabase
-          .from("products")
-          .update({ is_active: true, updated_at: new Date().toISOString() })
-          .eq("id", existing.product_id)
-    );
-    if (upPr.error) {
-      throw new Error(`products update failed: ${upPr.error.message}`);
     }
 
     return "updated";
@@ -239,6 +226,7 @@ async function upsertIponListItem(
             product_id: match.productId,
             price_amount: item.grossPrice,
             currency: "HUF",
+            is_active: true,
             mpn: identifierSync.update.mpn ?? offerMpn,
             ean: identifierSync.update.ean ?? offerEan,
             raw_json: mergeMatchAudit(item as unknown as Record<string, unknown>, match.audit),
@@ -251,18 +239,6 @@ async function upsertIponListItem(
     );
     if (upsertLinkedError) {
       throw new Error(`supplier_products autolink upsert failed: ${upsertLinkedError.message}`);
-    }
-
-    const upPr = await withPostgrestTransientRetry(
-      "products.reactivate-autolink",
-      async () =>
-        await supabase
-          .from("products")
-          .update({ is_active: true, updated_at: new Date().toISOString() })
-          .eq("id", match.productId)
-    );
-    if (upPr.error) {
-      throw new Error(`products update failed: ${upPr.error.message}`);
     }
 
     return "updated";
@@ -307,6 +283,7 @@ async function upsertIponListItem(
         supplier_product_id: supplierProductId,
         price_amount: item.grossPrice,
         currency: "HUF",
+        is_active: true,
         mpn: offerMpn,
         ean: offerEan,
         raw_json: mergeMatchAudit(item as unknown as Record<string, unknown>, match.audit),
@@ -423,6 +400,10 @@ async function importIponCategory(
     console.warn("[iPon import] Nema artikala u odgovoru — preskačem deaktivaciju za", cat.name);
   } else {
     deactivated = await deactivateInactiveIponInCategory(supabase, cat.internalCategoryId, fetchedIds);
+    const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
+    if (rec.error) {
+      console.warn("[iPon] reconcile_products_is_active_from_supplier_offers:", rec.error);
+    }
   }
 
   return { imported, updated, deactivated };
@@ -435,6 +416,16 @@ export type IponImportProductsResult = {
   deactivated: number;
   pricesAggregated: number;
   categoriesProcessed: number;
+  summary?: {
+    imported: number;
+    updated: number;
+    deactivated_offers: number;
+    prices_aggregated: number;
+    aggregate_batches: number;
+    categories_processed: number;
+    aggregate_error?: string;
+    aggregate_warnings?: string[];
+  };
 };
 
 /**
@@ -465,18 +456,32 @@ export async function runIponImportFromFixtureFile(
   let deactivated = 0;
   if (fetchedIds.size > 0) {
     deactivated = await deactivateInactiveIponInCategory(supabase, cat.internalCategoryId, fetchedIds);
+    const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
+    if (rec.error) {
+      console.warn("[iPon] reconcile_products_is_active_from_supplier_offers:", rec.error);
+    }
   }
 
   const agg = await aggregatePrices();
   console.log("[iPon import] Fixture završeno.", { imported, updated, deactivated, pricesUpdated: agg.updated });
 
   return {
-    success: true,
+    success: !agg.error,
     imported,
     updated,
     deactivated,
     pricesAggregated: agg.updated,
-    categoriesProcessed: 1
+    categoriesProcessed: 1,
+    summary: {
+      imported,
+      updated,
+      deactivated_offers: deactivated,
+      prices_aggregated: agg.updated,
+      aggregate_batches: agg.batches,
+      categories_processed: 1,
+      ...(agg.error ? { aggregate_error: agg.error } : {}),
+      ...(agg.warnings?.length ? { aggregate_warnings: agg.warnings } : {})
+    }
   };
 }
 
@@ -520,12 +525,22 @@ export async function runIponImportProducts(
   });
 
   return {
-    success: true,
+    success: !agg.error,
     imported,
     updated,
     deactivated,
     pricesAggregated: agg.updated,
-    categoriesProcessed: categories.length
+    categoriesProcessed: categories.length,
+    summary: {
+      imported,
+      updated,
+      deactivated_offers: deactivated,
+      prices_aggregated: agg.updated,
+      aggregate_batches: agg.batches,
+      categories_processed: categories.length,
+      ...(agg.error ? { aggregate_error: agg.error } : {}),
+      ...(agg.warnings?.length ? { aggregate_warnings: agg.warnings } : {})
+    }
   };
 }
 
@@ -585,7 +600,7 @@ export async function importCategory(
   const r = await importIponCategory(supabase, cat, jar);
   const agg = await aggregatePrices();
   return {
-    success: true,
+    success: !agg.error,
     imported: r.imported,
     updated: r.updated,
     deactivated: r.deactivated,

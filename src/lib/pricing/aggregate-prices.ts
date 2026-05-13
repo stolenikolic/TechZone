@@ -7,6 +7,7 @@ import {
   round2
 } from "./sell-price";
 import type { PricingMarginTierRow, PricingSettingsRow, SupplierPricingRow } from "./types";
+import { reconcileProductsIsActiveFromSupplierOffers } from "./reconcile-product-active";
 
 /** Number of supplier_products rows to fetch per query. Keep at 1000 to stay under PostgREST default row limit. */
 const FETCH_PAGE_SIZE = 1000;
@@ -49,6 +50,14 @@ export type AggregatePricesResult = {
   warnings?: string[];
   error?: string;
 };
+
+function mergeWarnings(...lists: (string[] | undefined)[]): string[] | undefined {
+  const out: string[] = [];
+  for (const l of lists) {
+    if (l) for (const w of l) out.push(w);
+  }
+  return out.length ? out : undefined;
+}
 
 /**
  * Loads supplier_products with supplier formulas, computes min acquisition KM per product,
@@ -99,6 +108,7 @@ export async function aggregatePrices(): Promise<AggregatePricesResult> {
       .from("supplier_products")
       .select("product_id, supplier_id, price_amount, currency, suppliers(pricing_formula, cost_adjustment_multiplier)")
       .not("product_id", "is", null)
+      .eq("is_active", true)
       .order("product_id", { ascending: true })
       .range(offset, offset + FETCH_PAGE_SIZE - 1);
 
@@ -135,7 +145,12 @@ export async function aggregatePrices(): Promise<AggregatePricesResult> {
   }
 
   if (minCostByProduct.size === 0) {
-    return { updated: 0, batches: 0, warnings: settingWarnings };
+    const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
+    const warnings = mergeWarnings(
+      settingWarnings,
+      rec.error ? [`reconcile_products_is_active_from_supplier_offers: ${rec.error}`] : undefined
+    );
+    return { updated: 0, batches: 0, warnings };
   }
 
   const productIds = Array.from(minCostByProduct.keys());
@@ -212,9 +227,32 @@ export async function aggregatePrices(): Promise<AggregatePricesResult> {
     batches += 1;
   }
 
+  const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
+  const warnings = mergeWarnings(
+    settingWarnings,
+    rec.error ? [`reconcile_products_is_active_from_supplier_offers: ${rec.error}`] : undefined
+  );
+
   return {
     updated: updatedCount,
     batches,
-    warnings: settingWarnings.length ? settingWarnings : undefined
+    warnings
+  };
+}
+
+/** Shape for `withJobRun` / admin APIs: flat fields + nested `summary` for `job_runs`. */
+export function wrapAggregatePricesJobResult(r: AggregatePricesResult) {
+  return {
+    success: r.error == null,
+    updated: r.updated,
+    batches: r.batches,
+    error: r.error,
+    warnings: r.warnings,
+    summary: {
+      updated: r.updated,
+      batches: r.batches,
+      ...(r.error ? { error: r.error } : {}),
+      ...(r.warnings?.length ? { warnings: r.warnings } : {})
+    }
   };
 }

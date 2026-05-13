@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { aggregatePrices } from "lib/pricing";
+import { aggregatePrices, wrapAggregatePricesJobResult } from "lib/pricing";
 import { withJobRun } from "lib/jobs/job-runner";
 
 /**
@@ -18,7 +18,7 @@ export async function POST() {
   try {
     const { value: result } = await withJobRun(
       { jobType: "aggregate_prices", triggeredBy: "manual" },
-      async () => aggregatePrices()
+      async () => wrapAggregatePricesJobResult(await aggregatePrices())
     );
     return NextResponse.json(result);
   } catch (err) {

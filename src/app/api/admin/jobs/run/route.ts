@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { withJobRun, type JobType } from "lib/jobs/job-runner";
+import { IPON_SUPPLIER_ID } from "lib/suppliers/ipon/categories";
+import { PCX_SUPPLIER_ID } from "lib/suppliers/registry";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -12,6 +14,19 @@ const ALLOWED: JobType[] = [
   "aggregate_prices",
   "auto_match"
 ];
+
+/** Same UUIDs as importer scripts — only for `job_runs.supplier_id` / admin UI join. */
+function supplierIdForDashboardJob(jobType: JobType): string | null {
+  switch (jobType) {
+    case "ipon_import":
+    case "ipon_scrape_details":
+      return IPON_SUPPLIER_ID;
+    case "pcx_import":
+      return PCX_SUPPLIER_ID;
+    default:
+      return null;
+  }
+}
 
 async function isPaused(jobType: string): Promise<boolean> {
   try {
@@ -41,8 +56,8 @@ async function runByJobType(jobType: JobType) {
     return runPcxImportProducts();
   }
   if (jobType === "aggregate_prices") {
-    const { aggregatePrices } = await import("lib/pricing");
-    return aggregatePrices();
+    const { aggregatePrices, wrapAggregatePricesJobResult } = await import("lib/pricing");
+    return wrapAggregatePricesJobResult(await aggregatePrices());
   }
   if (jobType === "auto_match") {
     const { runAutoMatch } = await import("lib/auto-match/runAutoMatch");
@@ -64,8 +79,9 @@ export async function POST(request: Request) {
         { status: 409 }
       );
     }
-    const { runId, value } = await withJobRun({ jobType, triggeredBy: "manual" }, async () =>
-      runByJobType(jobType)
+    const { runId, value } = await withJobRun(
+      { jobType, triggeredBy: "manual", supplierId: supplierIdForDashboardJob(jobType) },
+      async () => runByJobType(jobType)
     );
     return NextResponse.json({ success: true, runId, result: value });
   } catch (err) {

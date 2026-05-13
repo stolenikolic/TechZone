@@ -39,7 +39,9 @@ export function createSupabaseClient() {
  */
 export function createSupabaseServiceClient() {
   if (!supabaseSecretKey) {
-    throw new Error("SUPABASE_SECRET_KEY is not set");
+    throw new Error(
+      "Supabase service key is not set. Add SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY to your environment (e.g. .env.local). See .env.example."
+    );
   }
   return createClient(requireSupabaseUrl(), supabaseSecretKey);
 }

@@ -15,6 +15,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Grid from "@mui/material/Grid";
 import MenuItem from "@mui/material/MenuItem";
+import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -53,6 +54,19 @@ const tableHeading = [
 type Props = { offers: SupplierOfferRow[] };
 
 type OfferTableRow = SupplierOfferRow & { priceSort: number; masterProductName: string };
+
+function getRawOfferPreview(rawJson: unknown): { productName: string | null; imageUrl: string | null } {
+  if (!rawJson || typeof rawJson !== "object" || Array.isArray(rawJson)) {
+    return { productName: null, imageUrl: null };
+  }
+  const r = rawJson as Record<string, unknown>;
+  const pn = typeof r.product_name === "string" ? r.product_name.trim() : "";
+  const iu = typeof r.image_url === "string" ? r.image_url.trim() : "";
+  const productName = pn.length > 0 ? pn : null;
+  const imageUrl =
+    iu.length > 0 && (iu.startsWith("https://") || iu.startsWith("http://")) ? iu : null;
+  return { productName, imageUrl };
+}
 type QuickFilter = "all" | "linked" | "unlinked" | "pending_review" | "failed_enrichment" | "missing_identifiers";
 type PriceRefreshState = { severity: "success" | "error"; message: string } | null;
 type SupplierOfferActionResult = {
@@ -810,6 +824,43 @@ export default function SupplierOffersPageView({ offers }: Props) {
                   MPN: {linkOffer.mpn ?? "-"} | EAN: {linkOffer.ean ?? "-"}
                 </Typography>
               </Box>
+
+              {(() => {
+                const preview = getRawOfferPreview(linkOffer.rawJson);
+                if (!preview.productName && !preview.imageUrl) return null;
+                return (
+                  <Paper variant="outlined" sx={{ p: 1.5 }}>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      {preview.imageUrl ? (
+                        <Box
+                          component="img"
+                          src={preview.imageUrl}
+                          alt=""
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                          sx={{
+                            width: 72,
+                            height: 72,
+                            objectFit: "contain",
+                            borderRadius: 1,
+                            bgcolor: "action.hover",
+                            flexShrink: 0
+                          }}
+                        />
+                      ) : null}
+                      <Box flex={1} minWidth={0}>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Offer preview (raw)
+                        </Typography>
+                        <Typography variant="body2" fontWeight={600} sx={{ wordBreak: "break-word" }}>
+                          {preview.productName ?? "—"}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </Paper>
+                );
+              })()}
 
               <Stack direction={{ md: "row", xs: "column" }} spacing={1.5}>
                 <TextField

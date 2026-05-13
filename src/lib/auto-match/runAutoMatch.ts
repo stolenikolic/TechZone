@@ -34,6 +34,15 @@ export type AutoMatchResult = {
   errorsCount?: number;
   error?: string;
   priceRefresh?: { updated?: number; batches?: number; error?: string };
+  summary?: {
+    scanned: number;
+    linked: number;
+    skipped: number;
+    errors_count: number;
+    price_refresh_updated?: number;
+    price_refresh_batches?: number;
+    price_refresh_error?: string;
+  };
 };
 
 async function insertEvent(
@@ -86,6 +95,7 @@ export async function runAutoMatch(jobHandle?: JobRunHandle): Promise<AutoMatchR
       .select("id, supplier_id, supplier_product_id, mpn, ean, raw_json")
       .is("product_id", null)
       .eq("master_match_status", "pending_review")
+      .eq("is_active", true)
       .order("id", { ascending: true })
       .limit(PAGE_SIZE);
 
@@ -243,5 +253,22 @@ export async function runAutoMatch(jobHandle?: JobRunHandle): Promise<AutoMatchR
     .eq("id", runId);
   await insertEvent(runId, "info", "Auto-match run finished.");
 
-  return { success: true, runId, scanned, linked, skipped, errorsCount, priceRefresh };
+  return {
+    success: errorsCount === 0,
+    runId,
+    scanned,
+    linked,
+    skipped,
+    errorsCount,
+    priceRefresh,
+    summary: {
+      scanned,
+      linked,
+      skipped,
+      errors_count: errorsCount,
+      price_refresh_updated: priceRefresh.updated,
+      price_refresh_batches: priceRefresh.batches,
+      ...(priceRefresh.error ? { price_refresh_error: priceRefresh.error } : {})
+    }
+  };
 }
