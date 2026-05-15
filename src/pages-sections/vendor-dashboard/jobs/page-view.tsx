@@ -29,7 +29,8 @@ const JOB_TYPES = [
   "pcx_import",
   "aggregate_prices",
   "auto_match",
-  "enrichment"
+  "enrichment",
+  "apply_value_aliases"
 ] as const;
 
 const STATUSES = ["running", "success", "failed", "partial"] as const;

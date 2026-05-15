@@ -13,7 +13,8 @@ const ALLOWED: JobType[] = [
   "pcx_import",
   "aggregate_prices",
   "auto_match",
-  "enrichment"
+  "enrichment",
+  "apply_value_aliases"
 ];
 
 /** Same UUIDs as importer scripts — only for `job_runs.supplier_id` / admin UI join. */
@@ -48,6 +49,8 @@ async function runJob(
   options?: {
     enrichmentCategoryId?: string;
     enrichmentOverwrite?: boolean;
+    applyValueAliasesCategoryId?: string;
+    applyValueAliasesAttributeId?: string;
     iponScrapeRunUntilQueueEmpty?: boolean;
   }
 ) {
@@ -80,6 +83,17 @@ async function runJob(
       overwrite: options?.enrichmentOverwrite ?? false
     });
   }
+  if (jobType === "apply_value_aliases") {
+    const { applyValueAliasesToProducts } = await import("lib/attributes/apply-value-aliases-to-products");
+    const { createSupabaseServiceClient } = await import("utils/supabase");
+    const categoryId = options?.applyValueAliasesCategoryId;
+    if (!categoryId) throw new Error("applyValueAliasesCategoryId is required.");
+    const supabase = createSupabaseServiceClient();
+    return applyValueAliasesToProducts(supabase, {
+      categoryId,
+      attributeId: options?.applyValueAliasesAttributeId
+    });
+  }
   throw new Error(`Unknown job type: ${jobType}`);
 }
 
@@ -89,6 +103,8 @@ export async function POST(request: Request) {
       jobType?: string;
       enrichmentCategoryId?: string;
       enrichmentOverwrite?: boolean;
+      applyValueAliasesCategoryId?: string;
+      applyValueAliasesAttributeId?: string;
       iponScrapeRunUntilQueueEmpty?: boolean;
     };
     const jobType = body.jobType as JobType | undefined;
@@ -107,6 +123,8 @@ export async function POST(request: Request) {
         runJob(jobType, {
           enrichmentCategoryId: body.enrichmentCategoryId,
           enrichmentOverwrite: body.enrichmentOverwrite,
+          applyValueAliasesCategoryId: body.applyValueAliasesCategoryId,
+          applyValueAliasesAttributeId: body.applyValueAliasesAttributeId,
           iponScrapeRunUntilQueueEmpty: body.iponScrapeRunUntilQueueEmpty
         })
     );

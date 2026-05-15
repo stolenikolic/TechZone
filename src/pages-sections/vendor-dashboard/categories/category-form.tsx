@@ -97,6 +97,32 @@ type MappingDialogState = {
   priority: number;
 };
 
+type ValueAliasGroup = {
+  canonicalLabel: string;
+  productCount: number;
+  aliases: Array<{
+    id: string;
+    alias: string;
+    matchMode: string;
+    supplierId: string | null;
+    priority: number;
+    isActive: boolean;
+  }>;
+};
+
+type ValueAliasCatalogEntry = {
+  value: string;
+  productCount: number;
+  mappedTo: string | null;
+};
+
+type ValueAliasDialogState = {
+  open: boolean;
+  attributeId: string;
+  attributeName: string;
+  attributeSlug: string;
+};
+
 export default function CategoryForm({ mode }: Props) {
   const router = useRouter();
   const params = useParams<{ slug: string }>();
@@ -163,6 +189,19 @@ export default function CategoryForm({ mode }: Props) {
   const [mappingBusy, setMappingBusy] = useState(false);
   const [attributesSectionSaving, setAttributesSectionSaving] = useState(false);
   const [enrichmentRunBusy, setEnrichmentRunBusy] = useState(false);
+
+  const [valueAliasDialog, setValueAliasDialog] = useState<ValueAliasDialogState>({
+    open: false,
+    attributeId: "",
+    attributeName: "",
+    attributeSlug: ""
+  });
+  const [valueAliasGroups, setValueAliasGroups] = useState<ValueAliasGroup[]>([]);
+  const [valueAliasCatalog, setValueAliasCatalog] = useState<ValueAliasCatalogEntry[]>([]);
+  const [valueAliasLoading, setValueAliasLoading] = useState(false);
+  const [valueAliasBusy, setValueAliasBusy] = useState(false);
+  const [valueAliasApplyBusy, setValueAliasApplyBusy] = useState(false);
+  const [newValueAlias, setNewValueAlias] = useState({ alias: "", canonicalLabel: "" });
 
   /** Atributi za mapping dijalog: samo oni vezani za ovu kategoriju (+ eventualno već mapirani izvan liste). */
   const mappingAttributeChoices = useMemo(() => {
@@ -450,6 +489,120 @@ export default function CategoryForm({ mode }: Props) {
     } finally {
       setAttributesSectionSaving(false);
     }
+  };
+
+  const loadValueAliases = async (attributeId: string) => {
+    if (!categoryId) return;
+    setValueAliasLoading(true);
+    try {
+      const res = await fetch(
+        `/api/admin/categories/${categoryId}/attributes/${attributeId}/value-aliases`,
+        { cache: "no-store" }
+      );
+      const data = (await res.json()) as {
+        groups?: ValueAliasGroup[];
+        catalogValues?: ValueAliasCatalogEntry[];
+        error?: string;
+      };
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed loading value aliases.");
+      setValueAliasGroups(data.groups ?? []);
+      setValueAliasCatalog(data.catalogValues ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed loading value aliases.");
+    } finally {
+      setValueAliasLoading(false);
+    }
+  };
+
+  const openValueAliasDialog = (attribute: CategoryAttributeRow) => {
+    setNewValueAlias({ alias: "", canonicalLabel: "" });
+    setValueAliasDialog({
+      open: true,
+      attributeId: attribute.id,
+      attributeName: attribute.name,
+      attributeSlug: attribute.slug
+    });
+    void loadValueAliases(attribute.id);
+  };
+
+  const handleAddValueAlias = async () => {
+    if (!categoryId || !valueAliasDialog.attributeId) return;
+    const alias = newValueAlias.alias.trim();
+    const canonicalLabel = newValueAlias.canonicalLabel.trim();
+    if (!alias || !canonicalLabel) {
+      setError("Unesi alias i normalizovanu vrijednost.");
+      return;
+    }
+    setValueAliasBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/categories/${categoryId}/attributes/${valueAliasDialog.attributeId}/value-aliases`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ alias, canonicalLabel, matchMode: "exact" })
+        }
+      );
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed saving alias.");
+      setNewValueAlias({ alias: "", canonicalLabel: "" });
+      setNotice("Mapa vrijednosti sačuvana.");
+      await loadValueAliases(valueAliasDialog.attributeId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed saving value alias.");
+    } finally {
+      setValueAliasBusy(false);
+    }
+  };
+
+  const handleDeleteValueAlias = async (aliasId: string) => {
+    if (!categoryId || !valueAliasDialog.attributeId) return;
+    setValueAliasBusy(true);
+    try {
+      const res = await fetch(
+        `/api/admin/categories/${categoryId}/attributes/${valueAliasDialog.attributeId}/value-aliases/${aliasId}`,
+        { method: "DELETE" }
+      );
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed deleting alias.");
+      setNotice("Mapa obrisana.");
+      await loadValueAliases(valueAliasDialog.attributeId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed deleting value alias.");
+    } finally {
+      setValueAliasBusy(false);
+    }
+  };
+
+  const handleApplyValueAliases = async () => {
+    if (!categoryId || !valueAliasDialog.attributeId) return;
+    setValueAliasApplyBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/categories/${categoryId}/attributes/${valueAliasDialog.attributeId}/value-aliases/apply`,
+        { method: "POST" }
+      );
+      const data = (await res.json()) as {
+        error?: string;
+        rowsUpdated?: number;
+        productsUpdated?: number;
+      };
+      if (!res.ok || data.error) throw new Error(data.error ?? "Apply failed.");
+      setNotice(
+        `Mape primijenjene: ${data.rowsUpdated ?? 0} vrijednosti na ${data.productsUpdated ?? 0} proizvoda.`
+      );
+      await loadValueAliases(valueAliasDialog.attributeId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed applying value aliases.");
+    } finally {
+      setValueAliasApplyBusy(false);
+    }
+  };
+
+  const handleMapCatalogValue = (value: string, canonicalLabel: string) => {
+    setNewValueAlias({ alias: value, canonicalLabel: canonicalLabel || value });
   };
 
   const runCategoryEnrichment = async () => {
@@ -751,13 +904,14 @@ export default function CategoryForm({ mode }: Props) {
                   <TableCell>Type</TableCell>
                   <TableCell>Unit</TableCell>
                   <TableCell>Step</TableCell>
+                  <TableCell align="right">Vrijednosti</TableCell>
                   <TableCell align="right">Ukloni</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {categoryAttributes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7}>No category attributes.</TableCell>
+                    <TableCell colSpan={8}>No category attributes.</TableCell>
                   </TableRow>
                 ) : (
                   categoryAttributes.map((attribute, index) => (
@@ -861,6 +1015,16 @@ export default function CategoryForm({ mode }: Props) {
                       <TableCell align="right">
                         <Button
                           size="small"
+                          variant="outlined"
+                          color="info"
+                          onClick={() => openValueAliasDialog(attribute)}
+                        >
+                          Vrijednosti
+                        </Button>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button
+                          size="small"
                           color="error"
                           variant="outlined"
                           onClick={() => void detachCategoryAttribute(attribute.id)}
@@ -873,6 +1037,10 @@ export default function CategoryForm({ mode }: Props) {
                 )}
               </TableBody>
             </Table>
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+              Ručne mape vrijednosti (npr. SATA III → SATA 3): dugme Vrijednosti. Bez mape, vrijednost ostaje
+              kakva dolazi s dobavljača.
+            </Typography>
             {categoryAttributes.length > 0 ? (
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} sx={{ mt: 2 }}>
                 <Button
@@ -1125,6 +1293,153 @@ export default function CategoryForm({ mode }: Props) {
           </Table>
         </Card>
       ) : null}
+
+      <Dialog
+        open={valueAliasDialog.open}
+        onClose={() => setValueAliasDialog((d) => ({ ...d, open: false }))}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Vrijednosti: {valueAliasDialog.attributeName}{" "}
+          <Typography component="span" fontFamily="monospace" variant="body2">
+            ({valueAliasDialog.attributeSlug})
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Ručno mapiranje: alias (od dobavljača) → normalizovano (u filteru). Nema automatske normalizacije.
+            </Typography>
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Alias (od dobavljača)"
+                placeholder="SATA III"
+                value={newValueAlias.alias}
+                onChange={(e) => setNewValueAlias((p) => ({ ...p, alias: e.target.value }))}
+              />
+              <TextField
+                fullWidth
+                size="small"
+                label="Normalizovano (filter)"
+                placeholder="SATA 3"
+                value={newValueAlias.canonicalLabel}
+                onChange={(e) => setNewValueAlias((p) => ({ ...p, canonicalLabel: e.target.value }))}
+              />
+              <Button
+                variant="contained"
+                disabled={valueAliasBusy}
+                onClick={() => void handleAddValueAlias()}
+                sx={{ minWidth: 100, alignSelf: { sm: "center" } }}
+              >
+                Dodaj
+              </Button>
+            </Stack>
+
+            {valueAliasLoading ? (
+              <CircularProgress size={24} />
+            ) : valueAliasGroups.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                Nema ručnih mapa za ovaj atribut.
+              </Typography>
+            ) : (
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Normalizovano</TableCell>
+                    <TableCell>Alias</TableCell>
+                    <TableCell align="right">Proizvoda</TableCell>
+                    <TableCell align="right" />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {valueAliasGroups.map((group) =>
+                    group.aliases.map((row, idx) => (
+                      <TableRow key={row.id}>
+                        <TableCell>{idx === 0 ? group.canonicalLabel : ""}</TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontFamily="monospace">
+                            {row.alias}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">{idx === 0 ? group.productCount : ""}</TableCell>
+                        <TableCell align="right">
+                          <Button
+                            size="small"
+                            color="error"
+                            variant="outlined"
+                            disabled={valueAliasBusy}
+                            onClick={() => void handleDeleteValueAlias(row.id)}
+                          >
+                            Obriši
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
+
+            {valueAliasCatalog.length > 0 ? (
+              <>
+                <Divider />
+                <Typography variant="subtitle2">Vrijednosti u katalogu (ova kategorija)</Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Informativno — klikni „Mapiraj” da popuniš formu iznad. Vrijednosti bez mape ostaju u filteru
+                  nepromijenjene.
+                </Typography>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Vrijednost</TableCell>
+                      <TableCell align="right">Proizvoda</TableCell>
+                      <TableCell>Mapirano na</TableCell>
+                      <TableCell align="right" />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {valueAliasCatalog.map((row) => (
+                      <TableRow key={row.value}>
+                        <TableCell>
+                          <Typography variant="body2" fontFamily="monospace">
+                            {row.value}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">{row.productCount}</TableCell>
+                        <TableCell>{row.mappedTo ?? "—"}</TableCell>
+                        <TableCell align="right">
+                          {!row.mappedTo ? (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => handleMapCatalogValue(row.value, row.value)}
+                            >
+                              Mapiraj
+                            </Button>
+                          ) : null}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </>
+            ) : null}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setValueAliasDialog((d) => ({ ...d, open: false }))}>Zatvori</Button>
+          <Button
+            variant="outlined"
+            disabled={valueAliasApplyBusy || valueAliasGroups.length === 0}
+            onClick={() => void handleApplyValueAliases()}
+          >
+            {valueAliasApplyBusy ? <CircularProgress size={16} /> : "Primijeni mape na postojeće"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={mappingDialog.open} onClose={() => setMappingDialog((d) => ({ ...d, open: false }))} maxWidth="sm" fullWidth>
         <DialogTitle>

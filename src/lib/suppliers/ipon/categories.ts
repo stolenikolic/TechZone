@@ -3,9 +3,9 @@ import {
   type SupplierCategorySource
 } from "lib/suppliers/supplier-category-source";
 import { parseGroupIdFromListingUrl } from "./ipon-fetch";
+import { IPON_SUPPLIER_ID } from "./constants";
 
-/** Red u `suppliers` (seed). */
-export const IPON_SUPPLIER_ID = "a10f40b1-1c98-462d-81e8-47c1bef989db";
+export { IPON_SUPPLIER_ID };
 
 /**
  * Jedan zapis = jedna iPon listing kategorija za sync.

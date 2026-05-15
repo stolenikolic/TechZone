@@ -19,6 +19,8 @@ import {
   buildAttributeSlugResolver,
   loadCategoryAttributeSlugs
 } from "lib/suppliers/registry";
+import { applyAttributeValueAlias } from "lib/attributes/attribute-value-alias";
+import { loadAttributeValueAliases } from "lib/attributes/load-attribute-value-aliases";
 import { mapSpecNameToSlug } from "lib/suppliers/ipon/scrapeDetails";
 import type { SpecSnapshot } from "lib/suppliers/shared/spec-snapshot";
 
@@ -221,9 +223,8 @@ function safeSpecCell(v: unknown): string {
 async function resolveAttributeValue(
   slug: string,
   suppliers: ProductEnrichmentRow["suppliers"],
-  categoryId: string | null,
   mappingsBySupplier: Map<string, ReturnType<typeof buildAttributeSlugResolver>>
-): Promise<string | null> {
+): Promise<{ value: string; supplierId: string } | null> {
   for (const sup of suppliers) {
     const resolver = mappingsBySupplier.get(sup.supplierId);
     if (!resolver) continue;
@@ -237,7 +238,7 @@ async function resolveAttributeValue(
       const value = safeSpecCell(row.value).trim();
       if (!value) continue;
       const resolvedSlug = resolver(name);
-      if (resolvedSlug === slug) return value;
+      if (resolvedSlug === slug) return { value, supplierId: sup.supplierId };
     }
   }
   return null;
@@ -360,6 +361,10 @@ export async function runEnrichment(options?: RunEnrichmentOptions): Promise<Enr
         }
 
         const slugToId = await loadSlugToAttributeId(supabase, slugs);
+        const attributeIds = slugs
+          .map((slug) => slugToId.get(slug))
+          .filter((id): id is string => Boolean(id));
+        const aliasesByAttributeId = await loadAttributeValueAliases(supabase, attributeIds);
         const existingIds = overwrite ? new Set<string>() : await loadExistingAttributeIds(supabase, product.productId);
 
         // Per-product resolvers scoped to this product's category
@@ -380,8 +385,11 @@ export async function runEnrichment(options?: RunEnrichmentOptions): Promise<Enr
           if (!overwrite && existingIds.has(attributeId)) continue;
           if (!overwrite && manualJsonHasValue(product.attributesJson, slug)) continue;
 
-          const value = await resolveAttributeValue(slug, product.suppliers, product.categoryId, resolvers);
-          if (value) {
+          const resolved = await resolveAttributeValue(slug, product.suppliers, resolvers);
+          if (resolved) {
+            const aliasRows = aliasesByAttributeId.get(attributeId) ?? [];
+            const value =
+              applyAttributeValueAlias(resolved.value, aliasRows, resolved.supplierId) ?? resolved.value;
             await writeProductAttribute(supabase, product.productId, attributeId, value);
             patch[slug] = value;
             attributesWritten += 1;

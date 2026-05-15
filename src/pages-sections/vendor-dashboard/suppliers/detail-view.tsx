@@ -25,6 +25,7 @@ import TableRow from "@mui/material/TableRow";
 import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { IPON_SUPPLIER_ID } from "lib/suppliers/ipon/constants";
 
 type Supplier = {
   id: string;
@@ -101,7 +102,11 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
   const [configRows, setConfigRows] = useState<ConfigRow[]>([]);
 
   const [busy, setBusy] = useState(false);
+  const [categoryImportRowId, setCategoryImportRowId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+
+  const isIponSupplier = supplierId === IPON_SUPPLIER_ID;
 
   const [openCatModal, setOpenCatModal] = useState(false);
   const [openMappingModal, setOpenMappingModal] = useState(false);
@@ -228,6 +233,40 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
       setActionError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleImportCategory = async (row: SupplierCategoryRow) => {
+    if (!row.listingUrl?.trim()) {
+      setActionError("Postavi Listing URL za ovaj red prije importa.");
+      return;
+    }
+    setCategoryImportRowId(row.id);
+    setActionError(null);
+    setActionNotice(null);
+    try {
+      const res = await fetch(`/api/admin/suppliers/${supplierId}/categories/${row.id}/import`, {
+        method: "POST"
+      });
+      const json = (await res.json()) as {
+        error?: string;
+        result?: {
+          imported?: number;
+          updated?: number;
+          deactivated?: number;
+          summary?: { category_name?: string };
+        };
+      };
+      if (!res.ok || json.error) throw new Error(json.error ?? "Import nije uspio.");
+      const r = json.result;
+      const label = r?.summary?.category_name ?? row.category?.name ?? "kategorija";
+      setActionNotice(
+        `iPon import (${label}): uvezeno ${r?.imported ?? 0}, ažurirano ${r?.updated ?? 0}, deaktivirano ponuda ${r?.deactivated ?? 0}.`
+      );
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setCategoryImportRowId(null);
     }
   };
 
@@ -399,10 +438,24 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
         <Tab value="settings" label="Settings" />
       </Tabs>
 
+      {actionNotice ? (
+        <Typography color="success.main" sx={{ mb: 2 }}>
+          {actionNotice}
+        </Typography>
+      ) : null}
+
       {tab === "categories" && (
         <Card sx={{ p: 0 }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ p: 2 }}>
-            <Typography variant="subtitle1">Kategorije ovog dobavljača</Typography>
+            <Box>
+              <Typography variant="subtitle1">Kategorije ovog dobavljača</Typography>
+              {isIponSupplier ? (
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Pun iPon import (jobs) koristi redove s Active=yes. „Import sada” uvijek samo taj listing;
+                  deaktivacija ponuda samo u toj internoj kategoriji.
+                </Typography>
+              ) : null}
+            </Box>
             <Button variant="contained" size="small" onClick={() => setOpenCatModal(true)} disabled={busy}>
               Dodaj kategoriju
             </Button>
@@ -415,13 +468,14 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
                 <TableCell>Source key</TableCell>
                 <TableCell>Listing URL</TableCell>
                 <TableCell>Active</TableCell>
-                <TableCell />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {supplierCategories.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6}>
+                    {isIponSupplier ? <TableCell align="right">Import</TableCell> : null}
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {supplierCategories.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={isIponSupplier ? 7 : 6}>
                     <Typography align="center" sx={{ py: 2 }} color="text.secondary">
                       Nema kategorija (hardcoded fallback i dalje radi).
                     </Typography>
@@ -439,6 +493,23 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
                     <TableCell>
                       <Chip size="small" label={row.isActive ? "yes" : "no"} color={row.isActive ? "success" : "default"} />
                     </TableCell>
+                    {isIponSupplier ? (
+                      <TableCell align="right">
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="secondary"
+                          disabled={busy || categoryImportRowId != null || !row.listingUrl?.trim()}
+                          onClick={() => void handleImportCategory(row)}
+                        >
+                          {categoryImportRowId === row.id ? (
+                            <CircularProgress size={16} color="inherit" />
+                          ) : (
+                            "Import sada"
+                          )}
+                        </Button>
+                      </TableCell>
+                    ) : null}
                     <TableCell align="right">
                       <Button color="error" size="small" onClick={() => void handleDeleteCategory(row.id)} disabled={busy}>
                         Obriši

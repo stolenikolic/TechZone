@@ -485,6 +485,9 @@ export type IponImportProductsResult = {
     prices_aggregated: number;
     aggregate_batches: number;
     categories_processed: number;
+    single_category?: boolean;
+    category_name?: string;
+    internal_category_id?: string;
     aggregate_error?: string;
     aggregate_warnings?: string[];
   };
@@ -646,28 +649,97 @@ function resolveListingUrlForSupplierGroup(supplierCategoryId: number): string {
   return hit?.url ?? `https://iponcomp.com/shop/group/${supplierCategoryId}`;
 }
 
+export type SupplierCategoryImportInput = {
+  internalCategoryId: string;
+  listingUrl: string;
+  supplierCategoryKey?: string | null;
+  /** Label za log / job summary (npr. ime interne kategorije). */
+  name?: string;
+};
+
+/** Gradi `IponCategory` iz reda `supplier_categories` (admin supplier UI). */
+export function buildIponCategoryFromSupplierRow(input: SupplierCategoryImportInput): IponCategory {
+  const url = input.listingUrl.trim();
+  if (!url) {
+    throw new Error("Listing URL je obavezan za iPon import ove kategorije.");
+  }
+  let supplierCategoryId: number | undefined;
+  const key = input.supplierCategoryKey?.trim();
+  if (key) {
+    const n = Number.parseInt(key, 10);
+    if (Number.isFinite(n)) supplierCategoryId = n;
+  }
+  return {
+    name: input.name ?? `category-${input.internalCategoryId.slice(0, 8)}`,
+    url,
+    internalCategoryId: input.internalCategoryId,
+    supplierCategoryId
+  };
+}
+
+/**
+ * Ručni import jedne kategorije (jedan red supplier_categories).
+ * Ne mijenja ponašanje `runIponImportProducts` (pun sync svih aktivnih redova).
+ */
+export async function runIponImportForSupplierCategory(
+  input: SupplierCategoryImportInput
+): Promise<IponImportProductsResult> {
+  const cat = buildIponCategoryFromSupplierRow(input);
+  const supabase = createSupabaseServiceClient();
+  const jar = new Map<string, string>();
+  const r = await importIponCategory(supabase, cat, jar);
+  const agg = await aggregatePrices();
+
+  console.log("[iPon import] Jedna kategorija završena.", {
+    category: cat.name,
+    imported: r.imported,
+    updated: r.updated,
+    deactivated: r.deactivated,
+    pricesUpdated: agg.updated
+  });
+
+  return {
+    success: !agg.error,
+    imported: r.imported,
+    updated: r.updated,
+    deactivated: r.deactivated,
+    pricesAggregated: agg.updated,
+    categoriesProcessed: 1,
+    summary: {
+      imported: r.imported,
+      updated: r.updated,
+      deactivated_offers: r.deactivated,
+      prices_aggregated: agg.updated,
+      aggregate_batches: agg.batches,
+      categories_processed: 1,
+      single_category: true,
+      category_name: cat.name,
+      internal_category_id: cat.internalCategoryId,
+      ...(agg.error ? { aggregate_error: agg.error } : {}),
+      ...(agg.warnings?.length ? { aggregate_warnings: agg.warnings } : {})
+    }
+  };
+}
+
 /** Za API rute — jedna kategorija, isti HTTP import kao `runIponImportProducts`. */
 export async function importCategory(
   supplierCategoryId: number,
   internalCategoryId: string
 ): Promise<ImportCategoryResult> {
   const url = resolveListingUrlForSupplierGroup(supplierCategoryId);
-  const cat: IponCategory = {
-    name: `group-${supplierCategoryId}`,
-    url,
-    internalCategoryId
-  };
-  const supabase = createSupabaseServiceClient();
-  const jar = new Map<string, string>();
-  const r = await importIponCategory(supabase, cat, jar);
-  const agg = await aggregatePrices();
+  const result = await runIponImportForSupplierCategory({
+    internalCategoryId,
+    listingUrl: url,
+    supplierCategoryKey: String(supplierCategoryId),
+    name: `group-${supplierCategoryId}`
+  });
   return {
-    success: !agg.error,
-    imported: r.imported,
-    updated: r.updated,
-    deactivated: r.deactivated,
+    success: result.success,
+    imported: result.imported,
+    updated: result.updated,
+    deactivated: result.deactivated,
     detailEnrichmentEnabled: false,
-    pricesAggregated: agg.updated
+    pricesAggregated: result.pricesAggregated
   };
 }
 

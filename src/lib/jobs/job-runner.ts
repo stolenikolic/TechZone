@@ -18,7 +18,8 @@ export type JobType =
   | "pcx_import"
   | "aggregate_prices"
   | "auto_match"
-  | "enrichment";
+  | "enrichment"
+  | "apply_value_aliases";
 
 export type JobStatus = "running" | "success" | "failed" | "partial";
 

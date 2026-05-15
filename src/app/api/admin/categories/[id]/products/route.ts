@@ -66,7 +66,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         }
       ])
     );
-    const pickIds = [...topPickMap.keys()];
+    const pickIds = Array.from(topPickMap.keys());
 
     let featuredRows: ProductRow[] = [];
     if (pickIds.length > 0) {
