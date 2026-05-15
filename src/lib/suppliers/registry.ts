@@ -50,6 +50,7 @@ type CacheEntry<T> = {
 const categoryCache = new Map<string, CacheEntry<RegistryCategory[]>>();
 const mappingsCache = new Map<string, CacheEntry<AttributeMappingRow[]>>();
 const configCache = new Map<string, CacheEntry<Record<string, unknown>>>();
+const categorySlugCache = new Map<string, CacheEntry<string[]>>();
 
 function now(): number {
   return Date.now();
@@ -84,6 +85,7 @@ export function invalidateRegistryCaches(supplierId?: string): void {
     categoryCache.clear();
     mappingsCache.clear();
     configCache.clear();
+    categorySlugCache.clear();
     return;
   }
   categoryCache.delete(supplierId);
@@ -327,6 +329,52 @@ export async function mapSourceFieldToAttributeSlug(
     return options.fallback(sourceName);
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Category attribute slugs
+// ---------------------------------------------------------------------------
+
+/**
+ * Vraća listu attribute slugova vezanih za kategoriju (iz category_attributes JOIN attributes).
+ * Koristi se u enrichment job-u i u iPon scrape queue-u umjesto hardkodiranog
+ * CATEGORY_SCRAPE_CONFIG. Cache po categoryId (isti TTL kao ostale keševe).
+ */
+export async function loadCategoryAttributeSlugs(
+  categoryId: string,
+  options?: RegistryOptions
+): Promise<string[]> {
+  const ttlMs = options?.ttlMs ?? DEFAULT_TTL_MS;
+  const cached = readCache(categorySlugCache, categoryId);
+  if (cached) return cached;
+
+  const supabase = getSupabase(options);
+  if (!supabase) {
+    writeCache(categorySlugCache, categoryId, [], ttlMs);
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("category_attributes")
+    .select("attributes(slug)")
+    .eq("category_id", categoryId)
+    .order("sort_order", { ascending: true });
+
+  if (error) {
+    console.warn("[registry] loadCategoryAttributeSlugs DB error:", error.message);
+    writeCache(categorySlugCache, categoryId, [], ttlMs);
+    return [];
+  }
+
+  const slugs: string[] = ((data ?? []) as Array<{ attributes: { slug: string } | { slug: string }[] | null }>)
+    .map((r) => {
+      const a = Array.isArray(r.attributes) ? r.attributes[0] : r.attributes;
+      return a?.slug ?? "";
+    })
+    .filter(Boolean);
+
+  writeCache(categorySlugCache, categoryId, slugs, ttlMs);
+  return slugs;
 }
 
 // ---------------------------------------------------------------------------

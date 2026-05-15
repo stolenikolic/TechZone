@@ -70,6 +70,9 @@ async function ensureUniqueProductSlug(
   }
 }
 
+/** PostgREST .in() with hundreds of UUIDs truncates/fails — chunk reads and updates. */
+const SUPPLIER_PRODUCTS_IN_CHUNK = 100;
+
 async function deactivateInactiveIponInCategory(
   supabase: SupabaseClient,
   internalCategoryId: string,
@@ -86,35 +89,75 @@ async function deactivateInactiveIponInCategory(
   }
 
   const productIds = catProducts.map((p) => p.id);
-  const { data: sprows, error: sErr } = await supabase
-    .from("supplier_products")
-    .select("supplier_product_id, product_id")
-    .eq("supplier_id", IPON_SUPPLIER_ID)
-    .in("product_id", productIds);
+  const sprows: Array<{ supplier_product_id: string; product_id: string }> = [];
 
-  if (sErr || !sprows) {
-    if (sErr) console.error("[iPon] supplier_products:", sErr.message);
-    return 0;
+  for (let i = 0; i < productIds.length; i += SUPPLIER_PRODUCTS_IN_CHUNK) {
+    const chunk = productIds.slice(i, i + SUPPLIER_PRODUCTS_IN_CHUNK);
+    const { data, error: sErr } = await supabase
+      .from("supplier_products")
+      .select("supplier_product_id, product_id")
+      .eq("supplier_id", IPON_SUPPLIER_ID)
+      .in("product_id", chunk);
+
+    if (sErr) {
+      console.error("[iPon] supplier_products (deactivate scan):", sErr.message);
+      return 0;
+    }
+    if (data?.length) {
+      sprows.push(...(data as Array<{ supplier_product_id: string; product_id: string }>));
+    }
   }
 
   const staleSupplierProductIds = sprows
-    .filter((row) => !fetchedSupplierIds.has(row.supplier_product_id))
+    .filter((row) => !fetchedSupplierIds.has(String(row.supplier_product_id)))
     .map((row) => row.supplier_product_id);
 
   if (staleSupplierProductIds.length === 0) return 0;
 
-  const { error: uErr } = await supabase
+  const updatedAt = new Date().toISOString();
+  let deactivated = 0;
+
+  for (let i = 0; i < staleSupplierProductIds.length; i += SUPPLIER_PRODUCTS_IN_CHUNK) {
+    const chunk = staleSupplierProductIds.slice(i, i + SUPPLIER_PRODUCTS_IN_CHUNK);
+    const { error: uErr } = await supabase
+      .from("supplier_products")
+      .update({ is_active: false, updated_at: updatedAt })
+      .eq("supplier_id", IPON_SUPPLIER_ID)
+      .in("supplier_product_id", chunk);
+
+    if (uErr) {
+      console.error("[iPon] deactivate offers:", uErr.message);
+      return deactivated;
+    }
+    deactivated += chunk.length;
+  }
+
+  if (deactivated > 0) {
+    console.log(
+      `[iPon import] Deaktivirano ${deactivated} zastarjelih iPon ponuda (nema na API listi, kategorija ${internalCategoryId}).`
+    );
+  }
+
+  return deactivated;
+}
+
+/** Jedan aktivan iPon offer po masteru — stari supplier_product_id ostaje ako se iPon ID promijeni. */
+async function deactivateOtherIponOffersForProduct(
+  supabase: SupabaseClient,
+  productId: string,
+  keepSupplierProductId: string
+): Promise<void> {
+  const { error } = await supabase
     .from("supplier_products")
     .update({ is_active: false, updated_at: new Date().toISOString() })
     .eq("supplier_id", IPON_SUPPLIER_ID)
-    .in("supplier_product_id", staleSupplierProductIds);
+    .eq("product_id", productId)
+    .eq("is_active", true)
+    .neq("supplier_product_id", keepSupplierProductId);
 
-  if (uErr) {
-    console.error("[iPon] deactivate offers:", uErr.message);
-    return 0;
+  if (error) {
+    console.warn("[iPon] deactivateOtherIponOffersForProduct:", error.message);
   }
-
-  return staleSupplierProductIds.length;
 }
 
 function normalizeListItem(raw: Record<string, unknown>): IponProductItem | null {
@@ -193,6 +236,7 @@ async function upsertIponListItem(
       throw new Error(`supplier_products update failed: ${upSp.error.message}`);
     }
 
+    await deactivateOtherIponOffersForProduct(supabase, existing.product_id, supplierProductId);
     return "updated";
   }
 
@@ -241,6 +285,7 @@ async function upsertIponListItem(
       throw new Error(`supplier_products autolink upsert failed: ${upsertLinkedError.message}`);
     }
 
+    await deactivateOtherIponOffersForProduct(supabase, match.productId, supplierProductId);
     return "updated";
   }
 
@@ -349,6 +394,8 @@ async function importIponCategory(
   let imported = 0;
   let updated = 0;
   let page = 1;
+  let apiTotal: number | null = null;
+  let skippedUnparseable = 0;
 
   for (;;) {
     const res = await fetchIponProductDataPage(jar, cat.url, groupId, page);
@@ -377,7 +424,8 @@ async function importIponCategory(
     const items = Array.isArray(rawItems) ? rawItems : [];
 
     if (page === 1 && rec && typeof rec.total === "number") {
-      console.log("[iPon import] Ukupno u kategoriji (API total):", rec.total);
+      apiTotal = rec.total;
+      console.log("[iPon import] Ukupno u kategoriji (API total):", apiTotal);
     }
 
     if (items.length === 0) {
@@ -385,6 +433,11 @@ async function importIponCategory(
     }
 
     console.log("[iPon import] Stranica", page, "—", items.length, "stavki");
+
+    for (const raw of items) {
+      if (!raw || typeof raw !== "object") continue;
+      if (!normalizeListItem(raw as Record<string, unknown>)) skippedUnparseable += 1;
+    }
 
     const batch = await upsertItemsForCategory(supabase, cat, items);
     imported += batch.imported;
@@ -404,6 +457,15 @@ async function importIponCategory(
     if (rec.error) {
       console.warn("[iPon] reconcile_products_is_active_from_supplier_offers:", rec.error);
     }
+  }
+
+  console.log(
+    `[iPon import] Sažetak ${cat.name}: API total=${apiTotal ?? "?"}, fetchedIds=${fetchedIds.size}, preskočeno (bez cijene)=${skippedUnparseable}, deaktivirano=${deactivated}`
+  );
+  if (apiTotal != null && fetchedIds.size !== apiTotal) {
+    console.warn(
+      `[iPon import] fetchedIds (${fetchedIds.size}) ≠ API total (${apiTotal}) — razlika je obično stavke bez cijene ili dupli ID na listi.`
+    );
   }
 
   return { imported, updated, deactivated };

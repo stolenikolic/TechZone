@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 import { Geist } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 
@@ -40,7 +40,7 @@ export default function RootLayout({ children, modal }: RootLayoutProps) {
           <SettingsProvider>
             <ThemeProvider>
               <RTL>
-                <LastNonCartRouteTracker />
+                <Suspense fallback={null}><LastNonCartRouteTracker /></Suspense>
                 {modal}
                 {children}
               </RTL>

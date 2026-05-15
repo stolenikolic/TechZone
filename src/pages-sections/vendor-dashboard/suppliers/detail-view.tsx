@@ -35,6 +35,7 @@ type Supplier = {
   defaultCurrency: string | null;
   createsMasterProducts: boolean;
   isActive: boolean;
+  enrichmentPriority: number;
 };
 
 type CategoryOption = { id: string; name: string; slug: string };
@@ -188,7 +189,8 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
           baseUrl: supplier.baseUrl,
           defaultCurrency: supplier.defaultCurrency,
           createsMasterProducts: supplier.createsMasterProducts,
-          isActive: supplier.isActive
+          isActive: supplier.isActive,
+          enrichmentPriority: supplier.enrichmentPriority
         })
       });
       const json = (await res.json()) as { item?: Supplier; error?: string };
@@ -599,6 +601,15 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
                 />
               }
               label="Aktivan"
+            />
+            <TextField
+              size="small"
+              type="number"
+              label="Enrichment priority (manji = viši prioritet)"
+              helperText="iPon = 10, PCX = 50. Koristi se u waterfall enrichment job-u."
+              value={supplier.enrichmentPriority}
+              onChange={(e) => setSupplier({ ...supplier, enrichmentPriority: Math.max(1, Number(e.target.value)) })}
+              inputProps={{ min: 1, step: 1 }}
             />
             <Stack direction="row" spacing={1}>
               <Button variant="contained" onClick={() => void handleSaveSettings()} disabled={busy}>

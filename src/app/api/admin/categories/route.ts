@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { normalizeCategorySlug } from "lib/normalize-slug";
 import { revalidateCategorySurfaces } from "lib/revalidate-categories";
 import { createSupabaseServiceClient } from "utils/supabase";
 
@@ -11,16 +12,6 @@ type CategoryRow = {
   selling_margin_default: number | null;
   created_at: string;
 };
-
-function normalizeSlug(input: string): string {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
 
 export async function GET() {
   try {
@@ -88,7 +79,7 @@ export async function POST(request: Request) {
     const name = body.name?.trim() ?? "";
     if (!name) return NextResponse.json({ error: "Name is required." }, { status: 400 });
 
-    const slug = normalizeSlug(body.slug && body.slug.trim().length > 0 ? body.slug : name);
+    const slug = normalizeCategorySlug(body.slug && body.slug.trim().length > 0 ? body.slug : name);
     if (!slug) return NextResponse.json({ error: "Slug is required." }, { status: 400 });
     const parentId = body.parentId ?? null;
     const imageUrl = body.imageUrl?.trim() || null;

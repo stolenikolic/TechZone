@@ -17,7 +17,8 @@ export type JobType =
   | "ipon_scrape_details"
   | "pcx_import"
   | "aggregate_prices"
-  | "auto_match";
+  | "auto_match"
+  | "enrichment";
 
 export type JobStatus = "running" | "success" | "failed" | "partial";
 

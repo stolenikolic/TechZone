@@ -8,13 +8,14 @@ function isAllowedFormula(f: string | null | undefined): boolean {
   return f === "ipon_huf" || f === "hungary_huf_alza_tax" || f === "domestic_custom";
 }
 
-/** PATCH /api/admin/suppliers/:id — body: { pricing_formula?: string | null, cost_adjustment_multiplier?: number } */
+/** PATCH /api/admin/suppliers/:id — body: { pricing_formula?, cost_adjustment_multiplier?, enrichment_priority? } */
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
     const body = (await request.json()) as {
       pricing_formula?: string | null;
       cost_adjustment_multiplier?: number;
+      enrichment_priority?: number;
     };
 
     const patch: Record<string, unknown> = {};
@@ -33,6 +34,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         return NextResponse.json({ error: "cost_adjustment_multiplier must be a positive number." }, { status: 400 });
       }
       patch.cost_adjustment_multiplier = m;
+    }
+
+    if ("enrichment_priority" in body) {
+      const p = body.enrichment_priority;
+      if (typeof p !== "number" || !Number.isFinite(p) || p < 1) {
+        return NextResponse.json({ error: "enrichment_priority must be a positive integer." }, { status: 400 });
+      }
+      patch.enrichment_priority = Math.round(p);
     }
 
     if (Object.keys(patch).length === 0) {

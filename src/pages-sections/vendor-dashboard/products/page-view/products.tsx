@@ -150,23 +150,31 @@ export default function ProductsPageView({ products }: Props) {
     }
   };
 
-  const counters = useMemo(
-    () => ({
+  const counters = useMemo(() => {
+    const needsAttributesProducts = adminProducts.filter(
+      (item) => item.masterStatus?.value === "needs_attributes"
+    );
+    return {
       all: adminProducts.length,
       ready: adminProducts.filter((item) => item.masterStatus?.value === "ready").length,
       unlinked: adminProducts.filter((item) => item.masterStatus?.value === "unlinked").length,
       linked: adminProducts.filter((item) => item.masterStatus?.value === "linked").length,
-      needs_attributes: adminProducts.filter((item) => item.masterStatus?.value === "needs_attributes").length
-    }),
-    [adminProducts]
-  );
+      /** Number of master products that miss ≥1 required category attribute (not a sum of missing fields). */
+      needs_attributes: needsAttributesProducts.length
+    };
+  }, [adminProducts]);
 
-  const quickFilters: { value: QuickFilter; label: string; count: number }[] = [
+  const quickFilters: { value: QuickFilter; label: string; count: number; countHint?: string }[] = [
     { value: "all", label: "All", count: counters.all },
     { value: "ready", label: "Ready", count: counters.ready },
     { value: "unlinked", label: "Unlinked", count: counters.unlinked },
     { value: "linked", label: "Linked", count: counters.linked },
-    { value: "needs_attributes", label: "Needs Attributes", count: counters.needs_attributes }
+    {
+      value: "needs_attributes",
+      label: "Needs attributes",
+      count: counters.needs_attributes,
+      countHint: "products"
+    }
   ];
 
   const categoryTree = useMemo(() => {
@@ -312,6 +320,11 @@ export default function ProductsPageView({ products }: Props) {
                 {item.label}
               </Typography>
               <Typography variant="h4">{item.count}</Typography>
+              {item.countHint ? (
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
+                  {item.countHint} — each row counts once
+                </Typography>
+              ) : null}
             </Card>
           </Grid>
         ))}

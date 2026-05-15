@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
 import { loadTopPickMapByCategory, type CategoryTopPick } from "lib/category-top-picks";
 import { getEffectivePrice } from "lib/effective-price";
+import {
+  fetchShopVisibleProductsForCategory,
+  isShopVisibleProduct,
+  shopVisibleProductIds
+} from "lib/shop-category-products";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type DbProduct = {
@@ -274,6 +279,8 @@ async function handleCategoryProducts(
     );
   }
   const topPickMap = await loadTopPickMapByCategory(category.id);
+  const visibleProducts = await fetchShopVisibleProductsForCategory(supabase, category.id);
+  const categoryProductIds = shopVisibleProductIds(visibleProducts);
 
   // Load category filter attributes: which slugs are valid for this category
   const { data: caRows } = await supabase
@@ -308,13 +315,9 @@ async function handleCategoryProducts(
   const brands = parseListParam(brandsParam);
   let brandFilterNames: string[] | null = null;
   if (brands?.length) {
-    const { data: brandRows } = await supabase
-      .from("products")
-      .select("brand")
-      .eq("category_id", category.id)
-      .eq("is_active", true)
-      .not("brand", "is", null);
-    const distinctNames = Array.from(new Set((brandRows ?? []).map((r) => r.brand).filter((n): n is string => n != null)));
+    const distinctNames = Array.from(
+      new Set(visibleProducts.map((r) => r.brand).filter((n): n is string => n != null && n !== ""))
+    );
     brandFilterNames = distinctNames.filter((name) =>
       brands.includes(name.toLowerCase().replace(/\s+/g, "-"))
     );
@@ -331,12 +334,16 @@ async function handleCategoryProducts(
 
   // Attribute filters: for each param key that is an attribute slug, apply filter
   let productIdFilter: string[] | null = null;
-  const { data: categoryProducts } = await supabase
-    .from("products")
-    .select("id")
-    .eq("category_id", category.id)
-    .eq("is_active", true);
-  const categoryProductIds = (categoryProducts ?? []).map((p) => p.id);
+
+  if (categoryProductIds.length === 0) {
+    return NextResponse.json({
+      category,
+      products: [],
+      total: 0,
+      page,
+      totalPages: 0
+    });
+  }
 
   if (categoryProductIds.length > 0 && attributeIdBySlug.size > 0) {
     const attributeSets: Set<string>[] = [];
@@ -436,7 +443,9 @@ async function handleCategoryProducts(
       const chunk = productIdFilter.slice(i, i + PRODUCT_IDS_CHUNK_SIZE);
       let chunkQuery = supabase
         .from("products")
-        .select("id, name, slug, description, brand, main_image, price, custom_price, created_at")
+        .select(
+          "id, name, slug, description, brand, main_image, price, custom_price, created_at, is_active"
+        )
         .eq("category_id", category.id)
         .eq("is_active", true)
         .in("id", chunk);
@@ -452,17 +461,29 @@ async function handleCategoryProducts(
           { status: 500 }
         );
       }
-      candidateRows.push(...((chunkRows ?? []) as DbProduct[]));
+      candidateRows.push(
+        ...((chunkRows ?? []) as Array<DbProduct & { is_active?: boolean }>).filter((row) =>
+          isShopVisibleProduct({
+            id: row.id,
+            brand: row.brand,
+            price: row.price ?? null,
+            custom_price: row.custom_price ?? null,
+            is_active: row.is_active ?? true
+          })
+        )
+      );
     }
   } else {
-    let fetchOffset = 0;
-    while (true) {
+    for (let i = 0; i < categoryProductIds.length; i += PRODUCT_IDS_CHUNK_SIZE) {
+      const chunk = categoryProductIds.slice(i, i + PRODUCT_IDS_CHUNK_SIZE);
       let pageQuery = supabase
         .from("products")
-        .select("id, name, slug, description, brand, main_image, price, custom_price, created_at")
+        .select(
+          "id, name, slug, description, brand, main_image, price, custom_price, created_at, is_active"
+        )
         .eq("category_id", category.id)
         .eq("is_active", true)
-        .range(fetchOffset, fetchOffset + LIMIT - 1);
+        .in("id", chunk);
 
       if (brandFilterNames?.length) {
         pageQuery = pageQuery.in("brand", brandFilterNames);
@@ -476,17 +497,24 @@ async function handleCategoryProducts(
         );
       }
 
-      const rows = (pageRows ?? []) as DbProduct[];
-      if (rows.length === 0) break;
-      candidateRows.push(...rows);
-      fetchOffset += rows.length;
-      if (rows.length < LIMIT) break;
+      const rows = (pageRows ?? []) as Array<DbProduct & { is_active?: boolean }>;
+      candidateRows.push(
+        ...rows.filter((row) =>
+          isShopVisibleProduct({
+            id: row.id,
+            brand: row.brand,
+            price: row.price ?? null,
+            custom_price: row.custom_price ?? null,
+            is_active: row.is_active ?? true
+          })
+        )
+      );
     }
   }
 
   const filteredRows = candidateRows.filter((row) => {
     const effectivePrice = getEffectivePrice(row.custom_price, row.price);
-    if (!Number.isFinite(effectivePrice)) return false;
+    if (!Number.isFinite(effectivePrice) || effectivePrice <= 0) return false;
     if (priceMin != null && effectivePrice < priceMin) return false;
     if (priceMax != null && effectivePrice > priceMax) return false;
     return true;

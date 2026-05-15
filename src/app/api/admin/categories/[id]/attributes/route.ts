@@ -1,16 +1,7 @@
 import { NextResponse } from "next/server";
+import { normalizeAttributeSlug } from "lib/normalize-slug";
 import { revalidateCategorySurfaces } from "lib/revalidate-categories";
 import { createSupabaseServiceClient } from "utils/supabase";
-
-function normalizeSlug(input: string): string {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
 
 type CreateBody = {
   attributeId?: string;
@@ -57,7 +48,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     const name = body.name?.trim() ?? "";
     if (!name) return NextResponse.json({ error: "Attribute name is required." }, { status: 400 });
-    const slug = normalizeSlug(body.slug && body.slug.trim() ? body.slug : name);
+    const slug = normalizeAttributeSlug(body.slug && body.slug.trim() ? body.slug : name);
     if (!slug) return NextResponse.json({ error: "Attribute slug is required." }, { status: 400 });
     const displayType = body.displayType === "range" ? "range" : "checkbox";
     const unit = body.unit?.trim() || null;
@@ -162,7 +153,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     } else {
       const patch: Record<string, unknown> = {};
       if ("name" in body && body.name != null) patch.name = body.name.trim();
-      if ("slug" in body && body.slug != null) patch.slug = normalizeSlug(body.slug);
+      if ("slug" in body && body.slug != null) patch.slug = normalizeAttributeSlug(body.slug);
       if ("displayType" in body) patch.filter_display_type = body.displayType === "range" ? "range" : "checkbox";
       if ("unit" in body) patch.filter_unit = body.unit?.trim() || null;
       if ("step" in body) patch.filter_step = body.step ?? null;

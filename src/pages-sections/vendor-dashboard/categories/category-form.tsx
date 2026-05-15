@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 // MUI
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
+import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
@@ -15,6 +22,7 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Typography from "@mui/material/Typography";
 // GLOBAL CUSTOM COMPONENTS
 import DropZone from "components/DropZone";
 import FlexBox from "components/flex-box/flex-box";
@@ -59,6 +67,36 @@ type CategoryProductRow = {
   priority: number | null;
 };
 
+type SupplierOption = { id: string; name: string; code: string };
+
+type SpecFieldEntry = {
+  name: string;
+  exampleValue: string;
+  productCount: number;
+  mapping: {
+    id: string;
+    attributeId: string;
+    attributeName: string;
+    attributeSlug: string;
+    matchMode: string;
+    priority: number;
+  } | null;
+};
+
+type SpecFieldsMeta = {
+  categoryIdsInTree: number;
+  productsInTree: number;
+  supplierRowsWithSnapshot: number;
+};
+
+type MappingDialogState = {
+  open: boolean;
+  fieldName: string;
+  attributeId: string;
+  matchMode: "exact" | "contains" | "regex";
+  priority: number;
+};
+
 export default function CategoryForm({ mode }: Props) {
   const router = useRouter();
   const params = useParams<{ slug: string }>();
@@ -89,6 +127,18 @@ export default function CategoryForm({ mode }: Props) {
     [categories, mode, categoryId]
   );
 
+  const sortedCategoryProducts = useMemo(() => {
+    return [...products].sort((a, b) => {
+      if (a.highlighted !== b.highlighted) return a.highlighted ? -1 : 1;
+      if (a.highlighted && b.highlighted) {
+        const pa = a.priority ?? 100;
+        const pb = b.priority ?? 100;
+        if (pa !== pb) return pa - pb;
+      }
+      return 0;
+    });
+  }, [products]);
+
   const [newAttribute, setNewAttribute] = useState({
     name: "",
     slug: "",
@@ -96,6 +146,41 @@ export default function CategoryForm({ mode }: Props) {
     unit: "",
     step: "1"
   });
+
+  // Spec-fields mapping helper state
+  const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
+  const [specFields, setSpecFields] = useState<SpecFieldEntry[]>([]);
+  const [specFieldsMeta, setSpecFieldsMeta] = useState<SpecFieldsMeta | null>(null);
+  const [specFieldsLoading, setSpecFieldsLoading] = useState(false);
+  const [mappingDialog, setMappingDialog] = useState<MappingDialogState>({
+    open: false,
+    fieldName: "",
+    attributeId: "",
+    matchMode: "contains",
+    priority: 100
+  });
+  const [mappingBusy, setMappingBusy] = useState(false);
+  const [attributesSectionSaving, setAttributesSectionSaving] = useState(false);
+  const [enrichmentRunBusy, setEnrichmentRunBusy] = useState(false);
+
+  /** Atributi za mapping dijalog: samo oni vezani za ovu kategoriju (+ eventualno već mapirani izvan liste). */
+  const mappingAttributeChoices = useMemo(() => {
+    const rows = [...categoryAttributes].sort((a, b) => a.sort_order - b.sort_order);
+    if (mappingDialog.attributeId && !rows.some((r) => r.id === mappingDialog.attributeId)) {
+      const orphan = allAttributes.find((a) => a.id === mappingDialog.attributeId);
+      if (orphan) {
+        return [
+          ...rows,
+          {
+            ...orphan,
+            sort_order: 999999
+          } as CategoryAttributeRow
+        ];
+      }
+    }
+    return rows;
+  }, [categoryAttributes, allAttributes, mappingDialog.attributeId]);
 
   // HANDLE UPDATE NEW IMAGE VIA DROP ZONE
   const handleChangeDropZone = (files: File[]) => {
@@ -158,6 +243,42 @@ export default function CategoryForm({ mode }: Props) {
     await loadProducts(data.category.id, 1, "");
   };
 
+  const loadSuppliers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/suppliers", { cache: "no-store" });
+      const data = (await res.json()) as { items?: SupplierOption[] };
+      setSuppliers(data.items ?? []);
+    } catch {
+      // non-fatal
+    }
+  }, []);
+
+  const loadSpecFields = useCallback(
+    async (suppId: string) => {
+      if (!categoryId || !suppId) return;
+      setSpecFieldsLoading(true);
+      try {
+        const res = await fetch(
+          `/api/admin/categories/${categoryId}/spec-fields?supplierId=${encodeURIComponent(suppId)}`,
+          { cache: "no-store" }
+        );
+        const data = (await res.json()) as {
+          fields?: SpecFieldEntry[];
+          meta?: SpecFieldsMeta;
+          error?: string;
+        };
+        if (!res.ok || data.error) throw new Error(data.error ?? "Failed");
+        setSpecFields(data.fields ?? []);
+        setSpecFieldsMeta(data.meta ?? null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed loading spec fields.");
+      } finally {
+        setSpecFieldsLoading(false);
+      }
+    },
+    [categoryId]
+  );
+
   useEffect(() => {
     const load = async () => {
       setError(null);
@@ -184,7 +305,8 @@ export default function CategoryForm({ mode }: Props) {
       }
     };
     void load();
-  }, [mode, categorySlug]);
+    void loadSuppliers();
+  }, [mode, categorySlug, loadSuppliers]);
 
   const saveCategory = async () => {
     if (!name.trim()) {
@@ -297,28 +419,70 @@ export default function CategoryForm({ mode }: Props) {
     }
   };
 
-  const saveCategoryAttribute = async (row: CategoryAttributeRow) => {
-    if (!categoryId) return;
+  const saveAllCategoryAttributeEdits = async () => {
+    if (!categoryId || categoryAttributes.length === 0) return;
+    setAttributesSectionSaving(true);
+    setError(null);
     try {
-      const response = await fetch(`/api/admin/categories/${categoryId}/attributes`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "update",
-          attributeId: row.id,
-          name: row.name,
-          slug: row.slug,
-          displayType: row.filter_display_type === "range" ? "range" : "checkbox",
-          unit: row.filter_unit ?? null,
-          step: row.filter_step ?? null
+      await Promise.all(
+        categoryAttributes.map(async (row) => {
+          const response = await fetch(`/api/admin/categories/${categoryId}/attributes`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "update",
+              attributeId: row.id,
+              name: row.name,
+              slug: row.slug,
+              displayType: row.filter_display_type === "range" ? "range" : "checkbox",
+              unit: row.filter_unit ?? null,
+              step: row.filter_step ?? null
+            })
+          });
+          const data = (await response.json()) as { error?: string };
+          if (!response.ok || data.error) throw new Error(data.error ?? `Greška pri čuvanju: ${row.slug}`);
         })
-      });
-      const data = (await response.json()) as { error?: string };
-      if (!response.ok || data.error) throw new Error(data.error ?? "Attribute save failed.");
-      setNotice("Attribute updated.");
+      );
+      setNotice("Izmjene u tabeli filtera su sačuvane.");
       await loadCategoryAttributes(slug.trim() || categorySlug);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Attribute save failed.");
+      setError(err instanceof Error ? err.message : "Čuvanje filtera nije uspjelo.");
+    } finally {
+      setAttributesSectionSaving(false);
+    }
+  };
+
+  const runCategoryEnrichment = async () => {
+    if (!categoryId) return;
+    setEnrichmentRunBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/jobs/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobType: "enrichment",
+          enrichmentCategoryId: categoryId
+        })
+      });
+      const data = (await res.json()) as {
+        success?: boolean;
+        error?: string;
+        result?: { productsProcessed?: number; attributesWritten?: number; errors?: number };
+      };
+      if (!res.ok || data.error) throw new Error(data.error ?? "Enrichment job nije uspio.");
+      const r = data.result;
+      if (r && typeof r.productsProcessed === "number") {
+        setNotice(
+          `Enrichment završen: ${r.productsProcessed} proizvoda, ${r.attributesWritten ?? 0} vrijednosti upisano, greške: ${r.errors ?? 0}.`
+        );
+      } else {
+        setNotice("Enrichment job je završen.");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Enrichment nije uspio.");
+    } finally {
+      setEnrichmentRunBusy(false);
     }
   };
 
@@ -335,6 +499,63 @@ export default function CategoryForm({ mode }: Props) {
       await loadCategoryAttributes(slug.trim() || categorySlug);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Detach failed.");
+    }
+  };
+
+  const handleOpenMappingDialog = (field: SpecFieldEntry) => {
+    setMappingDialog({
+      open: true,
+      fieldName: field.name,
+      attributeId: field.mapping?.attributeId ?? "",
+      matchMode: (field.mapping?.matchMode as "exact" | "contains" | "regex") ?? "contains",
+      priority: field.mapping?.priority ?? 100
+    });
+  };
+
+  const handleSaveMapping = async () => {
+    if (!selectedSupplierId || !mappingDialog.attributeId) return;
+    setMappingBusy(true);
+    try {
+      const res = await fetch(`/api/admin/suppliers/${selectedSupplierId}/mappings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attributeId: mappingDialog.attributeId,
+          sourceFieldName: mappingDialog.fieldName,
+          matchMode: mappingDialog.matchMode,
+          priority: mappingDialog.priority,
+          internalCategoryId: categoryId,
+          isActive: true
+        })
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed");
+      setMappingDialog((d) => ({ ...d, open: false }));
+      await loadSpecFields(selectedSupplierId);
+      setNotice("Mapping sačuvan.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Mapping save failed.");
+    } finally {
+      setMappingBusy(false);
+    }
+  };
+
+  const handleDeleteMapping = async (mappingId: string) => {
+    if (!selectedSupplierId) return;
+    setMappingBusy(true);
+    try {
+      const res = await fetch(
+        `/api/admin/suppliers/${selectedSupplierId}/mappings?rowId=${encodeURIComponent(mappingId)}`,
+        { method: "DELETE" }
+      );
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok || data.error) throw new Error(data.error ?? "Failed");
+      await loadSpecFields(selectedSupplierId);
+      setNotice("Mapping obrisan.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Mapping delete failed.");
+    } finally {
+      setMappingBusy(false);
     }
   };
 
@@ -518,6 +739,9 @@ export default function CategoryForm({ mode }: Props) {
                 </Button>
               </Grid>
             </Grid>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Izmjene u kolonama ispod snimi jednim dugmetom. Redoslijed (Up/Down) se i dalje snima odmah po kliku.
+            </Typography>
             <Table size="small">
               <TableHead>
                 <TableRow>
@@ -527,7 +751,7 @@ export default function CategoryForm({ mode }: Props) {
                   <TableCell>Type</TableCell>
                   <TableCell>Unit</TableCell>
                   <TableCell>Step</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell align="right">Ukloni</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -635,26 +859,183 @@ export default function CategoryForm({ mode }: Props) {
                         />
                       </TableCell>
                       <TableCell align="right">
-                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                          <Button size="small" variant="outlined" onClick={() => void saveCategoryAttribute(attribute)}>
-                            Save
-                          </Button>
-                          <Button
-                            size="small"
-                            color="error"
-                            variant="outlined"
-                            onClick={() => void detachCategoryAttribute(attribute.id)}
-                          >
-                            Detach
-                          </Button>
-                        </Stack>
+                        <Button
+                          size="small"
+                          color="error"
+                          variant="outlined"
+                          onClick={() => void detachCategoryAttribute(attribute.id)}
+                        >
+                          Detach
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
                 )}
               </TableBody>
             </Table>
+            {categoryAttributes.length > 0 ? (
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} sx={{ mt: 2 }}>
+                <Button
+                  variant="contained"
+                  color="info"
+                  disabled={attributesSectionSaving}
+                  onClick={() => void saveAllCategoryAttributeEdits()}
+                >
+                  {attributesSectionSaving ? "Čuvam…" : "Sačuvaj izmjene filtera"}
+                </Button>
+              </Stack>
+            ) : null}
           </Stack>
+        </Card>
+      ) : null}
+
+      {mode === "edit" && categoryId ? (
+        <Card className="p-3">
+          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+            Attribute Mappings — pregled polja dobavljača
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Odaberi dobavljača da vidiš koja polja postoje u spec_snapshot za proizvode ove kategorije i
+            svih podkategorija. Zelena oznaka = polje je već mapirano na interni atribut.
+          </Typography>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} sx={{ mb: 2 }} flexWrap="wrap">
+            <TextField
+              select
+              size="small"
+              label="Dobavljač"
+              value={selectedSupplierId}
+              onChange={(e) => {
+                setSelectedSupplierId(e.target.value);
+                setSpecFields([]);
+                setSpecFieldsMeta(null);
+              }}
+              sx={{ minWidth: 200 }}
+            >
+              <MenuItem value="">— odaberi —</MenuItem>
+              {suppliers.map((s) => (
+                <MenuItem key={s.id} value={s.id}>
+                  {s.name} ({s.code})
+                </MenuItem>
+              ))}
+            </TextField>
+            <Button
+              variant="outlined"
+              size="small"
+              disabled={!selectedSupplierId || specFieldsLoading}
+              onClick={() => void loadSpecFields(selectedSupplierId)}
+            >
+              {specFieldsLoading ? <CircularProgress size={16} /> : "Učitaj polja"}
+            </Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              size="small"
+              disabled={enrichmentRunBusy}
+              onClick={() => void runCategoryEnrichment()}
+            >
+              {enrichmentRunBusy ? <CircularProgress size={16} color="inherit" /> : "Pokreni enrichment (ova kategorija)"}
+            </Button>
+          </Stack>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+            Enrichment puni atribute iz već sačuvanih snapshotova (bez novog skrejpa). Za cijeli katalog koristi i
+            /admin/jobs.
+          </Typography>
+
+          {specFields.length > 0 && (
+            <>
+              <Divider sx={{ mb: 2 }} />
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Polje (source_field_name)</TableCell>
+                    <TableCell>Primjer vrijednosti</TableCell>
+                    <TableCell align="right">Br. proizvoda</TableCell>
+                    <TableCell>Status mappinga</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {specFields.map((field) => (
+                    <TableRow key={field.name}>
+                      <TableCell>
+                        <Typography variant="body2" fontFamily="monospace">
+                          {field.name}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {field.exampleValue.length > 60
+                            ? field.exampleValue.slice(0, 60) + "…"
+                            : field.exampleValue}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">{field.productCount}</TableCell>
+                      <TableCell>
+                        {field.mapping ? (
+                          <Chip
+                            size="small"
+                            color="success"
+                            label={`→ ${field.mapping.attributeSlug} (${field.mapping.matchMode})`}
+                          />
+                        ) : (
+                          <Chip size="small" color="default" label="nije mapirano" />
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Stack direction="row" spacing={1} justifyContent="flex-end">
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={mappingBusy}
+                            onClick={() => handleOpenMappingDialog(field)}
+                          >
+                            {field.mapping ? "Uredi" : "Mapiraj"}
+                          </Button>
+                          {field.mapping && (
+                            <Button
+                              size="small"
+                              color="error"
+                              variant="outlined"
+                              disabled={mappingBusy}
+                              onClick={() => void handleDeleteMapping(field.mapping!.id)}
+                            >
+                              Briši
+                            </Button>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </>
+          )}
+
+          {specFields.length === 0 && selectedSupplierId && !specFieldsLoading && (
+            <Typography variant="body2" color="text.secondary" component="div">
+              {specFieldsMeta && specFieldsMeta.productsInTree === 0 ? (
+                <>
+                  U ovoj kategoriji i podkategorijama nema proizvoda (nijedan red u{" "}
+                  <code>products</code> sa odgovarajućim <code>category_id</code>). Zato nema ni polja iz
+                  snapshotova.
+                </>
+              ) : specFieldsMeta && specFieldsMeta.supplierRowsWithSnapshot === 0 ? (
+                <>
+                  Za ovog dobavljača nema vezanih <code>supplier_products</code> sa <code>spec_snapshot</code> za
+                  proizvode u ovom stablu kategorija (ili su ponude još bez <code>product_id</code>). Provjeri
+                  odabir dobavljača (npr. iPon vs PCX) i pokreni scrape ili import.
+                </>
+              ) : specFieldsMeta && specFieldsMeta.supplierRowsWithSnapshot > 0 ? (
+                <>
+                  Postoji {specFieldsMeta.supplierRowsWithSnapshot} snapshot red(ova), ali u{" "}
+                  <code>spec_snapshot.specs</code> nema parsabilnih parova ime/vrijednost (prazan niz ili
+                  neočekivan format).
+                </>
+              ) : (
+                <>Nema podataka za prikaz. Pokušaj ponovo „Učitaj polja“.</>
+              )}
+            </Typography>
+          )}
         </Card>
       ) : null}
 
@@ -693,12 +1074,12 @@ export default function CategoryForm({ mode }: Props) {
                 <TableRow>
                   <TableCell colSpan={5}>Loading...</TableCell>
                 </TableRow>
-              ) : products.length === 0 ? (
+              ) : sortedCategoryProducts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5}>No products in this category.</TableCell>
                 </TableRow>
               ) : (
-                products.map((product) => (
+                sortedCategoryProducts.map((product) => (
                   <TableRow key={product.id}>
                     <TableCell>{product.name}</TableCell>
                     <TableCell>{product.brand ?? "-"}</TableCell>
@@ -744,6 +1125,64 @@ export default function CategoryForm({ mode }: Props) {
           </Table>
         </Card>
       ) : null}
+
+      <Dialog open={mappingDialog.open} onClose={() => setMappingDialog((d) => ({ ...d, open: false }))} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          Mapping: <Typography component="span" fontFamily="monospace">{mappingDialog.fieldName}</Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Interni atribut (ova kategorija)"
+              value={mappingDialog.attributeId}
+              onChange={(e) => setMappingDialog((d) => ({ ...d, attributeId: e.target.value }))}
+            >
+              <MenuItem value="">— odaberi —</MenuItem>
+              {mappingAttributeChoices.map((a) => (
+                <MenuItem key={a.id} value={a.id}>
+                  {a.name} ({a.slug})
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Match mode"
+              value={mappingDialog.matchMode}
+              onChange={(e) =>
+                setMappingDialog((d) => ({ ...d, matchMode: e.target.value as "exact" | "contains" | "regex" }))
+              }
+            >
+              <MenuItem value="exact">exact</MenuItem>
+              <MenuItem value="contains">contains</MenuItem>
+              <MenuItem value="regex">regex</MenuItem>
+            </TextField>
+            <TextField
+              fullWidth
+              size="small"
+              type="number"
+              label="Priority (manji = viši prioritet)"
+              value={mappingDialog.priority}
+              onChange={(e) => setMappingDialog((d) => ({ ...d, priority: Number(e.target.value) }))}
+              inputProps={{ min: 1, step: 1 }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMappingDialog((d) => ({ ...d, open: false }))}>Otkaži</Button>
+          <Button
+            variant="contained"
+            disabled={mappingBusy || !mappingDialog.attributeId}
+            onClick={() => void handleSaveMapping()}
+          >
+            Sačuvaj
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Stack>
   );
 }

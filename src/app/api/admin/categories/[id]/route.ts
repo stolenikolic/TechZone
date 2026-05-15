@@ -1,18 +1,9 @@
 import { NextResponse } from "next/server";
+import { normalizeCategorySlug } from "lib/normalize-slug";
 import { revalidateCategorySurfaces } from "lib/revalidate-categories";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 export const dynamic = "force-dynamic";
-
-function normalizeSlug(input: string): string {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
@@ -55,7 +46,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       patch.name = name;
     }
     if ("slug" in body) {
-      const slug = normalizeSlug(body.slug ?? "");
+      const slug = normalizeCategorySlug(body.slug ?? "");
       if (!slug) return NextResponse.json({ error: "Slug is required." }, { status: 400 });
       patch.slug = slug;
     }

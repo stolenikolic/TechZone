@@ -33,10 +33,23 @@ function hasAttributesJson(value: Record<string, unknown> | null) {
   return Boolean(value && typeof value === "object" && Object.keys(value).length > 0);
 }
 
+type CategoryAttrReq = { attributeId: string; slug: string };
+
+/** Non-empty manual value in products.attributes JSON (admin / legacy). */
+function manualJsonHasValue(attrs: Record<string, unknown> | null, slug: string): boolean {
+  if (!attrs || typeof attrs !== "object") return false;
+  const v = attrs[slug];
+  if (typeof v === "string") return v.trim().length > 0;
+  if (typeof v === "number" && Number.isFinite(v)) return true;
+  if (typeof v === "boolean") return true;
+  return false;
+}
+
 function getMasterStatus(
   row: DbProduct,
   supplierOffers: number,
-  hasProductAttributes: boolean
+  categoryReqByCategoryId: Map<string, CategoryAttrReq[]>,
+  productAttributeIds: Map<string, Set<string>>
 ): MasterStatus {
   if (supplierOffers === 0) {
     return {
@@ -65,11 +78,38 @@ function getMasterStatus(
     };
   }
 
-  if (!hasAttributesJson(row.attributes) && !hasProductAttributes) {
+  const rawCategory = row.categories;
+  const category =
+    rawCategory == null ? null : Array.isArray(rawCategory) ? rawCategory[0] ?? null : rawCategory;
+  const required = category?.id ? categoryReqByCategoryId.get(category.id) ?? [] : [];
+  const presentIds = productAttributeIds.get(row.id) ?? new Set<string>();
+
+  const missingSlugSet = new Set<string>();
+  for (const req of required) {
+    const inTable = presentIds.has(req.attributeId);
+    const inJson = manualJsonHasValue(row.attributes, req.slug);
+    if (!inTable && !inJson) missingSlugSet.add(req.slug);
+  }
+  const missingSlugs = Array.from(missingSlugSet);
+
+  if (missingSlugs.length > 0) {
+    const preview = missingSlugs.slice(0, 14).join(", ");
     return {
       value: "needs_attributes",
       label: "needs attributes",
-      tooltip: "Basic product data is present, but master attributes/filter values are missing.",
+      tooltip: `Missing ${missingSlugs.length} category attribute(s): ${preview}${missingSlugs.length > 14 ? ", …" : ""}.`,
+      missing: missingSlugs,
+      supplierOffers
+    };
+  }
+
+  // Category has no rows in category_attributes: keep a light guard so totally empty masters still surface.
+  if (required.length === 0 && !hasAttributesJson(row.attributes) && presentIds.size === 0) {
+    return {
+      value: "needs_attributes",
+      label: "needs attributes",
+      tooltip:
+        "No category attribute template is configured for this category, and this product has no attribute values yet.",
       missing: ["attributes"],
       supplierOffers
     };
@@ -198,34 +238,65 @@ export async function GET() {
       if (page.length < supplierPageSize) break;
     }
 
-    const productsWithAttributes = new Set<string>();
+    const productAttributeIds = new Map<string, Set<string>>();
     let attributeOffset = 0;
     for (;;) {
       const { data: attributeRows, error: attributeError } = await supabase
         .from("product_attributes")
-        .select("product_id")
+        .select("product_id, attribute_id")
         .order("product_id", { ascending: true })
         .order("attribute_id", { ascending: true })
         .range(attributeOffset, attributeOffset + supplierPageSize - 1);
 
       if (attributeError) throw new Error(attributeError.message);
 
-      const page = (attributeRows ?? []) as { product_id: string | null }[];
+      const page = (attributeRows ?? []) as { product_id: string | null; attribute_id: string | null }[];
       if (page.length === 0) break;
 
       for (const row of page) {
-        if (row.product_id) productsWithAttributes.add(row.product_id);
+        if (!row.product_id || !row.attribute_id) continue;
+        if (!productAttributeIds.has(row.product_id)) productAttributeIds.set(row.product_id, new Set());
+        productAttributeIds.get(row.product_id)!.add(row.attribute_id);
       }
 
       attributeOffset += page.length;
       if (page.length < supplierPageSize) break;
     }
 
+    const categoryReqByCategoryId = new Map<string, CategoryAttrReq[]>();
+    const categoryIdSet = new Set<string>();
+    for (const row of rows) {
+      const rawCategory = row.categories;
+      const category =
+        rawCategory == null ? null : Array.isArray(rawCategory) ? rawCategory[0] ?? null : rawCategory;
+      if (category?.id) categoryIdSet.add(category.id);
+    }
+    const categoryIdList = Array.from(categoryIdSet);
+    const caChunk = 200;
+    for (let i = 0; i < categoryIdList.length; i += caChunk) {
+      const chunk = categoryIdList.slice(i, i + caChunk);
+      const { data: caRows, error: caError } = await supabase
+        .from("category_attributes")
+        .select("category_id, attribute_id, attributes(slug), sort_order")
+        .in("category_id", chunk)
+        .order("sort_order", { ascending: true });
+      if (caError) throw new Error(caError.message);
+      for (const r of caRows ?? []) {
+        const cid = r.category_id as string;
+        const aid = r.attribute_id as string;
+        const attrs = r.attributes as { slug: string } | { slug: string }[] | null;
+        const slug = Array.isArray(attrs) ? attrs[0]?.slug ?? "" : attrs?.slug ?? "";
+        if (!cid || !aid || !slug) continue;
+        if (!categoryReqByCategoryId.has(cid)) categoryReqByCategoryId.set(cid, []);
+        categoryReqByCategoryId.get(cid)!.push({ attributeId: aid, slug });
+      }
+    }
+
     return NextResponse.json(
       rows.map((row) => {
         const product = toProduct(
           row,
-          getMasterStatus(row, supplierCountByProduct.get(row.id) ?? 0, productsWithAttributes.has(row.id))
+          getMasterStatus(row, supplierCountByProduct.get(row.id) ?? 0, categoryReqByCategoryId, productAttributeIds)
         );
         const rawCategory = row.categories;
         const category = rawCategory == null ? null : Array.isArray(rawCategory) ? rawCategory[0] ?? null : rawCategory;

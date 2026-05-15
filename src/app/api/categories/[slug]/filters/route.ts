@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { getEffectivePrice } from "lib/effective-price";
+import {
+  fetchShopVisibleProductsForCategory,
+  shopVisibleProductIds
+} from "lib/shop-category-products";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type CategoryPayload = { id: string; name: string; slug: string };
@@ -114,7 +118,7 @@ function toAttributeMeta(row: AttributeRow): AttributeMeta {
 /**
  * Dynamic filters:
  * 1. category_attributes defines which attributes are filters for the category.
- * 2. product_attributes provides distinct values (only for products in the category).
+ * 2. product_attributes provides distinct values (only shop-visible masters in the category).
  * 3. Brand filter from products.brand. No hardcoded attribute names.
  */
 export async function GET(
@@ -137,34 +141,24 @@ export async function GET(
 
   const result: CategoryFiltersResponse = { filters: [] };
 
-  const { data: priceRows } = await supabase
-    .from("products")
-    .select("price, custom_price")
-    .eq("category_id", category.id)
-    .eq("is_active", true);
+  const visibleProducts = await fetchShopVisibleProductsForCategory(supabase, category.id);
 
-  const effectivePrices = (priceRows ?? [])
+  const effectivePrices = visibleProducts
     .map((row) => getEffectivePrice(row.custom_price, row.price))
-    .filter((value) => Number.isFinite(value));
+    .filter((value) => Number.isFinite(value) && value > 0);
   const priceMin = effectivePrices.length ? Math.min(...effectivePrices) : null;
   const priceMax = effectivePrices.length ? Math.max(...effectivePrices) : null;
   if (priceMin != null && priceMax != null && priceMin <= priceMax) {
     result.priceRange = { min: priceMin, max: priceMax };
   }
 
-  const { data: productRows } = await supabase
-    .from("products")
-    .select("id, brand")
-    .eq("category_id", category.id)
-    .eq("is_active", true);
-
-  const productIds = (productRows ?? []).map((p) => p.id);
+  const productIds = shopVisibleProductIds(visibleProducts);
   if (productIds.length === 0) {
     return NextResponse.json(result);
   }
 
   const brandSet = new Set<string>();
-  (productRows ?? []).forEach((r) => r.brand != null && r.brand !== "" && brandSet.add(r.brand));
+  visibleProducts.forEach((r) => r.brand != null && r.brand !== "" && brandSet.add(r.brand));
   if (brandSet.size > 0) {
     const brandValues = Array.from(brandSet).sort((a, b) => a.localeCompare(b));
     result.filters.push({ slug: "brand", name: "Brand", values: brandValues });

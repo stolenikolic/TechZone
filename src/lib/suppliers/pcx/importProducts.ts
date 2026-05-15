@@ -10,6 +10,7 @@ import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
 import { aggregatePrices, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { getSupplierCategories } from "lib/suppliers/registry";
+import { collectAdditionalProperty, type SpecRow, type SpecSnapshot } from "lib/suppliers/shared/spec-snapshot";
 import { PCX_CATEGORIES } from "./categories";
 
 const PCX_SUPPLIER_ID = "f4a8b2c0-9d1e-4f3a-bc5d-6e7f8091a2b3";
@@ -196,6 +197,8 @@ type PcxDetailParsed = {
   productName: string | null;
   /** Main product image URL → `raw_json.image_url`. */
   imageUrl: string | null;
+  /** Spec rows from JSON-LD additionalProperty — used for spec_snapshot. */
+  specRows: SpecRow[];
 };
 
 /**
@@ -290,6 +293,9 @@ function parseProductDetailHtml(html: string): PcxDetailParsed {
 
   const cikkszam = extractCikkszamFromPcxDetailHtml(html);
 
+  const specRows: SpecRow[] = [];
+  if (ld) collectAdditionalProperty(ld, specRows);
+
   return {
     mpn,
     ean,
@@ -297,7 +303,8 @@ function parseProductDetailHtml(html: string): PcxDetailParsed {
     cikkszam,
     ldSku,
     productName,
-    imageUrl
+    imageUrl,
+    specRows
   };
 }
 
@@ -356,6 +363,35 @@ let supabaseSingleton: SupabaseClient | null = null;
 function getSupabase(): SupabaseClient {
   if (!supabaseSingleton) supabaseSingleton = createSupabaseServiceClient();
   return supabaseSingleton;
+}
+
+/**
+ * Conditionally saves spec_snapshot for a PCX supplier_products row.
+ * Only writes if spec_snapshot IS NULL (first import). Non-fatal on error.
+ */
+async function maybeSavePcxSpecSnapshot(
+  supabase: SupabaseClient,
+  supplierProductId: string,
+  detail: PcxDetailParsed
+): Promise<void> {
+  try {
+    const snapshot: SpecSnapshot = {
+      mpn: detail.mpn,
+      ean: detail.ean,
+      factory_link: null,
+      specs: detail.specRows
+    };
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("supplier_products")
+      .update({ spec_snapshot: snapshot, specs_fetched_at: now, updated_at: now })
+      .eq("supplier_id", PCX_SUPPLIER_ID)
+      .eq("supplier_product_id", supplierProductId)
+      .is("spec_snapshot", null);
+    if (error) console.warn("[PCX] spec_snapshot save:", error.message);
+  } catch (err) {
+    console.warn("[PCX] spec_snapshot save unexpected:", err instanceof Error ? err.message : String(err));
+  }
 }
 
 export type PcxCategoryImportStats = {
@@ -508,6 +544,8 @@ export async function importCategory(category: (typeof PCX_CATEGORIES)[number]):
       if (upErr) {
         throw new Error(`[PCX] supplier_products upsert: ${upErr.message}`);
       }
+
+      await maybeSavePcxSpecSnapshot(supabase, supplierProductId, detail);
 
       stats.upserted += 1;
       remainingSlots -= 1;

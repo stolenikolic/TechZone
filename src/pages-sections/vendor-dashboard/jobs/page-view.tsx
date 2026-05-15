@@ -28,7 +28,8 @@ const JOB_TYPES = [
   "ipon_scrape_details",
   "pcx_import",
   "aggregate_prices",
-  "auto_match"
+  "auto_match",
+  "enrichment"
 ] as const;
 
 const STATUSES = ["running", "success", "failed", "partial"] as const;
@@ -204,20 +205,25 @@ export default function AdminJobsPageView() {
   }, []);
 
   const handleRunNow = useCallback(
-    async (jobType: string) => {
-      setRunBusy(jobType);
+    async (jobType: string, iponDrainQueue?: boolean) => {
+      setRunBusy(jobType + (iponDrainQueue ? ":drain" : ""));
       setActionMessage(null);
       try {
+        const body: Record<string, unknown> = { jobType };
+        if (jobType === "ipon_scrape_details" && iponDrainQueue) {
+          body.iponScrapeRunUntilQueueEmpty = true;
+        }
         const res = await fetch("/api/admin/jobs/run", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ jobType })
+          body: JSON.stringify(body)
         });
         const json = (await res.json()) as { success?: boolean; error?: string; runId?: string };
         if (!res.ok || json.error) {
           setActionMessage(`Greška: ${json.error ?? "Run failed"}`);
         } else {
-          setActionMessage(`Pokrenut ${jobType}${json.runId ? ` (runId=${json.runId})` : ""}.`);
+          const suffix = iponDrainQueue ? " (drain queue)" : "";
+          setActionMessage(`Pokrenut ${jobType}${suffix}${json.runId ? ` (runId=${json.runId})` : ""}.`);
           await loadList();
           await loadStats();
         }
@@ -375,14 +381,36 @@ export default function AdminJobsPageView() {
                   </TableCell>
                   <TableCell>{sch?.notes ?? "—"}</TableCell>
                   <TableCell align="right">
-                    <Button
-                      size="small"
-                      variant="contained"
-                      disabled={runBusy != null || Boolean(sch?.isPaused)}
-                      onClick={() => void handleRunNow(jt)}
-                    >
-                      {runBusy === jt ? "Pokrećem…" : "Run now"}
-                    </Button>
+                    {jt === "ipon_scrape_details" ? (
+                      <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap">
+                        <Button
+                          size="small"
+                          variant="contained"
+                          disabled={runBusy != null || Boolean(sch?.isPaused)}
+                          onClick={() => void handleRunNow(jt, false)}
+                        >
+                          {runBusy === jt ? "Pokrećem…" : "Run now"}
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          disabled={runBusy != null || Boolean(sch?.isPaused)}
+                          onClick={() => void handleRunNow(jt, true)}
+                          title="Više batch-eva dok red ne ostane prazan (HTTP limit po batch-u). Na hostu može isteći maxDuration."
+                        >
+                          {runBusy === `${jt}:drain` ? "Draining…" : "Drain queue"}
+                        </Button>
+                      </Stack>
+                    ) : (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        disabled={runBusy != null || Boolean(sch?.isPaused)}
+                        onClick={() => void handleRunNow(jt, false)}
+                      >
+                        {runBusy === jt ? "Pokrećem…" : "Run now"}
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               );
@@ -648,7 +676,7 @@ export default function AdminJobsPageView() {
                       disabled={runBusy != null}
                       onClick={() => {
                         closeDetail();
-                        void handleRunNow(detail.jobType);
+                        void handleRunNow(detail.jobType, false);
                       }}
                     >
                       Retry ({detail.jobType})
