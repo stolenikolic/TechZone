@@ -124,7 +124,10 @@ export async function syncAdminProductImages(
 
   const pathsToRemove = existingUrls
     .map((url) => storagePathFromPublicUrl(url, PRODUCT_IMAGES_BUCKET))
-    .filter((p): p is string => Boolean(p) && !finalPaths.has(p));
+    .filter((p): p is string => {
+      if (!p) return false;
+      return !finalPaths.has(p);
+    });
 
   await removeStoragePaths(supabase, PRODUCT_IMAGES_BUCKET, pathsToRemove);
 

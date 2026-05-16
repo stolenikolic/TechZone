@@ -180,7 +180,7 @@ async function loadExistingAttributeValuesBySlug(
   slugToId: Map<string, string>
 ): Promise<Map<string, string>> {
   const idToSlug = new Map<string, string>();
-  for (const [slug, id] of slugToId) idToSlug.set(id, slug);
+  slugToId.forEach((id, slug) => idToSlug.set(id, slug));
 
   const { data, error } = await supabase
     .from("product_attributes")
