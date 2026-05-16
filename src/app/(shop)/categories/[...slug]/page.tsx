@@ -4,6 +4,7 @@ import Container from "@mui/material/Container";
 import CategoryProductsSection from "components/products-view/category-products-section";
 import CategoryBrowser, { type CategoryTreeNode } from "pages-sections/categories";
 import api from "utils/__api__/market-2";
+import { getCategoryPageData, getCategoryProductsForPath } from "lib/shop-category-listing";
 import type Filters from "models/Filters";
 import type { CategorySidebarFilters } from "models/Filters";
 import { seoFilterSegmentsToParams } from "utils/seo-filter-slug";
@@ -82,10 +83,13 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePar
 
   const queryParams = resolvedSearchParams as Record<string, string>;
   const effectiveParams = { ...filterParams, ...queryParams };
-  const payload = categoryPath
-    ? await api.getCategoryBySlug(categoryPath, 1, effectiveParams)
+  const metaResult = categoryPath
+    ? await getCategoryProductsForPath(categoryPath, effectiveParams)
     : null;
-  if (!payload) return { title: "Category Not Found" };
+  if (!metaResult || "status" in metaResult) {
+    return { title: "Category Not Found" };
+  }
+  const payload = metaResult;
 
   const basePath = `/categories/${categoryPath}`;
   const seoPath =
@@ -135,16 +139,15 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
     );
   }
 
-  const [payload, categoryFilters] = await Promise.all([
-    api.getCategoryBySlug(categoryPath, page, effectiveFilterParams),
-    api.getCategoryFilters(categoryPath)
-  ]);
+  const pageData = await getCategoryPageData(categoryPath, page, effectiveFilterParams);
 
-  if (!payload) notFound();
+  if (!pageData || "error" in pageData) notFound();
+
+  const { listing: payload, filters: categoryFilters } = pageData;
 
   const sidebarFilters: CategorySidebarFilters = {
-    filters: categoryFilters?.filters ?? [],
-    priceRange: categoryFilters?.priceRange,
+    filters: categoryFilters.filters ?? [],
+    priceRange: categoryFilters.priceRange,
     categories: buildFiltersCategories(categories)
   };
 

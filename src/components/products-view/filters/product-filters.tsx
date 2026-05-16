@@ -20,6 +20,7 @@ import { NavLink } from "components/nav-link";
 import { FlexBetween, FlexBox } from "components/flex-box";
 // LOCAL CUSTOM COMPONENTS
 import CheckboxLabel from "./checkbox-label";
+import FilterSectionTitle from "./filter-section-title";
 // CUSTOM LOCAL HOOK
 import useProductFilterCard, { type ProductFilterCardFilters } from "./use-product-filter-card";
 // TYPES
@@ -197,7 +198,9 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
     basePathForParams,
     hasSeoFilterInPath,
     getSelectedValues,
-    handleFilterChange
+    handleFilterChange,
+    handleAttributeRangeFilterChange,
+    pendingFilterKey
   } = hook;
 
   const priceRange = hook.priceRange;
@@ -208,15 +211,6 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
   const handleClearFilters = () => {
     const targetPath = hasSeoFilterInPath ? basePathForParams : pathname;
     router.push(targetPath);
-  };
-
-  const handleRangeFilterChange = (slug: string, value: string) => {
-    const params = new URLSearchParams(searchParams);
-    params.delete("page");
-    params.set(slug, value);
-    const query = params.toString();
-    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    setTimeout(() => router.refresh(), 0);
   };
 
   /** Dynamic sidebar: API-driven filters array + price + categories + rating */
@@ -274,9 +268,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
         <Box component={Divider} my={3} />
         {priceRange && (
           <>
-            <Typography variant="h6" sx={{ mb: 2 }}>
-              Price Range
-            </Typography>
+            <FilterSectionTitle title="Price Range" loading={pendingFilterKey === "prices"} sx={{ mb: 2 }} />
             <Slider
               min={priceRange.min}
               max={priceRange.max}
@@ -331,7 +323,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
                 onClick={() => setOpenFilterSlugs((state) => ({ ...state, [filter.slug]: !open }))}
                 sx={FILTER_ACCORDION_HEADER_SX}
               >
-                <Typography variant="h6">{filter.name}</Typography>
+                <FilterSectionTitle title={filter.name} loading={pendingFilterKey === filter.slug} />
               </AccordionHeader>
 
               <Collapse in={open}>
@@ -339,7 +331,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
                   <RangeAttributeFilter
                     filter={filter}
                     selectedParam={searchParams.get(filter.slug)}
-                    onApply={handleRangeFilterChange}
+                    onApply={handleAttributeRangeFilterChange}
                   />
                 ) : (
                   <>
@@ -400,9 +392,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
             </Fragment>
           );
         })}
-        <Typography variant="h6" sx={{ mb: 2 }}>
-          Ratings
-        </Typography>
+        <FilterSectionTitle title="Ratings" loading={pendingFilterKey === "rating"} sx={{ mb: 2 }} />
         <FormGroup>
           {[5, 4, 3, 2, 1].map((item) => (
             <CheckboxLabel
@@ -568,9 +558,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
       {/* PRICE RANGE: only when category has price data */}
       {priceRange && (
         <>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Price Range
-          </Typography>
+          <FilterSectionTitle title="Price Range" loading={pendingFilterKey === "prices"} sx={{ mb: 2 }} />
 
           <Slider
             min={priceRange.min}
@@ -617,9 +605,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
       {/* BRANDS: only when category has brands */}
       {BRANDS.length > 0 && (
         <>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Brands
-          </Typography>
+          <FilterSectionTitle title="Brands" loading={pendingFilterKey === "brand"} sx={{ mb: 2 }} />
           <FormGroup>
             {BRANDS.map(({ label, value }) => (
               <CheckboxLabel
@@ -637,9 +623,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
       {/* CAPACITY: only when category has capacity attribute */}
       {capacityRange && (
         <>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Capacity
-          </Typography>
+          <FilterSectionTitle title="Capacity" loading={pendingFilterKey === "capacity"} sx={{ mb: 2 }} />
           <Slider
             min={capacityRange.min}
             max={capacityRange.max}
@@ -684,9 +668,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
       {/* RPM: only when category has rpm attribute */}
       {rpmRange && (
         <>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            RPM
-          </Typography>
+          <FilterSectionTitle title="RPM" loading={pendingFilterKey === "rpm"} sx={{ mb: 2 }} />
           <Slider
             min={rpmRange.min}
             max={rpmRange.max}
@@ -731,9 +713,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
       {/* BUFFER: only when category has buffer attribute */}
       {bufferRange && (
         <>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Buffer
-          </Typography>
+          <FilterSectionTitle title="Buffer" loading={pendingFilterKey === "buffer"} sx={{ mb: 2 }} />
           <Slider
             min={bufferRange.min}
             max={bufferRange.max}
@@ -778,9 +758,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
       {/* SIZE: only when category has size_inch or size attribute */}
       {sizeOptions && sizeOptions.length > 0 && (
         <>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Size
-          </Typography>
+          <FilterSectionTitle title="Size" loading={pendingFilterKey === "size"} sx={{ mb: 2 }} />
           <FormGroup>
             {sizeOptions.map((option) => (
               <CheckboxLabel
@@ -798,9 +776,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
       {/* CONNECTION: only when category has connection attribute (e.g. SSD) */}
       {connectionOptions && connectionOptions.length > 0 && (
         <>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Connection
-          </Typography>
+          <FilterSectionTitle title="Connection" loading={pendingFilterKey === "connection"} sx={{ mb: 2 }} />
           <FormGroup>
             {connectionOptions.map((option) => (
               <CheckboxLabel
@@ -818,9 +794,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
       {/* READ SPEED: SSD */}
       {readSpeedRange && (
         <>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Read speed (MB/s)
-          </Typography>
+          <FilterSectionTitle title="Read speed (MB/s)" loading={pendingFilterKey === "read_speed"} sx={{ mb: 2 }} />
           <Slider
             min={readSpeedRange.min}
             max={readSpeedRange.max}
@@ -865,9 +839,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
       {/* WRITE SPEED: SSD */}
       {writeSpeedRange && (
         <>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Write speed (MB/s)
-          </Typography>
+          <FilterSectionTitle title="Write speed (MB/s)" loading={pendingFilterKey === "write_speed"} sx={{ mb: 2 }} />
           <Slider
             min={writeSpeedRange.min}
             max={writeSpeedRange.max}
@@ -912,9 +884,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
       {/* PCIe GENERATION: SSD */}
       {pcieGenerationOptions && pcieGenerationOptions.length > 0 && (
         <>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            PCIe generation
-          </Typography>
+          <FilterSectionTitle title="PCIe generation" loading={pendingFilterKey === "pcie_generation"} sx={{ mb: 2 }} />
           <FormGroup>
             {pcieGenerationOptions.map((option) => (
               <CheckboxLabel
@@ -932,9 +902,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
       {/* HEATSINK: SSD */}
       {heatsinkOptions && heatsinkOptions.length > 0 && (
         <>
-          <Typography variant="h6" sx={{ mb: 2 }}>
-            Heatsink
-          </Typography>
+          <FilterSectionTitle title="Heatsink" loading={pendingFilterKey === "heatsink"} sx={{ mb: 2 }} />
           <FormGroup>
             {heatsinkOptions.map((option) => (
               <CheckboxLabel
@@ -965,9 +933,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
       <Box component={Divider} my={3} />
 
       {/* RATINGS FILTER */}
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        Ratings
-      </Typography>
+      <FilterSectionTitle title="Ratings" loading={pendingFilterKey === "rating"} sx={{ mb: 2 }} />
 
       <FormGroup>
         {[5, 4, 3, 2, 1].map((item) => (
@@ -985,9 +951,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
       {/* COLORS: only when colors exist */}
       {COLORS.length > 0 && (
         <>
-      <Typography variant="h6" sx={{ mb: 2 }}>
-        Colors
-      </Typography>
+      <FilterSectionTitle title="Colors" loading={pendingFilterKey === "colors"} sx={{ mb: 2 }} />
       <FlexBox mb={2} flexWrap="wrap" gap={1.5}>
         {COLORS.map((item) => (
           <Box

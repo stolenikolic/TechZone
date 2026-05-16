@@ -3,6 +3,9 @@
 import { styled } from "@mui/material/styles";
 
 export const StyledRoot = styled("div")(({ theme }) => ({
+  width: "100%",
+  minWidth: 0,
+  boxSizing: "border-box",
   height: "100%",
   display: "flex",
   flexDirection: "column",
@@ -37,6 +40,8 @@ export const StyledRoot = styled("div")(({ theme }) => ({
     WebkitLineClamp: 3,
     WebkitBoxOrient: "vertical",
     overflow: "hidden",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
     marginBottom: theme.spacing(1),
     minHeight: `calc(${theme.typography.h6.lineHeight} * 3em)`
   },

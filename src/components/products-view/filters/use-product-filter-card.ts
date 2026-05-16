@@ -71,27 +71,44 @@ function normalizeBrandValue(value: string): string {
   return value.toLowerCase().replace(/\s+/g, "-");
 }
 
-/**
- * Push URL then refresh so the Server Component gets the new searchParams.
- * refresh() is deferred so it runs after the URL from push() is applied,
- * avoiding a race where refresh fetches with the old URL (which caused
- * some filters to show 0 products until manual reload).
- */
-function pushUrlAndRefresh(
-  router: ReturnType<typeof import("next/navigation").useRouter>,
-  url: string
-): void {
-  router.push(url, { scroll: false });
-  setTimeout(() => {
-    router.refresh();
-  }, 0);
-}
-
 export default function useProductFilterCard(filters?: ProductFilterCardFilters) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [collapsed, setCollapsed] = useState(true);
+  const [pendingFilterKey, setPendingFilterKey] = useState<string | null>(null);
+  const pendingFilterKeyRef = useRef<string | null>(null);
+  const urlSnapshotRef = useRef(`${pathname}?${searchParams.toString()}`);
+
+  /** Clear spinner after URL updates and refresh has time to complete. */
+  useEffect(() => {
+    const next = `${pathname}?${searchParams.toString()}`;
+    if (!pendingFilterKeyRef.current) {
+      urlSnapshotRef.current = next;
+      return;
+    }
+    if (next === urlSnapshotRef.current) return;
+
+    urlSnapshotRef.current = next;
+    const timer = window.setTimeout(() => {
+      pendingFilterKeyRef.current = null;
+      setPendingFilterKey(null);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [pathname, searchParams]);
+
+  /** Push URL then refresh; filterKey shows spinner beside that filter title. */
+  const pushUrlAndRefresh = useCallback(
+    (url: string, filterKey: string) => {
+      pendingFilterKeyRef.current = filterKey;
+      setPendingFilterKey(filterKey);
+      router.push(url, { scroll: false });
+      setTimeout(() => {
+        router.refresh();
+      }, 0);
+    },
+    [router]
+  );
 
   const seoFilter = useMemo(() => getSeoFilterFromPathname(pathname), [pathname]);
   const basePathForParams = seoFilter?.basePath ?? pathname;
@@ -267,9 +284,9 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
       if (value === "") params.delete(key);
       else params.set(key, value);
       const query = params.toString();
-      pushUrlAndRefresh(router, query ? `${pathname}?${query}` : pathname);
+      pushUrlAndRefresh(query ? `${pathname}?${query}` : pathname, key);
     },
-    [router, pathname, searchParams]
+    [pathname, pushUrlAndRefresh, searchParams]
   );
 
   /**
@@ -278,7 +295,7 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
    * Multiple brands or capacity range → path = category base only; brands/capacity in query.
    */
   const navigateWithFilterState = useCallback(
-    (nextBrands: string[], nextCapacity: number[]) => {
+    (nextBrands: string[], nextCapacity: number[], filterKey: string) => {
       const categoryPath = getCategoryPathFromBasePath(basePathForParams);
       const useSeoPath = categoryPath && canUseSeoPathForBrandCapacity(nextBrands, nextCapacity);
 
@@ -298,7 +315,7 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
           params.set("capacity", formatCapacityParam(nextCapacity));
         }
         const query = params.toString();
-        pushUrlAndRefresh(router, query ? `${newPath}?${query}` : newPath);
+        pushUrlAndRefresh(query ? `${newPath}?${query}` : newPath, filterKey);
         return;
       }
 
@@ -314,9 +331,9 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
         params.set("capacity", formatCapacityParam(nextCapacity));
       }
       const query = params.toString();
-      pushUrlAndRefresh(router, query ? `${basePathForParams}?${query}` : basePathForParams);
+      pushUrlAndRefresh(query ? `${basePathForParams}?${query}` : basePathForParams, filterKey);
     },
-    [router, basePathForParams, searchParams, capacityRange?.min, capacityRange?.max]
+    [basePathForParams, pushUrlAndRefresh, searchParams, capacityRange?.min, capacityRange?.max]
   );
 
   const applyPrice = useCallback(() => {
@@ -339,7 +356,7 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
   const setRangeParam = useCallback(
     (key: "capacity" | "rpm" | "buffer" | "read_speed" | "write_speed", values: number[]) => {
       if (key === "capacity") {
-        navigateWithFilterState(brands, values);
+        navigateWithFilterState(brands, values, "capacity");
         return;
       }
       handleChangeSearchParams(key, `${values[0]}-${values[1]}`);
@@ -541,7 +558,7 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
       const nextBrands = brands.includes(value)
         ? brands.filter((item) => item !== value)
         : [...brands, value];
-      navigateWithFilterState(nextBrands, capacity);
+      navigateWithFilterState(nextBrands, capacity, "brand");
     },
     [brands, capacity, navigateWithFilterState]
   );
@@ -578,12 +595,24 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
       else params.delete(paramKey);
       const query = params.toString();
       const newUrl = query ? `${pathname}?${query}` : pathname;
-      pushUrlAndRefresh(router, newUrl);
+      pushUrlAndRefresh(newUrl, slug);
     },
-    [searchParams, pathname, router, getSelectedValues]
+    [getSelectedValues, pathname, pushUrlAndRefresh, searchParams]
+  );
+
+  const handleAttributeRangeFilterChange = useCallback(
+    (slug: string, value: string) => {
+      const params = new URLSearchParams(searchParams);
+      params.delete("page");
+      params.set(slug, value);
+      const query = params.toString();
+      pushUrlAndRefresh(query ? `${pathname}?${query}` : pathname, slug);
+    },
+    [pathname, pushUrlAndRefresh, searchParams]
   );
 
   return {
+    pendingFilterKey,
     sales,
     brands,
     rating,
@@ -663,6 +692,7 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
     basePathForParams,
     hasSeoFilterInPath: Boolean(seoFilter),
     getSelectedValues,
-    handleFilterChange
+    handleFilterChange,
+    handleAttributeRangeFilterChange
   };
 }
