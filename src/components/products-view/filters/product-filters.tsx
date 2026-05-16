@@ -53,6 +53,13 @@ function formatFilterValue(slug: string, value: string) {
 
 const BRAND_VISIBLE_LIMIT = 5;
 
+/** Slightly tighter accordion rows; font/dividers unchanged. */
+const FILTER_ACCORDION_HEADER_SX = {
+  padding: "0.375rem 0",
+  cursor: "pointer",
+  color: "grey.600"
+} as const;
+
 function parseRangeValue(param: string | null, fallback: { min: number; max: number }): [number, number] {
   if (!param?.trim()) return [fallback.min, fallback.max];
 
@@ -226,7 +233,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
               <AccordionHeader
                 open={collapsed}
                 onClick={() => setCollapsed((s) => !s)}
-                sx={{ padding: ".5rem 0", cursor: "pointer", color: "grey.600" }}
+                sx={FILTER_ACCORDION_HEADER_SX}
               >
                 <Typography component="span">{item.title}</Typography>
               </AccordionHeader>
@@ -322,7 +329,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
               <AccordionHeader
                 open={open}
                 onClick={() => setOpenFilterSlugs((state) => ({ ...state, [filter.slug]: !open }))}
-                sx={{ padding: ".5rem 0", cursor: "pointer", color: "grey.600" }}
+                sx={FILTER_ACCORDION_HEADER_SX}
               >
                 <Typography variant="h6">{filter.name}</Typography>
               </AccordionHeader>
@@ -505,7 +512,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
             <AccordionHeader
               open={collapsed}
               onClick={() => setCollapsed((state) => !state)}
-              sx={{ padding: ".5rem 0", cursor: "pointer", color: "grey.600" }}
+              sx={FILTER_ACCORDION_HEADER_SX}
             >
               <Typography component="span">{item.title}</Typography>
             </AccordionHeader>

@@ -54,23 +54,23 @@ export default function ProductCard16({ product }: Props) {
       </Link>
 
       <div className="content">
-        <div>
+        <div className="content-main">
           <Link href={`/products/${slug}`}>
-            <Typography variant="h6" sx={{ mb: 1 }}>
+            <Typography variant="h6" className="product-title">
               {title}
             </Typography>
           </Link>
 
           <Rating readOnly value={rating} size="small" precision={0.5} />
+        </div>
 
+        <div className="content-footer">
           <PriceText>
             {calculateDiscount(price, discount)}
             {discount ? <span className="base-price">{formatPrice(price)}</span> : null}
           </PriceText>
+          <AddToCart product={product} />
         </div>
-
-        {/* ADD TO CART BUTTON */}
-        <AddToCart product={product} />
       </div>
     </StyledRoot>
   );

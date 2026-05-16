@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { processCategoryImageFromUrl } from "lib/images/process-category-image";
+import { isHostedCategoryImage } from "lib/images/storage";
 import { normalizeCategorySlug } from "lib/normalize-slug";
 import { revalidateCategorySurfaces } from "lib/revalidate-categories";
 import { createSupabaseServiceClient } from "utils/supabase";
@@ -108,6 +110,18 @@ export async function POST(request: Request) {
       .maybeSingle();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     if (!created) return NextResponse.json({ error: "Category create failed." }, { status: 500 });
+
+    if (imageUrl && !isHostedCategoryImage(imageUrl, created.id as string)) {
+      const processed = await processCategoryImageFromUrl(
+        supabase,
+        created.id as string,
+        imageUrl,
+        null
+      );
+      if (processed) {
+        await supabase.from("categories").update({ image_url: processed }).eq("id", created.id);
+      }
+    }
 
     const attributeIds = Array.isArray(body.attributeIds)
       ? Array.from(new Set(body.attributeIds.filter((value) => typeof value === "string")))

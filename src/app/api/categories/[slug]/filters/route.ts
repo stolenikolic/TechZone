@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isNotApplicableAttributeValue } from "lib/attributes/not-applicable-value";
 import { getEffectivePrice } from "lib/effective-price";
 import {
   fetchShopVisibleProductsForCategory,
@@ -224,6 +225,7 @@ export async function GET(
     const rows = (paRows ?? []) as PaRow[];
     for (const row of rows) {
       if (row.value == null || String(row.value).trim() === "") continue;
+      if (isNotApplicableAttributeValue(String(row.value))) continue;
       if (!attributeMeta.has(row.attribute_id)) continue;
       if (!byAttributeId.has(row.attribute_id)) byAttributeId.set(row.attribute_id, new Set());
       byAttributeId.get(row.attribute_id)!.add(String(row.value).trim());

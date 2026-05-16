@@ -21,6 +21,10 @@ import {
 } from "lib/suppliers/registry";
 import { applyAttributeValueAlias } from "lib/attributes/attribute-value-alias";
 import { loadAttributeValueAliases } from "lib/attributes/load-attribute-value-aliases";
+import {
+  isConnectionSATA,
+  NOT_APPLICABLE_ATTRIBUTE_VALUE
+} from "lib/attributes/not-applicable-value";
 import { mapSpecNameToSlug } from "lib/suppliers/ipon/scrapeDetails";
 import type { SpecSnapshot } from "lib/suppliers/shared/spec-snapshot";
 
@@ -168,6 +172,44 @@ async function loadExistingAttributeIds(
     .eq("product_id", productId);
   if (error) throw new Error(`loadExistingAttributeIds: ${error.message}`);
   return new Set((data ?? []).map((r) => r.attribute_id as string));
+}
+
+async function loadExistingAttributeValuesBySlug(
+  supabase: SupabaseClient,
+  productId: string,
+  slugToId: Map<string, string>
+): Promise<Map<string, string>> {
+  const idToSlug = new Map<string, string>();
+  for (const [slug, id] of slugToId) idToSlug.set(id, slug);
+
+  const { data, error } = await supabase
+    .from("product_attributes")
+    .select("attribute_id, value")
+    .eq("product_id", productId);
+  if (error) throw new Error(`loadExistingAttributeValuesBySlug: ${error.message}`);
+
+  const map = new Map<string, string>();
+  for (const row of data ?? []) {
+    const slug = idToSlug.get(row.attribute_id as string);
+    if (slug && row.value != null) map.set(slug, String(row.value));
+  }
+  return map;
+}
+
+function jsonAttributeString(attrs: Record<string, unknown> | null, slug: string): string | undefined {
+  if (!attrs || typeof attrs !== "object") return undefined;
+  const v = attrs[slug];
+  if (typeof v === "string" && v.trim()) return v.trim();
+  if (typeof v === "number" && Number.isFinite(v)) return String(v);
+  return undefined;
+}
+
+function resolveConnectionValue(
+  patch: Record<string, string>,
+  existingBySlug: Map<string, string>,
+  attributesJson: Record<string, unknown> | null
+): string | undefined {
+  return patch.connection ?? existingBySlug.get("connection") ?? jsonAttributeString(attributesJson, "connection");
 }
 
 /**
@@ -366,6 +408,9 @@ export async function runEnrichment(options?: RunEnrichmentOptions): Promise<Enr
           .filter((id): id is string => Boolean(id));
         const aliasesByAttributeId = await loadAttributeValueAliases(supabase, attributeIds);
         const existingIds = overwrite ? new Set<string>() : await loadExistingAttributeIds(supabase, product.productId);
+        const existingBySlug = overwrite
+          ? new Map<string, string>()
+          : await loadExistingAttributeValuesBySlug(supabase, product.productId, slugToId);
 
         // Per-product resolvers scoped to this product's category
         const resolvers = new Map<string, ReturnType<typeof buildAttributeSlugResolver>>();
@@ -385,6 +430,28 @@ export async function runEnrichment(options?: RunEnrichmentOptions): Promise<Enr
           if (!overwrite && existingIds.has(attributeId)) continue;
           if (!overwrite && manualJsonHasValue(product.attributesJson, slug)) continue;
 
+          if (slug === "pcie_generation") {
+            const connection = resolveConnectionValue(patch, existingBySlug, product.attributesJson);
+            if (isConnectionSATA(connection)) {
+              await writeProductAttribute(
+                supabase,
+                product.productId,
+                attributeId,
+                NOT_APPLICABLE_ATTRIBUTE_VALUE
+              );
+              patch[slug] = NOT_APPLICABLE_ATTRIBUTE_VALUE;
+              existingBySlug.set(slug, NOT_APPLICABLE_ATTRIBUTE_VALUE);
+              existingIds.add(attributeId);
+              attributesWritten += 1;
+              if (verbose) {
+                console.log(
+                  `[enrichment] ${product.productId} ${slug}=${NOT_APPLICABLE_ATTRIBUTE_VALUE} (SATA, not applicable)`
+                );
+              }
+              continue;
+            }
+          }
+
           const resolved = await resolveAttributeValue(slug, product.suppliers, resolvers);
           if (resolved) {
             const aliasRows = aliasesByAttributeId.get(attributeId) ?? [];
@@ -392,11 +459,60 @@ export async function runEnrichment(options?: RunEnrichmentOptions): Promise<Enr
               applyAttributeValueAlias(resolved.value, aliasRows, resolved.supplierId) ?? resolved.value;
             await writeProductAttribute(supabase, product.productId, attributeId, value);
             patch[slug] = value;
+            existingBySlug.set(slug, value);
+            if (slug === "connection" && isConnectionSATA(value)) {
+              const pcieId = slugToId.get("pcie_generation");
+              if (
+                pcieId &&
+                !existingIds.has(pcieId) &&
+                !manualJsonHasValue(product.attributesJson, "pcie_generation")
+              ) {
+                await writeProductAttribute(
+                  supabase,
+                  product.productId,
+                  pcieId,
+                  NOT_APPLICABLE_ATTRIBUTE_VALUE
+                );
+                patch.pcie_generation = NOT_APPLICABLE_ATTRIBUTE_VALUE;
+                existingBySlug.set("pcie_generation", NOT_APPLICABLE_ATTRIBUTE_VALUE);
+                existingIds.add(pcieId);
+                attributesWritten += 1;
+                if (verbose) {
+                  console.log(
+                    `[enrichment] ${product.productId} pcie_generation=${NOT_APPLICABLE_ATTRIBUTE_VALUE} (SATA, not applicable)`
+                  );
+                }
+              }
+            }
             attributesWritten += 1;
             if (verbose) console.log(`[enrichment] ${product.productId} ${slug}=${value}`);
-          } else {
+          } else if (slug !== "pcie_generation") {
             attributesMissing += 1;
             if (verbose) console.log(`[enrichment] ${product.productId} ${slug}: no value found`);
+          }
+        }
+
+        const connectionAfter = resolveConnectionValue(patch, existingBySlug, product.attributesJson);
+        if (isConnectionSATA(connectionAfter)) {
+          const pcieId = slugToId.get("pcie_generation");
+          if (
+            pcieId &&
+            !existingIds.has(pcieId) &&
+            !manualJsonHasValue(product.attributesJson, "pcie_generation")
+          ) {
+            await writeProductAttribute(
+              supabase,
+              product.productId,
+              pcieId,
+              NOT_APPLICABLE_ATTRIBUTE_VALUE
+            );
+            patch.pcie_generation = NOT_APPLICABLE_ATTRIBUTE_VALUE;
+            attributesWritten += 1;
+            if (verbose) {
+              console.log(
+                `[enrichment] ${product.productId} pcie_generation=${NOT_APPLICABLE_ATTRIBUTE_VALUE} (SATA, not applicable)`
+              );
+            }
           }
         }
 

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 // MUI
-import Add from "@mui/icons-material/Add";
+import AddShoppingCart from "@mui/icons-material/AddShoppingCart";
 import Button from "@mui/material/Button";
 // GLOBAL CUSTOM HOOKS
 import useCart from "hooks/useCart";
@@ -41,9 +41,14 @@ export default function AddToCart({ product }: Props) {
       variant="outlined"
       loading={isLoading}
       onClick={handleAddToCart}
-      sx={{ padding: "3px" }}
+      sx={{
+        flexShrink: 0,
+        minWidth: 34,
+        minHeight: 34,
+        padding: "4px"
+      }}
     >
-      <Add fontSize="small" />
+      <AddShoppingCart fontSize="small" />
     </Button>
   );
 }

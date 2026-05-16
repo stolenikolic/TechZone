@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
+import { filterApplicableSpecificationRows } from "lib/attributes/not-applicable-value";
 import { getEffectivePrice, getOriginalPriceForDisplay } from "lib/effective-price";
 import { createSupabaseServiceClient } from "utils/supabase";
 
@@ -129,8 +130,8 @@ export async function GET(
           const a = raw == null ? null : Array.isArray(raw) ? raw[0] ?? null : raw;
           return a ? { id: a.id, name: a.name, slug: a.slug, value: r.value } : null;
         })
-        .filter((x): x is { id: string; name: string; slug: string; value: string } => x != null)
-        .sort((a, b) => {
+        .filter((x): x is { id: string; name: string; slug: string; value: string } => x != null);
+      const applicable = filterApplicableSpecificationRows(specifications).sort((a, b) => {
           const aOrder = attributeSortOrder.get(a.id);
           const bOrder = attributeSortOrder.get(b.id);
           if (aOrder != null && bOrder != null && aOrder !== bOrder) return aOrder - bOrder;
@@ -139,7 +140,7 @@ export async function GET(
           return a.name.localeCompare(b.name);
         })
         .map(({ name, slug, value }) => ({ name, slug, value }));
-      if (specifications.length) product.specifications = specifications;
+      if (applicable.length) product.specifications = applicable;
     }
 
     return NextResponse.json(product);

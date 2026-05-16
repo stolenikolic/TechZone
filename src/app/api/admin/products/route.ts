@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
+import { isNotApplicableAttributeValue } from "lib/attributes/not-applicable-value";
 import { getEffectivePrice } from "lib/effective-price";
 import { createSupabaseServiceClient } from "utils/supabase";
 
@@ -39,17 +40,39 @@ type CategoryAttrReq = { attributeId: string; slug: string };
 function manualJsonHasValue(attrs: Record<string, unknown> | null, slug: string): boolean {
   if (!attrs || typeof attrs !== "object") return false;
   const v = attrs[slug];
-  if (typeof v === "string") return v.trim().length > 0;
+  if (typeof v === "string") {
+    const t = v.trim();
+    if (t.length === 0) return false;
+    if (isNotApplicableAttributeValue(t)) return true;
+    return true;
+  }
   if (typeof v === "number" && Number.isFinite(v)) return true;
   if (typeof v === "boolean") return true;
   return false;
+}
+
+function hasCategoryAttributeValue(
+  attrs: Record<string, unknown> | null,
+  req: CategoryAttrReq,
+  presentIds: Set<string>,
+  valuesBySlug: Map<string, string> | undefined
+): boolean {
+  const tableVal = valuesBySlug?.get(req.slug);
+  if (tableVal !== undefined) {
+    const t = tableVal.trim();
+    if (t.length === 0) return false;
+    return true;
+  }
+  if (presentIds.has(req.attributeId)) return true;
+  return manualJsonHasValue(attrs, req.slug);
 }
 
 function getMasterStatus(
   row: DbProduct,
   supplierOffers: number,
   categoryReqByCategoryId: Map<string, CategoryAttrReq[]>,
-  productAttributeIds: Map<string, Set<string>>
+  productAttributeIds: Map<string, Set<string>>,
+  productAttributeValues: Map<string, Map<string, string>>
 ): MasterStatus {
   if (supplierOffers === 0) {
     return {
@@ -83,12 +106,13 @@ function getMasterStatus(
     rawCategory == null ? null : Array.isArray(rawCategory) ? rawCategory[0] ?? null : rawCategory;
   const required = category?.id ? categoryReqByCategoryId.get(category.id) ?? [] : [];
   const presentIds = productAttributeIds.get(row.id) ?? new Set<string>();
+  const valuesBySlug = productAttributeValues.get(row.id);
 
   const missingSlugSet = new Set<string>();
   for (const req of required) {
-    const inTable = presentIds.has(req.attributeId);
-    const inJson = manualJsonHasValue(row.attributes, req.slug);
-    if (!inTable && !inJson) missingSlugSet.add(req.slug);
+    if (!hasCategoryAttributeValue(row.attributes, req, presentIds, valuesBySlug)) {
+      missingSlugSet.add(req.slug);
+    }
   }
   const missingSlugs = Array.from(missingSlugSet);
 
@@ -238,25 +262,46 @@ export async function GET() {
       if (page.length < supplierPageSize) break;
     }
 
+    const { data: attributeSlugRows, error: attributeSlugError } = await supabase
+      .from("attributes")
+      .select("id, slug");
+    if (attributeSlugError) throw new Error(attributeSlugError.message);
+    const attributeIdToSlug = new Map<string, string>();
+    for (const a of attributeSlugRows ?? []) {
+      if (a.id && a.slug) attributeIdToSlug.set(a.id as string, a.slug as string);
+    }
+
     const productAttributeIds = new Map<string, Set<string>>();
+    const productAttributeValues = new Map<string, Map<string, string>>();
     let attributeOffset = 0;
     for (;;) {
       const { data: attributeRows, error: attributeError } = await supabase
         .from("product_attributes")
-        .select("product_id, attribute_id")
+        .select("product_id, attribute_id, value")
         .order("product_id", { ascending: true })
         .order("attribute_id", { ascending: true })
         .range(attributeOffset, attributeOffset + supplierPageSize - 1);
 
       if (attributeError) throw new Error(attributeError.message);
 
-      const page = (attributeRows ?? []) as { product_id: string | null; attribute_id: string | null }[];
+      const page = (attributeRows ?? []) as {
+        product_id: string | null;
+        attribute_id: string | null;
+        value: string | null;
+      }[];
       if (page.length === 0) break;
 
       for (const row of page) {
         if (!row.product_id || !row.attribute_id) continue;
         if (!productAttributeIds.has(row.product_id)) productAttributeIds.set(row.product_id, new Set());
         productAttributeIds.get(row.product_id)!.add(row.attribute_id);
+        const slug = attributeIdToSlug.get(row.attribute_id);
+        if (slug && row.value != null) {
+          if (!productAttributeValues.has(row.product_id)) {
+            productAttributeValues.set(row.product_id, new Map());
+          }
+          productAttributeValues.get(row.product_id)!.set(slug, String(row.value));
+        }
       }
 
       attributeOffset += page.length;
@@ -296,7 +341,13 @@ export async function GET() {
       rows.map((row) => {
         const product = toProduct(
           row,
-          getMasterStatus(row, supplierCountByProduct.get(row.id) ?? 0, categoryReqByCategoryId, productAttributeIds)
+          getMasterStatus(
+            row,
+            supplierCountByProduct.get(row.id) ?? 0,
+            categoryReqByCategoryId,
+            productAttributeIds,
+            productAttributeValues
+          )
         );
         const rawCategory = row.categories;
         const category = rawCategory == null ? null : Array.isArray(rawCategory) ? rawCategory[0] ?? null : rawCategory;

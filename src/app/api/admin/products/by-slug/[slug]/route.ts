@@ -8,6 +8,7 @@ import {
   type PricingMarginTierRow,
   type PricingSettingsRow
 } from "lib/pricing";
+import { syncAdminProductImages } from "lib/images/sync-admin-product-images";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type DbCategory = {
@@ -402,32 +403,24 @@ export async function PATCH(
     }
 
     if (body.images) {
-      if ("mainImage" in body.images) {
-        const { error } = await supabase
-          .from("products")
-          .update({ main_image: body.images.mainImage?.trim() || null })
-          .eq("id", productId);
-        if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-      }
-      if (Array.isArray(body.images.imageUrls)) {
-        const imageUrls = Array.from(
-          new Set(
-            body.images.imageUrls
-              .map((value) => value.trim())
-              .filter((value) => value.length > 0)
-          )
-        );
-        const { error: delErr } = await supabase.from("product_images").delete().eq("product_id", productId);
-        if (delErr) return NextResponse.json({ error: delErr.message }, { status: 400 });
-        if (imageUrls.length > 0) {
-          const rows = imageUrls.map((imageUrl, index) => ({
-            product_id: productId,
-            image_url: imageUrl,
-            sort_order: index
-          }));
-          const { error: insErr } = await supabase.from("product_images").insert(rows);
-          if (insErr) return NextResponse.json({ error: insErr.message }, { status: 400 });
+      const hasMain = "mainImage" in body.images;
+      const hasUrls = Array.isArray(body.images.imageUrls);
+      if (hasMain || hasUrls) {
+        let imageUrls = hasUrls
+          ? body.images.imageUrls!.map((value) => value.trim()).filter((value) => value.length > 0)
+          : null;
+        if (!imageUrls) {
+          const { data: rows } = await supabase
+            .from("product_images")
+            .select("image_url")
+            .eq("product_id", productId)
+            .order("sort_order", { ascending: true });
+          imageUrls = (rows ?? []).map((row) => String(row.image_url));
         }
+        await syncAdminProductImages(supabase, productId, {
+          mainImage: hasMain ? body.images.mainImage : undefined,
+          imageUrls
+        });
       }
     }
 

@@ -3,13 +3,11 @@ import Typography from "@mui/material/Typography";
 import LazyImage from "components/LazyImage";
 import { ImageContainer, StyledRoot } from "./styles";
 
-// ============================================================
 interface Props {
   image: string | null;
   title: string;
   slug: string;
 }
-// ============================================================
 
 export default function CategoryCard({ image, title, slug }: Props) {
   const hasImage = image && image.trim() !== "";
@@ -18,20 +16,15 @@ export default function CategoryCard({ image, title, slug }: Props) {
       <StyledRoot>
         <ImageContainer>
           {hasImage ? (
-            <LazyImage alt={title} width={180} height={180} src={image!} className="category-image" />
+            <LazyImage
+              alt={title}
+              fill
+              sizes="(max-width: 600px) 50vw, (max-width: 1200px) 20vw, 180px"
+              src={image!}
+              className="category-image"
+            />
           ) : (
-            <div
-              className="category-placeholder"
-              style={{
-                background: "#f0f0f0",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#999",
-                fontSize: 14
-              }}
-              aria-hidden
-            >
+            <div className="category-placeholder" aria-hidden>
               Category
             </div>
           )}

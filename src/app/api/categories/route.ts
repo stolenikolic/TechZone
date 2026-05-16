@@ -59,22 +59,13 @@ function buildCategoryTree(rows: DbCategory[]): TreeNode[] {
 
 const DEFAULT_CATEGORY_IMAGE = "/assets/images/categories/default-category.jpg";
 
-const LOCAL_CATEGORY_IMAGES: Record<string, string> = {
-  "racunarske-komponente": "/assets/images/categories/racunarske-komponente.webp",
-  "graficke-kartice": "/assets/images/categories/graficke-kartice.webp",
-  "hard-diskovi": "/assets/images/categories/hard-diskovi.webp",
-  "maticne-ploce": "/assets/images/categories/maticne-ploce.webp",
-  procesori: "/assets/images/categories/procesori.webp",
-  ssd: "/assets/images/categories/ssd.webp"
-};
-
 function toTreeItem(node: TreeNode): CategoryTreeItem {
   return {
     id: node.id,
     name: node.name,
     slug: node.slug,
     icon: null,
-    image: LOCAL_CATEGORY_IMAGES[node.slug] ?? node.image_url ?? DEFAULT_CATEGORY_IMAGE,
+    image: node.image_url?.trim() || DEFAULT_CATEGORY_IMAGE,
     description: null,
     parent: node.children.map(toTreeItem),
   };

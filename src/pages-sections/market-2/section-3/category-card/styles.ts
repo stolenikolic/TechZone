@@ -14,27 +14,32 @@ export const StyledRoot = styled("div")(({ theme }) => ({
   },
   ":hover": {
     ".title": { textDecoration: "underline" },
-    ".category-image": { scale: 1.03 }
+    ".category-image": { transform: "scale(1.03)" }
   }
 }));
 
 export const ImageContainer = styled("div")(({ theme }) => ({
-  display: "flex",
-  justifyContent: "center",
-  padding: "2rem",
+  position: "relative",
+  width: "100%",
+  aspectRatio: "1 / 1",
+  overflow: "hidden",
   borderTopLeftRadius: 12,
   borderTopRightRadius: 12,
-  backgroundColor: theme.palette.grey[50],
+  backgroundColor: theme.palette.common.white,
   ".category-image": {
-    maxWidth: "100%",
-    transition: "scale 0.75s cubic-bezier(0.2, 0.75, 0.5, 1)"
+    width: "100% !important",
+    height: "100% !important",
+    objectFit: "contain",
+    transition: "transform 0.75s cubic-bezier(0.2, 0.75, 0.5, 1)"
   },
   ".category-placeholder": {
-    width: 180,
-    height: 180,
-    maxWidth: "100%"
-  },
-  [theme.breakpoints.down("sm")]: {
-    padding: "1rem"
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.palette.grey[100],
+    color: theme.palette.grey[500],
+    fontSize: 14
   }
 }));

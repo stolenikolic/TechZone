@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { processCategoryImageFromUrl } from "lib/images/process-category-image";
+import { isHostedCategoryImage, removeCategoryImage } from "lib/images/storage";
 import { normalizeCategorySlug } from "lib/normalize-slug";
 import { revalidateCategorySurfaces } from "lib/revalidate-categories";
 import { createSupabaseServiceClient } from "utils/supabase";
@@ -51,7 +53,31 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       patch.slug = slug;
     }
     if ("parentId" in body) patch.parent_id = body.parentId ?? null;
-    if ("imageUrl" in body) patch.image_url = body.imageUrl?.trim() || null;
+
+    const supabase = createSupabaseServiceClient();
+
+    if ("imageUrl" in body) {
+      const { data: currentCategory } = await supabase
+        .from("categories")
+        .select("image_url")
+        .eq("id", id)
+        .maybeSingle();
+
+      const raw = body.imageUrl?.trim() || null;
+      if (!raw) {
+        await removeCategoryImage(supabase, id, currentCategory?.image_url ?? null);
+        patch.image_url = null;
+      } else if (isHostedCategoryImage(raw, id)) {
+        patch.image_url = raw;
+      } else {
+        patch.image_url = await processCategoryImageFromUrl(
+          supabase,
+          id,
+          raw,
+          currentCategory?.image_url ?? null
+        );
+      }
+    }
 
     const marginValue =
       "sellingMarginDefault" in body ? body.sellingMarginDefault : body.selling_margin_default;
@@ -68,7 +94,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       patch.selling_margin_default = marginValue ?? null;
     }
 
-    const supabase = createSupabaseServiceClient();
     const { data: currentCategory } = await supabase
       .from("categories")
       .select("slug")

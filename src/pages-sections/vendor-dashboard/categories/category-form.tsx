@@ -23,6 +23,7 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import { normalizeAttributeSlug } from "lib/normalize-slug";
 // GLOBAL CUSTOM COMPONENTS
 import DropZone from "components/DropZone";
 import FlexBox from "components/flex-box/flex-box";
@@ -91,6 +92,8 @@ type SpecFieldsMeta = {
 
 type MappingDialogState = {
   open: boolean;
+  /** Set when editing an existing row; null when creating a new mapping. */
+  mappingId: string | null;
   fieldName: string;
   attributeId: string;
   matchMode: "exact" | "contains" | "regex";
@@ -181,6 +184,7 @@ export default function CategoryForm({ mode }: Props) {
   const [specFieldsLoading, setSpecFieldsLoading] = useState(false);
   const [mappingDialog, setMappingDialog] = useState<MappingDialogState>({
     open: false,
+    mappingId: null,
     fieldName: "",
     attributeId: "",
     matchMode: "contains",
@@ -347,6 +351,19 @@ export default function CategoryForm({ mode }: Props) {
     void loadSuppliers();
   }, [mode, categorySlug, loadSuppliers]);
 
+  const uploadCategoryImageFile = async (id: string, file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await fetch(`/api/admin/categories/${id}/image`, {
+      method: "POST",
+      body: formData
+    });
+    const data = (await response.json()) as { imageUrl?: string; error?: string };
+    if (!response.ok || data.error) throw new Error(data.error ?? "Image upload failed.");
+    if (!data.imageUrl) throw new Error("Image upload did not return a URL.");
+    return data.imageUrl;
+  };
+
   const saveCategory = async () => {
     if (!name.trim()) {
       setError("Name is required.");
@@ -356,11 +373,12 @@ export default function CategoryForm({ mode }: Props) {
     setError(null);
     setNotice(null);
     try {
+      let resolvedImageUrl = imageUrl.trim() || null;
       const payload = {
         name: name.trim(),
         slug: slug.trim(),
         parentId: parentId || null,
-        imageUrl: imageUrl.trim() || null,
+        imageUrl: resolvedImageUrl,
         sellingMarginDefault: sellingMarginDefault.trim() ? Number(sellingMarginDefault) : null
       };
 
@@ -372,12 +390,23 @@ export default function CategoryForm({ mode }: Props) {
         });
         const data = (await response.json()) as { id?: string; error?: string };
         if (!response.ok || data.error) throw new Error(data.error ?? "Create failed.");
+        if (data.id && files.length > 0) {
+          resolvedImageUrl = await uploadCategoryImageFile(data.id, files[0]);
+          setImageUrl(resolvedImageUrl);
+          setFiles([]);
+        }
         setNotice("Category created.");
         router.push("/admin/categories");
         return;
       }
 
       if (!categoryId) throw new Error("Category not loaded.");
+      if (files.length > 0) {
+        resolvedImageUrl = await uploadCategoryImageFile(categoryId, files[0]);
+        setImageUrl(resolvedImageUrl);
+        setFiles([]);
+        payload.imageUrl = resolvedImageUrl;
+      }
       const response = await fetch(`/api/admin/categories/${categoryId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -658,6 +687,7 @@ export default function CategoryForm({ mode }: Props) {
   const handleOpenMappingDialog = (field: SpecFieldEntry) => {
     setMappingDialog({
       open: true,
+      mappingId: field.mapping?.id ?? null,
       fieldName: field.name,
       attributeId: field.mapping?.attributeId ?? "",
       matchMode: (field.mapping?.matchMode as "exact" | "contains" | "regex") ?? "contains",
@@ -669,23 +699,36 @@ export default function CategoryForm({ mode }: Props) {
     if (!selectedSupplierId || !mappingDialog.attributeId) return;
     setMappingBusy(true);
     try {
+      const isEdit = Boolean(mappingDialog.mappingId);
       const res = await fetch(`/api/admin/suppliers/${selectedSupplierId}/mappings`, {
-        method: "POST",
+        method: isEdit ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          attributeId: mappingDialog.attributeId,
-          sourceFieldName: mappingDialog.fieldName,
-          matchMode: mappingDialog.matchMode,
-          priority: mappingDialog.priority,
-          internalCategoryId: categoryId,
-          isActive: true
-        })
+        body: JSON.stringify(
+          isEdit
+            ? {
+                id: mappingDialog.mappingId,
+                attributeId: mappingDialog.attributeId,
+                sourceFieldName: mappingDialog.fieldName,
+                matchMode: mappingDialog.matchMode,
+                priority: mappingDialog.priority,
+                internalCategoryId: categoryId,
+                isActive: true
+              }
+            : {
+                attributeId: mappingDialog.attributeId,
+                sourceFieldName: mappingDialog.fieldName,
+                matchMode: mappingDialog.matchMode,
+                priority: mappingDialog.priority,
+                internalCategoryId: categoryId,
+                isActive: true
+              }
+        )
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok || data.error) throw new Error(data.error ?? "Failed");
-      setMappingDialog((d) => ({ ...d, open: false }));
+      setMappingDialog((d) => ({ ...d, open: false, mappingId: null }));
       await loadSpecFields(selectedSupplierId);
-      setNotice("Mapping sačuvan.");
+      setNotice(isEdit ? "Mapping ažuriran." : "Mapping kreiran.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Mapping save failed.");
     } finally {
@@ -780,6 +823,7 @@ export default function CategoryForm({ mode }: Props) {
               label="Image URL"
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
+              helperText="External URL is converted to WebP on save. Or upload a file below."
             />
           </Grid>
           <Grid size={12}>
@@ -837,7 +881,14 @@ export default function CategoryForm({ mode }: Props) {
                   size="small"
                   label="Attribute name"
                   value={newAttribute.name}
-                  onChange={(e) => setNewAttribute((prev) => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    setNewAttribute((prev) => ({
+                      ...prev,
+                      name,
+                      slug: normalizeAttributeSlug(name)
+                    }));
+                  }}
                 />
               </Grid>
               <Grid size={{ md: 3, xs: 12 }}>
@@ -846,7 +897,8 @@ export default function CategoryForm({ mode }: Props) {
                   size="small"
                   label="Slug"
                   value={newAttribute.slug}
-                  onChange={(e) => setNewAttribute((prev) => ({ ...prev, slug: e.target.value }))}
+                  slotProps={{ input: { readOnly: true } }}
+                  helperText="Automatski iz naziva"
                 />
               </Grid>
               <Grid size={{ md: 2, xs: 12 }}>
@@ -887,7 +939,12 @@ export default function CategoryForm({ mode }: Props) {
                 />
               </Grid>
               <Grid size={{ md: 1, xs: 12 }}>
-                <Button fullWidth variant="contained" onClick={() => void createCategoryAttribute()}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  disabled={!newAttribute.name.trim() || !newAttribute.slug}
+                  onClick={() => void createCategoryAttribute()}
+                >
                   Add
                 </Button>
               </Grid>
@@ -1443,7 +1500,10 @@ export default function CategoryForm({ mode }: Props) {
 
       <Dialog open={mappingDialog.open} onClose={() => setMappingDialog((d) => ({ ...d, open: false }))} maxWidth="sm" fullWidth>
         <DialogTitle>
-          Mapping: <Typography component="span" fontFamily="monospace">{mappingDialog.fieldName}</Typography>
+          {mappingDialog.mappingId ? "Uredi mapping" : "Novi mapping"}:{" "}
+          <Typography component="span" fontFamily="monospace">
+            {mappingDialog.fieldName}
+          </Typography>
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>

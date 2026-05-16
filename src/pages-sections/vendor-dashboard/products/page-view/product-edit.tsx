@@ -17,6 +17,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import DropZone from "components/DropZone";
 import { currency } from "lib";
 import PageWrapper from "../../page-wrapper";
 
@@ -103,6 +104,7 @@ export default function EditProductPageView() {
   const [newImageUrl, setNewImageUrl] = useState("");
   const [attributesText, setAttributesText] = useState("{}");
   const [saving, setSaving] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
 
   const roots = useMemo(
     () => (payload?.categories ?? []).filter((item) => item.parentId == null),
@@ -315,6 +317,40 @@ export default function EditProductPageView() {
     }
   };
 
+  const uploadProductImageFile = async (file: File) => {
+    const productSlug = payload?.product.slug;
+    if (!productSlug) return;
+    setImageUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch(
+        `/api/admin/products/by-slug/${encodeURIComponent(productSlug)}/images`,
+        { method: "POST", body: formData }
+      );
+      const data = (await response.json()) as { imageUrl?: string; error?: string };
+      if (!response.ok || data.error) throw new Error(data.error ?? "Image upload failed.");
+      if (!data.imageUrl) throw new Error("Image upload did not return a URL.");
+      setImageUrls((prev) => (prev.includes(data.imageUrl!) ? prev : [...prev, data.imageUrl!]));
+      if (!mainImage.trim()) setMainImage(data.imageUrl);
+    } catch (err) {
+      setNotice({
+        severity: "error",
+        text: err instanceof Error ? err.message : "Image upload failed."
+      });
+    } finally {
+      setImageUploading(false);
+    }
+  };
+
+  const handleImageDropZone = (incoming: File[]) => {
+    void (async () => {
+      for (const file of incoming) {
+        await uploadProductImageFile(file);
+      }
+    })();
+  };
+
   const addImage = () => {
     const trimmed = newImageUrl.trim();
     if (!trimmed) return;
@@ -507,7 +543,16 @@ export default function EditProductPageView() {
             label="Main Image URL"
             value={mainImage}
             onChange={(e) => setMainImage(e.target.value)}
+            helperText="External URLs are converted to WebP in Storage when you save. Upload below for immediate WebP."
           />
+          <Box sx={{ mt: 2 }}>
+            <DropZone onChange={handleImageDropZone} />
+            {imageUploading ? (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                Uploading and optimizing image…
+              </Typography>
+            ) : null}
+          </Box>
           <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
             <TextField
               fullWidth

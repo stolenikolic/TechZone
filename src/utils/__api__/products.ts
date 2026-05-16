@@ -1,5 +1,6 @@
 import { cache } from "react";
 import axios from "utils/axiosInstance";
+import { filterApplicableSpecificationRows } from "lib/attributes/not-applicable-value";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { getEffectivePrice, getOriginalPriceForDisplay } from "lib/effective-price";
 // CUSTOM DATA MODEL
@@ -122,7 +123,8 @@ const getProduct = cache(async (slug: string): Promise<Product | null> => {
           const a = raw == null ? null : Array.isArray(raw) ? raw[0] ?? null : raw;
           return a ? { id: a.id, name: a.name, slug: a.slug, value: r.value } : null;
         })
-        .filter((x): x is { id: string; name: string; slug: string; value: string } => x != null)
+        .filter((x): x is { id: string; name: string; slug: string; value: string } => x != null);
+      const applicable = filterApplicableSpecificationRows(specifications)
         .sort((a, b) => {
           const aOrder = attributeSortOrder.get(a.id);
           const bOrder = attributeSortOrder.get(b.id);
@@ -132,7 +134,7 @@ const getProduct = cache(async (slug: string): Promise<Product | null> => {
           return a.name.localeCompare(b.name);
         })
         .map(({ name, slug, value }) => ({ name, slug, value }));
-      if (specifications.length) product.specifications = specifications;
+      if (applicable.length) product.specifications = applicable;
     }
 
     return product;
