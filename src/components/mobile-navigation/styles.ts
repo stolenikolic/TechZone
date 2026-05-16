@@ -12,7 +12,8 @@ const Wrapper = styled("div")(({ theme }) => ({
   position: "fixed",
   justifyContent: "space-around",
   zIndex: theme.zIndex.drawer + 1,
-  height: layoutConstant.mobileNavHeight,
+  minHeight: layoutConstant.mobileNavHeight,
+  paddingBottom: "env(safe-area-inset-bottom, 0px)",
   backgroundColor: theme.palette.background.paper,
   boxShadow: "0px 1px 4px 3px rgba(0, 0, 0, 0.1)",
   [theme.breakpoints.down("lg")]: { display: "flex", width: "100vw" }

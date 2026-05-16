@@ -1,8 +1,10 @@
 import { Fragment, PropsWithChildren } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
+import { layoutConstant } from "utils/constants";
 // GLOBAL CUSTOM COMPONENTS
 import {
   Footer1,
@@ -89,7 +91,17 @@ export default function ShopLayout1({ children, data }: Props) {
         </SecondaryHeader.Right>
       </SecondaryHeader>
 
-      {children}
+      <Box
+        component="main"
+        sx={{
+          pb: {
+            xs: `calc(${layoutConstant.mobileNavHeight}px + env(safe-area-inset-bottom, 0px))`,
+            lg: 0
+          }
+        }}
+      >
+        {children}
+      </Box>
 
       <MobileNavigationBar navigation={mobileNavigation.version1} />
 

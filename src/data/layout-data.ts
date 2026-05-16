@@ -20,7 +20,7 @@ export const languageOptions = {
 // MOBILE NAVIGATION LIST
 export const mobileNavigation = [
   { title: "Home", icon: "Home", href: "/", badge: false },
-  { title: "Category", icon: "CategoryOutlined", href: "/products/search", badge: false },
+  { title: "Category", icon: "CategoryOutlined", href: "/categories", badge: false },
   { title: "Cart", icon: "ShoppingBagOutlined", href: "/cart", badge: true },
   { title: "Account", icon: "User2", href: "/profile", badge: false }
 ];

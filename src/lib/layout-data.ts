@@ -1,6 +1,7 @@
 import type LayoutModel from "models/Layout.model";
 import type { CategoryMenuItem } from "models/Category.model";
 import type { Menu } from "models/Navigation.model";
+import { mobileNavigation as mobileNavigationItems } from "data/layout-data";
 import {
   createSupabaseClient,
   createSupabaseServiceClient,
@@ -101,7 +102,7 @@ function createLayout(categories: LayoutModel["header"]["categories"], categoryM
     },
     mobileNavigation: {
       logo: "/assets/images/logo.svg",
-      version1: [],
+      version1: mobileNavigationItems,
       version2: []
     }
   };
