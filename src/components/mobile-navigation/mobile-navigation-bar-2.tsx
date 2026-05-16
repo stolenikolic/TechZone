@@ -5,7 +5,7 @@ import Badge from "@mui/material/Badge";
 // GLOBAL CUSTOM HOOKS
 import useCart from "hooks/useCart";
 // STYLED COMPONENTS
-import { StyledBox, StyledDrawer, StyledNavLink, Wrapper } from "./styles";
+import { NavRow, SafeAreaInset, StyledBox, StyledDrawer, StyledNavLink, Wrapper } from "./styles";
 // TYPES
 import Item from "./types";
 
@@ -29,6 +29,7 @@ export function MobileNavigationBar2({ children, navigation }: Props) {
       </StyledDrawer>
 
       <Wrapper>
+        <NavRow>
         {navigation.map(({ Icon, title, href, badge }) => {
           // LINK INNER CONTENTS
           const ICON = <Icon className="icon" fontSize="small" />;
@@ -57,6 +58,8 @@ export function MobileNavigationBar2({ children, navigation }: Props) {
             </StyledBox>
           );
         })}
+        </NavRow>
+        <SafeAreaInset />
       </Wrapper>
     </Fragment>
   );

@@ -3,20 +3,34 @@ import { styled } from "@mui/material/styles";
 import { NavLink } from "components/nav-link";
 import { layoutConstant } from "utils/constants";
 
-// STYLED COMPONENTS
+// STYLED COMPONENTS — icon row (64px) + safe-area strip below (iPhone home indicator)
 const Wrapper = styled("div")(({ theme }) => ({
   left: 0,
   right: 0,
   bottom: 0,
   display: "none",
   position: "fixed",
-  justifyContent: "space-around",
+  flexDirection: "column",
   zIndex: theme.zIndex.drawer + 1,
-  minHeight: layoutConstant.mobileNavHeight,
-  paddingBottom: "env(safe-area-inset-bottom, 0px)",
   backgroundColor: theme.palette.background.paper,
   boxShadow: "0px 1px 4px 3px rgba(0, 0, 0, 0.1)",
   [theme.breakpoints.down("lg")]: { display: "flex", width: "100vw" }
+}));
+
+const NavRow = styled("div")({
+  display: "flex",
+  flexShrink: 0,
+  width: "100%",
+  height: layoutConstant.mobileNavHeight,
+  alignItems: "center",
+  justifyContent: "space-around"
+});
+
+const SafeAreaInset = styled("div")(({ theme }) => ({
+  flexShrink: 0,
+  width: "100%",
+  height: "env(safe-area-inset-bottom, 0px)",
+  backgroundColor: theme.palette.background.paper
 }));
 
 const StyledNavLink = styled(NavLink)({
@@ -57,4 +71,4 @@ const StyledDrawer = styled(Drawer)(({ theme }) => ({
   }
 }));
 
-export { Wrapper, StyledBox, StyledNavLink, StyledDrawer };
+export { Wrapper, NavRow, SafeAreaInset, StyledBox, StyledNavLink, StyledDrawer };

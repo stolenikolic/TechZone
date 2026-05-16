@@ -6,7 +6,7 @@ import useCart from "hooks/useCart";
 // GLOBAL CUSTOM COMPONENT
 import IconComponent from "components/IconComponent";
 // STYLED COMPONENTS
-import { StyledNavLink, Wrapper } from "./styles";
+import { NavRow, SafeAreaInset, StyledNavLink, Wrapper } from "./styles";
 // CUSTOM DATA MODEL
 import { MobileNavItem } from "models/Layout.model";
 
@@ -19,19 +19,22 @@ export function MobileNavigationBar({ navigation }: Props) {
 
   return (
     <Wrapper>
-      {navigation.map(({ icon, href, title, badge }) => (
-        <StyledNavLink href={href} key={title}>
-          {badge ? (
-            <Badge badgeContent={state.cart.length} color="primary">
+      <NavRow>
+        {navigation.map(({ icon, href, title, badge }) => (
+          <StyledNavLink href={href} key={title}>
+            {badge ? (
+              <Badge badgeContent={state.cart.length} color="primary">
+                <IconComponent icon={icon} fontSize="small" className="icon" />
+              </Badge>
+            ) : (
               <IconComponent icon={icon} fontSize="small" className="icon" />
-            </Badge>
-          ) : (
-            <IconComponent icon={icon} fontSize="small" className="icon" />
-          )}
+            )}
 
-          {title}
-        </StyledNavLink>
-      ))}
+            {title}
+          </StyledNavLink>
+        ))}
+      </NavRow>
+      <SafeAreaInset />
     </Wrapper>
   );
 }
