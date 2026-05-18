@@ -3,6 +3,7 @@ import type Product from "models/Product.model";
 import { isNotApplicableAttributeValue } from "lib/attributes/not-applicable-value";
 import { getEffectivePrice } from "lib/effective-price";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 type DbCategory = { id: string; name: string; slug: string; parent_id: string | null };
 
@@ -177,6 +178,8 @@ function toProduct(row: DbProduct, masterStatus: MasterStatus): AdminProduct {
 }
 
 export async function GET() {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const supabase = createSupabaseServiceClient();
     const rows: DbProduct[] = [];

@@ -7,6 +7,7 @@ import { assertCanActivateBlock } from "lib/homepage/zone-limits";
 import type { HomepageZone } from "lib/homepage/zones";
 import { parseContentForZone } from "lib/homepage/validation";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,8 @@ async function loadBlock(supabase: ReturnType<typeof createSupabaseServiceClient
 }
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id } = await context.params;
     const supabase = createSupabaseServiceClient();
@@ -42,6 +45,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 }
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id } = await context.params;
     const body = (await request.json()) as PatchBody;
@@ -105,6 +110,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 }
 
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id } = await context.params;
     const supabase = createSupabaseServiceClient();

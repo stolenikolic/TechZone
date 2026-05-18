@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 // LOGIN PAGE SECTIONS
 import { Wrapper } from "pages-sections/sessions/styles";
 import LogoWithTitle from "pages-sections/sessions/components/logo-title";
@@ -10,7 +11,9 @@ export default function LoginModalPage() {
   return (
     <Wrapper>
       <LogoWithTitle />
-      <LoginPageView />
+      <Suspense fallback={null}>
+        <LoginPageView />
+      </Suspense>
       <SocialButtons />
       <LoginBottom />
     </Wrapper>

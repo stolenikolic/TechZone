@@ -3,6 +3,7 @@ import { applyValueAliasesToProducts } from "lib/attributes/apply-value-aliases-
 import { assertAttributeOnCategory } from "lib/attributes/category-attribute-guard";
 import { revalidateCategorySurfaces } from "lib/revalidate-categories";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -11,6 +12,8 @@ export async function POST(
   _request: Request,
   context: { params: Promise<{ id: string; attributeId: string }> }
 ) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id: categoryId, attributeId } = await context.params;
     const supabase = createSupabaseServiceClient();

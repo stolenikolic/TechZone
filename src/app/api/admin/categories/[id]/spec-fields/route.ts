@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,8 @@ function specCellToString(v: unknown): string {
  * Also returns existing mappings for this supplier + category subtree (scoped + global).
  */
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id: categoryId } = await context.params;
     const url = new URL(request.url);

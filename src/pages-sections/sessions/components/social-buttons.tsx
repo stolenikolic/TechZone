@@ -1,17 +1,39 @@
-import { Fragment } from "react";
-// MUI
+"use client";
+
+import { Fragment, useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import SvgIcon from "@mui/material/SvgIcon";
+import Alert from "@mui/material/Alert";
+import { signInWithOAuth } from "lib/auth/actions";
 
 export default function SocialButtons() {
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<"google" | "facebook" | null>(null);
+
+  const handleOAuth = async (provider: "google" | "facebook") => {
+    setError(null);
+    setLoading(provider);
+    const { error: oauthError } = await signInWithOAuth(provider);
+    if (oauthError) {
+      setError(oauthError.message);
+      setLoading(null);
+    }
+  };
+
   return (
     <Fragment>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
+
       <Box my={3}>
         <Divider>
           <Box lineHeight={1} px={1}>
-            or
+            ili
           </Box>
         </Divider>
       </Box>
@@ -21,6 +43,8 @@ export default function SocialButtons() {
         color="primary"
         variant="outlined"
         className="social-button"
+        disabled={loading !== null}
+        onClick={() => handleOAuth("facebook")}
         startIcon={
           <SvgIcon viewBox="0 0 24 24">
             <path
@@ -30,7 +54,7 @@ export default function SocialButtons() {
           </SvgIcon>
         }
       >
-        Continue with Facebook
+        {loading === "facebook" ? "Preusmjeravanje…" : "Nastavi sa Facebookom"}
       </Button>
 
       <Button
@@ -38,6 +62,9 @@ export default function SocialButtons() {
         color="primary"
         variant="outlined"
         className="social-button"
+        sx={{ mt: 1.5 }}
+        disabled={loading !== null}
+        onClick={() => handleOAuth("google")}
         startIcon={
           <SvgIcon viewBox="0 0 24 24">
             <path
@@ -47,7 +74,7 @@ export default function SocialButtons() {
           </SvgIcon>
         }
       >
-        Continue with Google
+        {loading === "google" ? "Preusmjeravanje…" : "Nastavi sa Googleom"}
       </Button>
     </Fragment>
   );

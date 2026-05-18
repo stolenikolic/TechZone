@@ -7,6 +7,7 @@ import {
   type PricingMarginTierRow,
   type PricingSettingsRow
 } from "lib/pricing";
+import { guardAdminApi } from "lib/auth/admin-route";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type DbRow = {
@@ -45,6 +46,8 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id } = await context.params;
     const supabase = createSupabaseServiceClient();

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,8 @@ function computeDuration(startedAt: string, finishedAt: string | null): number |
 }
 
 export async function GET(request: Request) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const url = new URL(request.url);
     const params = url.searchParams;

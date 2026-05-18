@@ -1,35 +1,41 @@
 import { cache } from "react";
 import axios from "utils/axiosInstance";
+import { getForwardedCookieHeader } from "lib/auth/forward-request";
 import Brand from "models/Brand.model";
 import Order from "models/Order.model";
 import Review from "models/Review.model";
 import Product from "models/Product.model";
 import type { SupplierOfferRow } from "app/api/admin/supplier-products/route";
 
+async function adminGet(url: string, config?: { params?: Record<string, string> }) {
+  const headers = await getForwardedCookieHeader();
+  return axios.get(url, { headers, params: config?.params });
+}
+
 // dashboard
 const getAllCard = cache(async () => {
-  const response = await axios.get("/api/admin/dashboard-cards");
+  const response = await adminGet("/api/admin/dashboard-cards");
   return response.data;
 });
 
 const recentPurchase = cache(async () => {
-  const response = await axios.get("/api/admin/recent-purchase");
+  const response = await adminGet("/api/admin/recent-purchase");
   return response.data;
 });
 
 const stockOutProducts = cache(async () => {
-  const response = await axios.get("/api/admin/stock-out-products");
+  const response = await adminGet("/api/admin/stock-out-products");
   return response.data;
 });
 
 // products
 const products = cache(async (): Promise<Product[]> => {
-  const response = await axios.get("/api/admin/products");
+  const response = await adminGet("/api/admin/products");
   return response.data;
 });
 
 const supplierOffers = async (): Promise<SupplierOfferRow[]> => {
-  const response = await axios.get("/api/admin/supplier-products");
+  const response = await adminGet("/api/admin/supplier-products");
   return response.data;
 };
 
@@ -44,66 +50,66 @@ type AdminCategoryListItem = {
 };
 
 const category = cache(async (): Promise<AdminCategoryListItem[]> => {
-  const response = await axios.get("/api/admin/categories");
+  const response = await adminGet("/api/admin/categories");
   return response.data;
 });
 
 const brands = cache(async (): Promise<Brand[]> => {
-  const response = await axios.get("/api/admin/brands");
+  const response = await adminGet("/api/admin/brands");
   return response.data;
 });
 
 const reviews = cache(async (): Promise<Review[]> => {
-  const response = await axios.get("/api/admin/reviews");
+  const response = await adminGet("/api/admin/reviews");
   return response.data;
 });
 
 // orders
 const orders = cache(async (): Promise<Order[]> => {
-  const response = await axios.get("/api/admin/orders");
+  const response = await adminGet("/api/admin/orders");
   return response.data;
 });
 
 const getOrder = cache(async (id: string): Promise<Order> => {
-  const response = await axios.get("/api/admin/orders/1", { params: { id } });
+  const response = await adminGet("/api/admin/orders/1", { params: { id } });
   return response.data;
 });
 
 // customers
 const customers = cache(async () => {
-  const response = await axios.get("/api/admin/customers");
+  const response = await adminGet("/api/admin/customers");
   return response.data;
 });
 
 // refund request
 const refundRequests = cache(async () => {
-  const response = await axios.get("/api/admin/refund-requests");
+  const response = await adminGet("/api/admin/refund-requests");
   return response.data;
 });
 
 // sellers
 const sellers = cache(async () => {
-  const response = await axios.get("/api/admin/sellers");
+  const response = await adminGet("/api/admin/sellers");
   return response.data;
 });
 
 const packagePayments = cache(async () => {
-  const response = await axios.get("/api/admin/package-payments");
+  const response = await adminGet("/api/admin/package-payments");
   return response.data;
 });
 
 const earningHistory = cache(async () => {
-  const response = await axios.get("/api/admin/earning-history");
+  const response = await adminGet("/api/admin/earning-history");
   return response.data;
 });
 
 const payouts = cache(async () => {
-  const response = await axios.get("/api/admin/payouts");
+  const response = await adminGet("/api/admin/payouts");
   return response.data;
 });
 
 const payoutRequests = cache(async () => {
-  const response = await axios.get("/api/admin/payout-requests");
+  const response = await adminGet("/api/admin/payout-requests");
   return response.data;
 });
 

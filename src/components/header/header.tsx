@@ -76,5 +76,9 @@ interface HeaderRightProps extends ComponentProps<typeof Box> {}
 // ==============================================================
 
 Header.Right = function ({ children, ...props }: HeaderRightProps) {
-  return <Box {...props}>{children}</Box>;
+  return (
+    <Box display="flex" alignItems="center" justifyContent="flex-end" gap={1} {...props}>
+      {children}
+    </Box>
+  );
 };

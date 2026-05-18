@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withJobRun } from "lib/jobs/job-runner";
 import { runAutoMatch, type AutoMatchResult } from "lib/auto-match/runAutoMatch";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 const EVENTS_LIMIT = 120;
 
@@ -51,6 +52,8 @@ async function readRunWithEvents(runId?: string) {
 }
 
 export async function GET(request: Request) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   const { searchParams } = new URL(request.url);
   const runId = searchParams.get("runId")?.trim() || undefined;
   const result = await readRunWithEvents(runId);
@@ -61,6 +64,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST() {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const wrapResult = await withJobRun<AutoMatchResult>(
       { jobType: "auto_match", triggeredBy: "manual" },

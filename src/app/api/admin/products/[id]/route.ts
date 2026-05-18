@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 
 /** PATCH /api/admin/products/:id — body: { selling_margin_override: number | null } */
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id } = await context.params;
     const body = (await request.json()) as { selling_margin_override?: number | null };

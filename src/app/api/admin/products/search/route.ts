@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export type AdminProductSearchResult = {
   id: string;
@@ -22,6 +23,8 @@ function buildTokenFilter(token: string) {
 }
 
 export async function GET(request: Request) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim().slice(0, 160) ?? "";
   const tokens = q.toLowerCase().split(/\s+/).map(cleanToken).filter(Boolean);

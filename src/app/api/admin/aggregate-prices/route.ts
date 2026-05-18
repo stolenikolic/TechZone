@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { aggregatePrices, wrapAggregatePricesJobResult } from "lib/pricing";
 import { withJobRun } from "lib/jobs/job-runner";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 /**
  * POST /api/admin/aggregate-prices
@@ -15,6 +16,8 @@ import { withJobRun } from "lib/jobs/job-runner";
  * with the original payload shape so existing UI callers keep working.
  */
 export async function POST() {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { value: result } = await withJobRun(
       { jobType: "aggregate_prices", triggeredBy: "manual" },

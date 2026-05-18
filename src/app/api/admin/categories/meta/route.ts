@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export async function GET() {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const supabase = createSupabaseServiceClient();
     const [{ data: categories, error: categoriesError }, { data: attributes, error: attributesError }] =

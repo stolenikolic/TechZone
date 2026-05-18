@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,8 @@ const DEFAULT_WINDOW_HOURS = 24;
 const MAX_WINDOW_HOURS = 24 * 30;
 
 export async function GET(request: Request) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const url = new URL(request.url);
     const hoursRaw = Number.parseInt(url.searchParams.get("hours") ?? String(DEFAULT_WINDOW_HOURS), 10);

@@ -1,25 +1,31 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Button from "@mui/material/Button";
+import Alert from "@mui/material/Alert";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-// GLOBAL CUSTOM COMPONENTS
 import { TextField, FormProvider } from "components/form-hook";
-// LOCAL CUSTOM COMPONENTS
 import Label from "../components/label";
 import EyeToggleButton from "../components/eye-toggle-button";
-// LOCAL CUSTOM HOOK
 import usePasswordVisible from "../use-password-visible";
+import { signInWithEmail, resendSignupConfirmation } from "lib/auth/actions";
 
-// LOGIN FORM FIELD VALIDATION SCHEMA
 const validationSchema = yup.object().shape({
   password: yup.string().required("Password is required"),
   email: yup.string().email("Invalid Email Address").required("Email is required")
 });
 
 export default function LoginPageView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = searchParams.get("next");
   const { visiblePassword, togglePasswordVisible } = usePasswordVisible();
+  const [error, setError] = useState<string | null>(null);
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
 
   const initialValues = { email: "", password: "" };
 
@@ -33,12 +39,61 @@ export default function LoginPageView() {
     formState: { isSubmitting }
   } = methods;
 
-  const handleSubmitForm = handleSubmit((values) => {
-    alert(JSON.stringify(values, null, 2));
+  const handleResend = async () => {
+    if (!unconfirmedEmail) return;
+    setResendMessage(null);
+    const { error: resendError } = await resendSignupConfirmation(unconfirmedEmail);
+    setResendMessage(
+      resendError ? resendError.message : "Confirmation link has been sent again."
+    );
+  };
+
+  const handleSubmitForm = handleSubmit(async (values) => {
+    setError(null);
+    setUnconfirmedEmail(null);
+    setResendMessage(null);
+
+    const { data, error: signInError } = await signInWithEmail(values.email, values.password);
+
+    if (signInError) {
+      const msg = signInError.message.toLowerCase();
+      if (msg.includes("email not confirmed") || msg.includes("not confirmed")) {
+        setUnconfirmedEmail(values.email);
+        setError("Email is not confirmed. Check your inbox or resend the link.");
+      } else {
+        setError(signInError.message);
+      }
+      return;
+    }
+
+    if (!data.session) {
+      setError("Login failed. Please try again.");
+      return;
+    }
+
+    const dest = next && next.startsWith("/") ? next : "/profile";
+    router.push(dest);
+    router.refresh();
   });
 
   return (
     <FormProvider methods={methods} onSubmit={handleSubmitForm}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+          {unconfirmedEmail && (
+            <Button size="small" onClick={handleResend} sx={{ mt: 1, display: "block" }}>
+              Resend confirmation link
+            </Button>
+          )}
+        </Alert>
+      )}
+      {resendMessage && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {resendMessage}
+        </Alert>
+      )}
+
       <div className="mb-1">
         <Label>Email or Phone Number</Label>
         <TextField

@@ -1,47 +1,32 @@
 import { createClient } from "@supabase/supabase-js";
+import {
+  hasSupabasePublicConfig,
+  hasSupabaseServerConfig,
+  requireSupabaseUrl,
+  supabaseAnonKey,
+  supabaseServiceKey
+} from "./supabase/config";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabasePublishableKey =
-  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-export function hasSupabasePublicConfig() {
-  return Boolean(supabaseUrl && supabasePublishableKey);
-}
-
-export function hasSupabaseServerConfig() {
-  return Boolean(supabaseUrl && supabaseSecretKey);
-}
-
-function requireSupabaseUrl() {
-  if (!supabaseUrl) {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set");
-  }
-
-  return supabaseUrl;
-}
+export { hasSupabasePublicConfig, hasSupabaseServerConfig };
 
 /**
- * Supabase client for browser and server (uses publishable key).
- * Use for authenticated user operations and public data.
+ * Legacy singleton-style client (no cookie session). Prefer createSupabaseBrowserClient / createSupabaseServerClient.
  */
 export function createSupabaseClient() {
-  if (!supabasePublishableKey) {
+  if (!supabaseAnonKey) {
     throw new Error("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is not set");
   }
-
-  return createClient(requireSupabaseUrl(), supabasePublishableKey);
+  return createClient(requireSupabaseUrl(), supabaseAnonKey);
 }
 
 /**
- * Supabase client with secret key. Use only in server-side code (API routes, Server Components, server actions).
- * Never expose or use this key in client components.
+ * Service role — server-only (jobs, migrations, admin data after auth check).
  */
 export function createSupabaseServiceClient() {
-  if (!supabaseSecretKey) {
+  if (!supabaseServiceKey) {
     throw new Error(
       "Supabase service key is not set. Add SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY to your environment (e.g. .env.local). See .env.example."
     );
   }
-  return createClient(requireSupabaseUrl(), supabaseSecretKey);
+  return createClient(requireSupabaseUrl(), supabaseServiceKey);
 }

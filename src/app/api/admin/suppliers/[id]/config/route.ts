@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { invalidateRegistryCaches } from "lib/suppliers/registry";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,8 @@ type Row = {
 };
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id } = await context.params;
     const supabase = createSupabaseServiceClient();
@@ -39,6 +42,8 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
 }
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id: supplierId } = await context.params;
     const body = (await request.json()) as {
@@ -74,6 +79,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 }
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id: supplierId } = await context.params;
     const url = new URL(request.url);

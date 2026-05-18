@@ -1,25 +1,26 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-// MUI
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
-// GLOBAL CUSTOM COMPONENTS
+import Alert from "@mui/material/Alert";
 import { TextField, FormProvider } from "components/form-hook";
 import FlexRowCenter from "components/flex-box/flex-row-center";
-// LOCAL CUSTOM COMPONENT
 import BoxLink from "../components/box-link";
+import { resetPasswordForEmail } from "lib/auth/actions";
 
-// FORM FIELD VALIDATION SCHEMA
 const validationSchema = yup.object().shape({
   email: yup.string().email("invalid email").required("Email is required")
 });
 
 export default function ResetPassword() {
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
   const methods = useForm({
     defaultValues: { email: "" },
     resolver: yupResolver(validationSchema)
@@ -30,8 +31,20 @@ export default function ResetPassword() {
     formState: { isSubmitting }
   } = methods;
 
-  const handleSubmitForm = handleSubmit((values) => {
-    alert(JSON.stringify(values, null, 2));
+  const handleSubmitForm = handleSubmit(async (values) => {
+    setError(null);
+    setMessage(null);
+    const { error: resetError } = await resetPasswordForEmail(values.email);
+
+    if (resetError) {
+      setError(resetError.message);
+      return;
+    }
+
+    setMessage(
+      "If an account exists for that email, we sent password reset instructions. Please check your inbox."
+    );
+    methods.reset();
   });
 
   return (
@@ -39,6 +52,17 @@ export default function ResetPassword() {
       <Typography variant="h3" fontWeight={700} sx={{ mb: 4, textAlign: "center" }}>
         Reset your password
       </Typography>
+
+      {message && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {message}
+        </Alert>
+      )}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       <FormProvider methods={methods} onSubmit={handleSubmitForm}>
         <Stack spacing={3}>
@@ -68,7 +92,6 @@ export default function ResetPassword() {
         <Typography variant="body1" color="text.secondary">
           Don&apos;t have an account?
         </Typography>
-
         <BoxLink title="Register" href="/register" />
       </FlexRowCenter>
     </Fragment>

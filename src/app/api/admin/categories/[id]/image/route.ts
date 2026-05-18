@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import { processCategoryImageFromBuffer } from "lib/images/process-category-image";
 import { revalidateCategorySurfaces } from "lib/revalidate-categories";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 
 /** POST multipart: file → WebP → Storage → categories.image_url */
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id: categoryId } = await context.params;
     const formData = await request.formData();

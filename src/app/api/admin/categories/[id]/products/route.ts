@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { compareTopPickThenDate, type CategoryTopPick } from "lib/category-top-picks";
 import { revalidateCategorySurfaces } from "lib/revalidate-categories";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 const PAGE_SIZE = 30;
 
@@ -43,6 +44,8 @@ type TopPickBody = {
 };
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id: categoryId } = await context.params;
     const { searchParams } = new URL(request.url);
@@ -122,6 +125,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
 }
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id: categoryId } = await context.params;
     const body = (await request.json()) as TopPickBody;

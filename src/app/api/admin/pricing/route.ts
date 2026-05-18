@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,8 @@ function validateTiers(tiers: unknown): string | null {
  * PUT /api/admin/pricing — replace settings + tiers (same pattern as other admin routes: service role on server).
  */
 export async function GET() {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const supabase = createSupabaseServiceClient();
 
@@ -69,6 +72,8 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const body = (await request.json()) as {
       settings?: Record<string, unknown>;

@@ -4,6 +4,7 @@ import {
   IPON_SUPPLIER_ID,
   runIponImportForSupplierCategory
 } from "lib/suppliers/ipon/importProducts";
+import { guardAdminApi } from "lib/auth/admin-route";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,8 @@ export async function POST(
   _request: Request,
   context: { params: Promise<{ id: string; rowId: string }> }
 ) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id: supplierId, rowId } = await context.params;
 

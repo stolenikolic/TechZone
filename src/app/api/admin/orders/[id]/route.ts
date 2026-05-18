@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { updateOrderStatus } from "lib/orders/orders-service";
 import type { OrderStatus } from "models/Order.model";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id } = await context.params;
     const { status } = (await request.json()) as { status?: OrderStatus };

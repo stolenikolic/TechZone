@@ -3,6 +3,7 @@ import { aggregatePrices } from "lib/pricing";
 import { processProductImages } from "lib/suppliers/ipon/processProductImages";
 import { syncMissingIdentifiersFromMaster } from "lib/suppliers/syncSupplierIdentifiers";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 type LinkBody = {
   action: "link";
@@ -202,6 +203,8 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id } = await context.params;
     const supabase = createSupabaseServiceClient();
@@ -297,6 +300,8 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id } = await context.params;
     const payload = (await request.json()) as CreateMasterFromOfferPayload;
@@ -417,6 +422,8 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> }
 ) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id } = await context.params;
     const body = (await request.json()) as Body;

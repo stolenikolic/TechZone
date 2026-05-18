@@ -40,6 +40,7 @@
     "@mui/material-nextjs": "^7.3.6",
     "@mui/x-date-pickers": "^8.23.0",
     "@next/third-parties": "^16.1.1",
+    "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.98.0",
     "apexcharts": "^5.3.6",
     "axios": "^1.13.2",

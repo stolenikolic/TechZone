@@ -13,6 +13,7 @@ import ThemeProvider from "theme/theme-provider";
 
 // PRODUCT CART PROVIDER
 import CartProvider from "contexts/CartContext";
+import { AuthProvider } from "contexts/AuthContext";
 
 // SITE SETTINGS PROVIDER
 import SettingsProvider from "contexts/SettingContext";
@@ -36,9 +37,10 @@ export default function RootLayout({ children, modal }: RootLayoutProps) {
   return (
     <html lang="bs" suppressHydrationWarning>
       <body id="body" className={geist.className}>
-        <CartProvider>
-          <SettingsProvider>
-            <ThemeProvider>
+        <AuthProvider>
+          <CartProvider>
+            <SettingsProvider>
+              <ThemeProvider>
               <RTL>
                 <Suspense fallback={null}><LastNonCartRouteTracker /></Suspense>
                 {modal}
@@ -46,9 +48,10 @@ export default function RootLayout({ children, modal }: RootLayoutProps) {
               </RTL>
 
               <ProgressBar />
-            </ThemeProvider>
-          </SettingsProvider>
-        </CartProvider>
+              </ThemeProvider>
+            </SettingsProvider>
+          </CartProvider>
+        </AuthProvider>
 
         <GoogleAnalytics gaId="G-XKPD36JXY0" />
       </body>

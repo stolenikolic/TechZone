@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from "utils/supabase";
 import { withJobRun, type JobType } from "lib/jobs/job-runner";
 import { IPON_SUPPLIER_ID } from "lib/suppliers/ipon/categories";
 import { PCX_SUPPLIER_ID } from "lib/suppliers/registry";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -98,6 +99,8 @@ async function runJob(
 }
 
 export async function POST(request: Request) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const body = (await request.json().catch(() => ({}))) as {
       jobType?: string;

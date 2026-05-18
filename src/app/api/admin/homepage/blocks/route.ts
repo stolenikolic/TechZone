@@ -5,10 +5,13 @@ import { assertCanAddBlock, assertCanActivateBlock } from "lib/homepage/zone-lim
 import { isHomepageZone, type HomepageZone } from "lib/homepage/zones";
 import { parseContentForZone } from "lib/homepage/validation";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { searchParams } = new URL(request.url);
     const zoneParam = searchParams.get("zone");
@@ -31,6 +34,8 @@ type PostBody = {
 };
 
 export async function POST(request: Request) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const body = (await request.json()) as PostBody;
     if (!body.zone || !isHomepageZone(body.zone)) {

@@ -4,6 +4,7 @@ import { isHostedCategoryImage } from "lib/images/storage";
 import { normalizeCategorySlug } from "lib/normalize-slug";
 import { revalidateCategorySurfaces } from "lib/revalidate-categories";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 type CategoryRow = {
   id: string;
@@ -16,6 +17,8 @@ type CategoryRow = {
 };
 
 export async function GET() {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const supabase = createSupabaseServiceClient();
     const { data, error } = await supabase
@@ -76,6 +79,8 @@ type CreateBody = {
 };
 
 export async function POST(request: Request) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const body = (await request.json()) as CreateBody;
     const name = body.name?.trim() ?? "";

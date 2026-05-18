@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,8 @@ function isAllowedFormula(f: string | null | undefined): boolean {
 
 /** PATCH /api/admin/suppliers/:id — body: { pricing_formula?, cost_adjustment_multiplier?, enrichment_priority? } */
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id } = await context.params;
     const body = (await request.json()) as {

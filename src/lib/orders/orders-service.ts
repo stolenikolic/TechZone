@@ -157,8 +157,6 @@ export function mapDbOrderToOrder(order: DbOrder, supplierByProductId?: Map<stri
       email: order.customer_email,
       phone: order.customer_phone,
       avatar: "",
-      password: "",
-      dateOfBirth: "",
       verified: false,
       name: { firstName: order.customer_name, lastName: "" }
     },
@@ -225,7 +223,7 @@ function validatePayload(payload: CreateOrderPayload) {
   return { checkout, items };
 }
 
-export async function createOrder(payload: CreateOrderPayload) {
+export async function createOrder(payload: CreateOrderPayload, userId?: string | null) {
   const { checkout, items } = validatePayload(payload);
   const productIds = Array.from(new Set(items.map((item) => item.id)));
   const supabase = createSupabaseServiceClient();
@@ -270,6 +268,7 @@ export async function createOrder(payload: CreateOrderPayload) {
   const { data: order, error: orderError } = await supabase
     .from("orders")
     .insert({
+      ...(userId ? { user_id: userId } : {}),
       status: "Pending",
       payment_method: "Cash on Delivery",
       customer_name: checkout.shipping_name,

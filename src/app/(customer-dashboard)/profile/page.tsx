@@ -1,23 +1,20 @@
 import { Metadata } from "next";
 import { dynamicShopMetadata } from "lib/site-metadata";
-import { notFound } from "next/navigation";
 import { ProfilePageView } from "pages-sections/customer-dashboard/profile/page-view";
-// API FUNCTIONS
-import api from "utils/__api__/users";
+import { getSessionProfile } from "lib/auth/session";
+import { profileToUserModel } from "lib/auth/map-user";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const user = await api.getUser();
-  if (!user) notFound();
-
-  const name = `${user.name.firstName} ${user.name.lastName}`;
-
+  const profile = await getSessionProfile();
+  const name = profile?.full_name?.trim() || "Profil";
   return dynamicShopMetadata(name);
 }
 
 export default async function Profile() {
-  const user = await api.getUser();
+  const profile = await getSessionProfile();
+  if (!profile) return null;
 
-  if (!user) notFound();
+  const user = profileToUserModel(profile);
 
   return <ProfilePageView user={user} />;
 }

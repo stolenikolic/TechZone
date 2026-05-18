@@ -7,6 +7,7 @@ import {
   type PricingMarginTierRow,
   type PricingSettingsRow
 } from "lib/pricing";
+import { guardAdminApi } from "lib/auth/admin-route";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type DbSupplier = { name: string | null; code: string | null } | { name: string | null; code: string | null }[] | null;
@@ -194,6 +195,8 @@ function toRow(
 }
 
 export async function GET() {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const supabase = createSupabaseServiceClient();
     const { data: settingsRows } = await supabase.from("pricing_settings").select("*").limit(1);

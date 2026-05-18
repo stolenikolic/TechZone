@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 type LinkedSupplierRow = {
   id: string;
@@ -21,6 +22,8 @@ function firstProduct(value: LinkedSupplierRow["products"]) {
 }
 
 export async function POST() {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const supabase = createSupabaseServiceClient();
     let cursor: string | null = null;

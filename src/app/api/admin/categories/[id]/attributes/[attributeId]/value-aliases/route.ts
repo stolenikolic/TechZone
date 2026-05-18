@@ -3,6 +3,7 @@ import { mapAttributeValueAliasRow, type AttributeValueAliasDbRow } from "lib/at
 import { assertAttributeOnCategory } from "lib/attributes/category-attribute-guard";
 import { revalidateCategorySurfaces } from "lib/revalidate-categories";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,8 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string; attributeId: string }> }
 ) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id: categoryId, attributeId } = await context.params;
     const supabase = createSupabaseServiceClient();
@@ -163,6 +166,8 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string; attributeId: string }> }
 ) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id: categoryId, attributeId } = await context.params;
     const body = (await request.json()) as PostBody;

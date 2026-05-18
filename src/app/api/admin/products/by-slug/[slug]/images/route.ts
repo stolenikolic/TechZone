@@ -3,11 +3,14 @@ import { PRODUCT_IMAGES_BUCKET } from "lib/images/constants";
 import { resizeProductToWebp } from "lib/images/resize-to-webp";
 import { uploadWebp } from "lib/images/storage";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 
 /** POST multipart: file → WebP → Storage → product_images row */
 export async function POST(request: Request, context: { params: Promise<{ slug: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { slug } = await context.params;
     const formData = await request.formData();

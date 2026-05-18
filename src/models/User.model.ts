@@ -3,8 +3,9 @@ export default interface User {
   email: string;
   phone: string;
   avatar: string;
-  password: string;
-  dateOfBirth: Date | string;
+  /** @deprecated Auth passwords live in Supabase Auth, not this model */
+  password?: string;
+  dateOfBirth?: Date | string;
   verified: boolean;
   name: { firstName: string; lastName: string };
 }

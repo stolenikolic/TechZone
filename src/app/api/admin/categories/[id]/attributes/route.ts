@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { normalizeAttributeSlug } from "lib/normalize-slug";
 import { revalidateCategorySurfaces } from "lib/revalidate-categories";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 type CreateBody = {
   attributeId?: string;
@@ -13,6 +14,8 @@ type CreateBody = {
 };
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id: categoryId } = await context.params;
     const body = (await request.json()) as CreateBody;
@@ -112,6 +115,8 @@ type PatchBody = {
 };
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id: categoryId } = await context.params;
     const body = (await request.json()) as PatchBody;
@@ -188,6 +193,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 type DeleteBody = { attributeId?: string };
 
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id: categoryId } = await context.params;
     const body = (await request.json()) as DeleteBody;

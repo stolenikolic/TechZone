@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 type CategoryRow = {
   id: string;
@@ -47,6 +48,8 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ slug: string }> }
 ) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { slug } = await context.params;
     const supabase = createSupabaseServiceClient();

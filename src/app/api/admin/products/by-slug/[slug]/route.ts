@@ -8,6 +8,7 @@ import {
   type PricingMarginTierRow,
   type PricingSettingsRow
 } from "lib/pricing";
+import { guardAdminApi } from "lib/auth/admin-route";
 import { syncAdminProductImages } from "lib/images/sync-admin-product-images";
 import { createSupabaseServiceClient } from "utils/supabase";
 
@@ -170,6 +171,8 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ slug: string }> }
 ) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { slug } = await context.params;
     const supabase = createSupabaseServiceClient();
@@ -312,6 +315,8 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ slug: string }> }
 ) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { slug } = await context.params;
     const body = (await request.json()) as PatchBody;

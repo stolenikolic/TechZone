@@ -4,11 +4,14 @@ import { processHomepageImageFromBuffer } from "lib/images/process-homepage-imag
 import { revalidateHomepageSurfaces } from "lib/homepage/revalidate";
 import type { HomepageZone } from "lib/homepage/zones";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 
 /** POST multipart: file → WebP → Storage → homepage_blocks.image_url */
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const { id } = await context.params;
     const formData = await request.formData();

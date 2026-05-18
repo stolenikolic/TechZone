@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { CreateMasterFromOfferPageView } from "pages-sections/vendor-dashboard/products/page-view";
 import type { SupplierOfferCreateMasterData } from "app/api/admin/supplier-products/[id]/route";
 import { getServerBaseUrl } from "utils/site-url";
+import { getForwardedCookieHeader } from "lib/auth/forward-request";
 
 export const metadata = adminPageMetadata("Kreiraj proizvod iz ponude");
 
@@ -12,7 +13,8 @@ type Props = {
 
 async function getOfferData(offerId: string): Promise<SupplierOfferCreateMasterData | null> {
   const response = await fetch(`${getServerBaseUrl()}/api/admin/supplier-products/${offerId}`, {
-    cache: "no-store"
+    cache: "no-store",
+    headers: await getForwardedCookieHeader()
   });
 
   if (response.status === 404) return null;

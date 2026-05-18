@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { invalidateRegistryCaches } from "lib/suppliers/registry";
+import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,8 @@ function toAdminSupplier(row: SupplierRow): AdminSupplier {
 }
 
 export async function GET() {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const supabase = createSupabaseServiceClient();
     const { data, error } = await supabase
@@ -63,6 +66,8 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
   try {
     const body = (await request.json()) as {
       id?: string;
