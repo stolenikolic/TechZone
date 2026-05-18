@@ -123,7 +123,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       }
     }
 
-    revalidateCategorySurfaces((patch.slug as string | undefined) ?? currentCategory?.slug ?? null);
+    revalidateCategorySurfaces(
+      (patch.slug as string | undefined) ?? currentCategory?.slug ?? null,
+      id
+    );
     return NextResponse.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -155,7 +158,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
 
     const { error } = await supabase.from("categories").delete().eq("id", id);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    revalidateCategorySurfaces(categoryRow?.slug ?? null);
+    revalidateCategorySurfaces(categoryRow?.slug ?? null, id);
     return NextResponse.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

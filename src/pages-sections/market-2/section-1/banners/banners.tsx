@@ -1,27 +1,58 @@
 import Link from "next/link";
-import Image from "next/image";
+import HomepageImage from "components/homepage-image/homepage-image";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import type { HeroSideBannerItem } from "lib/homepage/types";
 // STYLED COMPONENTS
-import { BannerRoot, LinkText } from "./styles";
+import { BannerImageWrap, BannerRoot, LinkText } from "./styles";
 
-export default function Banners() {
+type Props = {
+  items: HeroSideBannerItem[];
+};
+
+export default function Banners({ items }: Props) {
   return (
     <Stack spacing={3} height="100%" direction={{ lg: "column", sm: "row", xs: "column" }}>
-      <BannerRoot>
-        <BannerContent title="Winter Sale 20% OFF" tag="New Arrivals" url="/" />
-        <Image src="/assets/images/market-2/shoe-1.png" alt="shoe" width={177} height={188} />
-      </BannerRoot>
-
-      <BannerRoot sx={{ padding: "1rem 1rem 1rem 1.5rem" }}>
-        <BannerContent title="Airpods Pro 30% OFF" tag="Accessories" url="/" />
-        <Image src="/assets/images/market-2/airpods-1.png" alt="airpods" width={177} height={188} />
-      </BannerRoot>
+      {items.map((item) => (
+        <BannerRoot key={item.id}>
+          <BannerContent
+            title={item.title}
+            tag={item.tag}
+            url={item.linkUrl}
+            buttonLabel={item.buttonLabel}
+          />
+          <BannerImageWrap>
+            <HomepageImage
+              src={item.imgUrl}
+              alt={item.title}
+              width={177}
+              height={188}
+              style={{
+                width: "auto",
+                height: "auto",
+                maxWidth: "100%",
+                maxHeight: "100%",
+                objectFit: "contain"
+              }}
+            />
+          </BannerImageWrap>
+        </BannerRoot>
+      ))}
     </Stack>
   );
 }
 
-function BannerContent({ title, tag, url }: { title: string; tag: string; url: string }) {
+function BannerContent({
+  title,
+  tag,
+  url,
+  buttonLabel
+}: {
+  title: string;
+  tag: string;
+  url: string;
+  buttonLabel: string;
+}) {
   return (
     <div className="content">
       <Typography variant="body1" fontWeight={500} lineHeight={1} sx={{ mb: 1 }}>
@@ -40,7 +71,7 @@ function BannerContent({ title, tag, url }: { title: string; tag: string; url: s
 
       <Link href={url}>
         <LinkText fontWeight={500} fontSize={12}>
-          EXPLORE NOW
+          {buttonLabel}
         </LinkText>
       </Link>
     </div>

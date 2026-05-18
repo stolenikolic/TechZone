@@ -41,6 +41,11 @@ export const navigation = [
     ]
   },
   {
+    name: "Homepage",
+    icon: duotone.SiteSetting,
+    path: "/admin/homepage"
+  },
+  {
     name: "Brands",
     icon: duotone.Apps,
     children: [

@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { dynamicShopMetadata } from "lib/site-metadata";
 import { notFound } from "next/navigation";
 import { ProfileEditPageView } from "pages-sections/customer-dashboard/profile/page-view";
 // API FUNCTIONS
@@ -13,12 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   const name = `${user.name.firstName} ${user.name.lastName}`;
 
-  return {
-    title: name + " - Bazaar Next.js E-commerce Template",
-    description: "Bazaar is a React Next.js E-commerce template.",
-    authors: [{ name: "UI-LIB", url: "https://ui-lib.com" }],
-    keywords: ["e-commerce", "e-commerce template", "next.js", "react"]
-  };
+  return dynamicShopMetadata(name);
 }
 
 export default async function ProfileEdit() {

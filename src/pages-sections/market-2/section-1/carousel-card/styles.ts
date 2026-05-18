@@ -23,13 +23,26 @@ export const LinkText = styled(Typography)(({ theme }) => ({
 
 export const ImageContainer = styled("div")(({ theme }) => ({
   maxWidth: 350,
+  width: "100%",
+  height: 240,
   margin: "auto",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
   textAlign: "center",
-  img: {
-    width: "100%",
-    height: "auto"
+  "& img": {
+    display: "block",
+    width: "auto",
+    height: "auto",
+    maxWidth: "100%",
+    maxHeight: "100%",
+    objectFit: "contain"
+  },
+  [theme.breakpoints.up("md")]: {
+    height: 320
   },
   [theme.breakpoints.down("sm")]: {
-    maxWidth: 250
+    maxWidth: 250,
+    height: 220
   }
 }));

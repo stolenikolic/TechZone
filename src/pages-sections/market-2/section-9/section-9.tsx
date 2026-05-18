@@ -15,7 +15,7 @@ export default function Section9() {
           priority
           quality={90}
           loading="eager"
-          alt="Newsletter Bazaar"
+          alt="Tech Zone newsletter"
           sizes="(max-width: 768px) 100vw, 1200px"
           src="/assets/images/market-2/newsletter-bg.png"
           sx={{ objectFit: "cover", objectPosition: "center" }}

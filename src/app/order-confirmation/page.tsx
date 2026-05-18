@@ -1,14 +1,8 @@
-import type { Metadata } from "next";
+import { shopPageMetadata } from "lib/site-metadata";
 import { OrderConfirmationPageView } from "pages-sections/order-confirmation";
 import { getOrder } from "lib/orders/orders-service";
 
-export const metadata: Metadata = {
-  title: "Order Confirmation - Bazaar Next.js E-commerce Template",
-  description:
-    "Bazaar is a React Next.js E-commerce template. Build SEO friendly Online store, delivery app and Multi vendor store",
-  authors: [{ name: "UI-LIB", url: "https://ui-lib.com" }],
-  keywords: ["e-commerce", "e-commerce template", "next.js", "react"]
-};
+export const metadata = shopPageMetadata("Potvrda narudžbe");
 
 type Props = {
   searchParams: Promise<{ orderId?: string }>;

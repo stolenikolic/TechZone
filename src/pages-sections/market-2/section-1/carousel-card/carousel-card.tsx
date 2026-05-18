@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
+import HomepageImage from "components/homepage-image/homepage-image";
 import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
 // STYLED COMPONENT
@@ -11,13 +11,21 @@ interface Props {
   imgUrl: string;
   category: string;
   buttonLink: string;
+  buttonLabel: string;
   description: string;
 }
 // ===============================================================
 
-export default function CarouselCard({ title, category, buttonLink, description, imgUrl }: Props) {
+export default function CarouselCard({
+  title,
+  category,
+  buttonLink,
+  buttonLabel,
+  description,
+  imgUrl
+}: Props) {
   return (
-    <Grid container spacing={3} sx={{ width: "100%", m: 0 }}>
+    <Grid container spacing={3} sx={{ width: "100%", m: 0, alignItems: "center" }}>
       <Grid size={{ xs: 12, md: 6 }}>
         <CardContent>
           <Typography
@@ -39,7 +47,7 @@ export default function CarouselCard({ title, category, buttonLink, description,
 
           <Link href={buttonLink}>
             <LinkText variant="body1" fontWeight={500}>
-              EXPLORE NOW
+              {buttonLabel}
             </LinkText>
           </Link>
         </CardContent>
@@ -47,7 +55,19 @@ export default function CarouselCard({ title, category, buttonLink, description,
 
       <Grid size={{ xs: 12, md: 6 }}>
         <ImageContainer>
-          <Image src={imgUrl} alt={title} width={355} height={400} />
+          <HomepageImage
+            src={imgUrl}
+            alt={title}
+            width={355}
+            height={400}
+            style={{
+              width: "auto",
+              height: "auto",
+              maxWidth: "100%",
+              maxHeight: "100%",
+              objectFit: "contain"
+            }}
+          />
         </ImageContainer>
       </Grid>
     </Grid>

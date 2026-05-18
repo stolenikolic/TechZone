@@ -2,7 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { CATEGORY_IMAGES_BUCKET } from "lib/images/constants";
 import { fetchImageBuffer } from "lib/images/fetch-image";
 import { resizeCategoryToWebp } from "lib/images/resize-to-webp";
-import { isHostedCategoryImage, removeCategoryImage, uploadWebp } from "lib/images/storage";
+import {
+  isHostedCategoryImage,
+  newCategoryImageStoragePath,
+  removeCategoryImage,
+  uploadWebp
+} from "lib/images/storage";
 
 async function uploadCategoryWebp(
   supabase: SupabaseClient,
@@ -10,7 +15,7 @@ async function uploadCategoryWebp(
   input: Buffer
 ): Promise<string> {
   const webpBuffer = await resizeCategoryToWebp(input);
-  const path = `${categoryId}.webp`;
+  const path = newCategoryImageStoragePath(categoryId);
   return uploadWebp(supabase, CATEGORY_IMAGES_BUCKET, path, webpBuffer);
 }
 

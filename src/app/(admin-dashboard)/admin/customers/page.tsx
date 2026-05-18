@@ -1,14 +1,9 @@
-import { Metadata } from "next";
+import { adminPageMetadata } from "lib/site-metadata";
 import { CustomersPageView } from "pages-sections/vendor-dashboard/customers/page-view";
 // API FUNCTIONS
 import api from "utils/__api__/dashboard";
 
-export const metadata: Metadata = {
-  title: "Customers - Bazaar Next.js E-commerce Template",
-  description: `Bazaar is a React Next.js E-commerce template. Build SEO friendly Online store, delivery app and Multi vendor store`,
-  authors: [{ name: "UI-LIB", url: "https://ui-lib.com" }],
-  keywords: ["e-commerce", "e-commerce template", "next.js", "react"]
-};
+export const metadata = adminPageMetadata("Kupci");
 
 export default async function Customers() {
   const customers = await api.customers();

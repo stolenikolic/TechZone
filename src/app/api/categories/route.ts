@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { categoryImageDisplayUrl } from "lib/images/category-display-url";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 /** Category tree item: nested children in `parent`. Same shape as market-2 for navbar compatibility. */
@@ -65,7 +66,7 @@ function toTreeItem(node: TreeNode): CategoryTreeItem {
     name: node.name,
     slug: node.slug,
     icon: null,
-    image: node.image_url?.trim() || DEFAULT_CATEGORY_IMAGE,
+    image: categoryImageDisplayUrl(node.image_url?.trim() || DEFAULT_CATEGORY_IMAGE),
     description: null,
     parent: node.children.map(toTreeItem),
   };

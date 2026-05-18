@@ -1,9 +1,7 @@
-import type { Metadata } from "next";
+import { shopPageMetadata } from "lib/site-metadata";
 import { MarketTwoPageView } from "pages-sections/market-2/page-view";
 
-export const metadata: Metadata = {
-  title: "Tech Zone"
-};
+export const metadata = shopPageMetadata("Početna");
 
 export const dynamic = "force-dynamic";
 

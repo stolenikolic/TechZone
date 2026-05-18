@@ -55,15 +55,17 @@ export async function generateMetadata({ params }: SlugParams): Promise<Metadata
   const baseUrl = getBaseUrl();
   // Canonical always uses product.slug so it points to the main product page (prevents duplicate content).
   const canonicalUrl = `${baseUrl}/products/${product.slug}`;
-  const title = `${product.title} – TechZone`;
-  const description = product.description ?? "TechZone product.";
+  const title = `${product.title} | Tech Zone`;
+  const description =
+    product.description ??
+    `Kupite ${product.title} na Tech Zone — računarska oprema i komponente u BiH.`;
   const mainImage =
     product.images?.[0] ?? product.thumbnail ?? `${baseUrl}/assets/images/placeholder.png`;
 
   return {
     title,
     description,
-    keywords: ["e-commerce", "tech", "TechZone"],
+    keywords: ["tech zone", "računari", "komponente", product.title],
     openGraph: {
       title: product.title,
       description,

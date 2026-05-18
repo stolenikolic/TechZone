@@ -39,7 +39,7 @@ export function HeaderSearch({ children }: PropsWithChildren) {
         <Box width="auto" padding={2} height="100vh">
           <FlexBetween mb={1}>
             <Typography variant="h6" color="text.secondary">
-              Search to Bazaar
+              Pretraži Tech Zone
             </Typography>
 
             <IconButton onClick={handleClose}>

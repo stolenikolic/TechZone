@@ -146,7 +146,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         .eq("category_id", categoryId)
         .eq("product_id", productId);
       if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-      revalidateCategorySurfaces(categoryRow?.slug ?? null);
+      revalidateCategorySurfaces(categoryRow?.slug ?? null, categoryId);
       return NextResponse.json({ success: true });
     }
 
@@ -160,7 +160,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       { onConflict: "category_id,product_id" }
     );
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-    revalidateCategorySurfaces(categoryRow?.slug ?? null);
+    revalidateCategorySurfaces(categoryRow?.slug ?? null, categoryId);
     return NextResponse.json({ success: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

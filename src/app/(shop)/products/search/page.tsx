@@ -1,14 +1,13 @@
-import { Metadata } from "next";
+import { shopPageMetadata } from "lib/site-metadata";
 // PAGE VIEW COMPONENT
 import { ProductSearchPageView } from "pages-sections/product-details/page-view";
 // API FUNCTIONS
 import { getFilters, getProducts } from "utils/__api__/product-search";
 
-export const metadata: Metadata = {
-  title: "Search Products – Tech Zone",
-  description: "Search tech hardware and components at Tech Zone.",
-  keywords: ["search", "tech", "hardware", "e-commerce"]
-};
+export const metadata = shopPageMetadata(
+  "Pretraga proizvoda",
+  "Pretražite računarsku opremu i komponente na Tech Zone."
+);
 
 export const dynamic = "force-dynamic";
 

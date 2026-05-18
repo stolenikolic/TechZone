@@ -1,11 +1,11 @@
-import type { Metadata } from "next";
+import { shopPageMetadata } from "lib/site-metadata";
 import CategoryBrowser, { type CategoryTreeNode } from "pages-sections/categories";
 import api from "utils/__api__/market-2";
 
-export const metadata: Metadata = {
-  title: "Kategorije - Tech Zone",
-  description: "Pregled svih glavnih kategorija na Tech Zone prodavnici."
-};
+export const metadata = shopPageMetadata(
+  "Kategorije",
+  "Pregled svih glavnih kategorija na Tech Zone online prodavnici."
+);
 
 export default async function CategoriesPage() {
   const categories = (await api.getCategories()) as unknown as CategoryTreeNode[];

@@ -68,7 +68,8 @@ function createLayout(categories: LayoutModel["header"]["categories"], categoryM
   return {
     footer: {
       logo: "/assets/images/logo.svg",
-      description: "Tech Zone - your one-stop shop.",
+      description:
+        "Tech Zone — online prodavnica računarske opreme i komponenti u Bosni i Hercegovini.",
       appStoreUrl: "#",
       playStoreUrl: "#",
       about: [],
@@ -93,7 +94,7 @@ function createLayout(categories: LayoutModel["header"]["categories"], categoryM
       navigation: MAIN_NAVIGATION
     },
     topbar: {
-      title: "Welcome",
+      title: "Dobrodošli u Tech Zone",
       label: "",
       socials: {},
       languageOptions: {

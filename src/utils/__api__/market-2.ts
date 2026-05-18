@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import axios from "utils/axiosInstance";
 import Brand from "models/Brand.model";
@@ -13,19 +14,21 @@ const CACHE_REVALIDATE_SECONDS = 60;
 
 const MAIN_CAROUSEL_FALLBACK: MainCarouselItem[] = [
   {
-    id: 1,
+    id: "fallback-hero-1",
     title: "Tech Deals",
     imgUrl: "/assets/images/hero/hero-1.jpg",
     category: "Electronics",
     buttonLink: "/products",
+    buttonLabel: "EXPLORE NOW",
     description: "Discover the latest gadgets and tech essentials."
   },
   {
-    id: 2,
+    id: "fallback-hero-2",
     title: "New Arrivals",
     imgUrl: "/assets/images/hero/hero-2.jpg",
     category: "Featured",
     buttonLink: "/products",
+    buttonLabel: "EXPLORE NOW",
     description: "Explore new products and exclusive offers."
   }
 ];
@@ -83,8 +86,20 @@ const getServices = cache(async (): Promise<Service[]> => {
   return getApiArray<Service>("/api/market-2/service", SERVICES_FALLBACK);
 });
 
-const getCategories = cache(async (): Promise<Category[]> => {
-  return getApiArray<Category>("/api/market-2/categories");
+async function fetchCategoriesFromApi(): Promise<Category[]> {
+  try {
+    const res = await fetch(`${getFetchBaseUrl()}/api/market-2/categories`, { cache: "no-store" });
+    if (!res.ok) return [];
+    return (await res.json()) as Category[];
+  } catch (error) {
+    logApiError("/api/market-2/categories", error);
+    return [];
+  }
+}
+
+const getCategories = unstable_cache(fetchCategoriesFromApi, ["market-2-categories-list"], {
+  tags: ["market-2-categories"],
+  revalidate: 30
 });
 
 const getBrands = cache(async (): Promise<Brand[]> => {

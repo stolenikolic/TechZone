@@ -1,4 +1,4 @@
-import { geist } from "app/layout";
+import { geist } from "lib/fonts";
 import type { Typography } from "theme/types";
 
 export const fontSize = 14;

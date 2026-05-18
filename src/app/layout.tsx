@@ -1,10 +1,10 @@
+import type { Metadata } from "next";
 import { Suspense, type ReactNode } from "react";
-import { Geist } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import { geist } from "lib/fonts";
+import { rootMetadata } from "lib/site-metadata";
 
-export const geist = Geist({
-  subsets: ["latin"]
-});
+export const metadata: Metadata = rootMetadata;
 
 import "overlayscrollbars/overlayscrollbars.css";
 
@@ -34,7 +34,7 @@ interface RootLayoutProps {
 
 export default function RootLayout({ children, modal }: RootLayoutProps) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="bs" suppressHydrationWarning>
       <body id="body" className={geist.className}>
         <CartProvider>
           <SettingsProvider>

@@ -1,10 +1,7 @@
-import type { Metadata } from "next";
+import { shopPageMetadata } from "lib/site-metadata";
 import { NotFoundPageView } from "pages-sections/not-found";
 
-export const metadata: Metadata = {
-  title: "404 - Next.js E-commerce Template",
-  description: "Bazaar Not Found Page View"
-};
+export const metadata = shopPageMetadata("Stranica nije pronađena");
 
 export default function NotFound() {
   return <NotFoundPageView />;

@@ -61,7 +61,7 @@ export default function Newsletter({ image = "/assets/images/newsletter/bg-1.png
                     span: { color: "primary.main" }
                   }}
                 >
-                  UP TO <span>30% OFF</span>
+                  DO <span>30% POPUSTA</span>
                 </Typography>
 
                 <Typography
@@ -73,27 +73,27 @@ export default function Newsletter({ image = "/assets/images/newsletter/bg-1.png
                     span: { color: "primary.main" }
                   }}
                 >
-                  Sign up to <span>BAZAAR</span>
+                  Prijavi se na <span>TECH ZONE</span>
                 </Typography>
 
                 <Typography variant="body1" sx={{ color: "grey.600", mb: 5 }}>
-                  Subscribe to the BAZAR eCommerce newsletter to receive timely updates from your
-                  favorite products.
+                  Pretplati se na newsletter i budi prvi koji saznaje za akcije, nove proizvode i
+                  posebne ponude.
                 </Typography>
 
                 <TextField
                   fullWidth
                   className="emailInput"
-                  placeholder="Enter your email address"
+                  placeholder="Unesite e-mail adresu"
                 />
 
                 <Button variant="contained" fullWidth color="primary" sx={{ p: 1.5 }}>
-                  SUBMIT
+                  POŠALJI
                 </Button>
 
                 <SocialIcons />
 
-                <FormControlLabel control={<Checkbox defaultChecked />} label="No, Thanks" />
+                <FormControlLabel control={<Checkbox defaultChecked />} label="Ne, hvala" />
               </div>
             </Grid>
           </Grid>

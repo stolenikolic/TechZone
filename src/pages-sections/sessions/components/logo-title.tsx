@@ -3,14 +3,14 @@ import Typography from "@mui/material/Typography";
 // CUSTOM COMPONENTS
 import FlexRowCenter from "components/flex-box/flex-row-center";
 // IMPORT IMAGES
-import logo from "../../../../public/assets/images/logo2.svg";
+import logo from "../../../../public/assets/images/logo.svg";
 
 export default function LogoWithTitle() {
   return (
     <FlexRowCenter flexDirection="column" gap={2} mb={4}>
-      <Image width={90} src={logo} alt="Bazaar Ecommerce Template" />
+      <Image width={200} height={69} src={logo} alt="Tech Zone" style={{ width: "auto", height: "auto", maxWidth: 200 }} />
       <Typography fontWeight={600} variant="h5">
-        Welcome To Bazaar
+        Dobrodošli u Tech Zone
       </Typography>
     </FlexRowCenter>
   );

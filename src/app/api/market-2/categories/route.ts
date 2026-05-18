@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
+import { categoryImageDisplayUrl } from "lib/images/category-display-url";
 import { createSupabaseServiceClient } from "utils/supabase";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /** Bazaar Market-2 category item with nested children in `parent`. */
 export type Market2CategoryItem = {
@@ -59,7 +63,7 @@ function toMarket2Item(node: TreeNode): Market2CategoryItem {
     name: node.name,
     slug: node.slug,
     icon: null,
-    image: node.image_url?.trim() || DEFAULT_CATEGORY_IMAGE,
+    image: categoryImageDisplayUrl(node.image_url?.trim() || DEFAULT_CATEGORY_IMAGE),
     description: null,
     parent: node.children.map(toMarket2Item),
   };

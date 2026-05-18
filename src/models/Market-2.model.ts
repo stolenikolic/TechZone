@@ -1,11 +1,12 @@
 import Product from "./Product.model";
 
 export interface MainCarouselItem {
-  id: number;
+  id: string;
   title: string;
   imgUrl: string;
   category: string;
   buttonLink: string;
+  buttonLabel: string;
   description: string;
 }
 

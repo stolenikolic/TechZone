@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import type Product from "models/Product.model";
 import type { FilterItem } from "models/Filters";
 import { isNotApplicableAttributeValue } from "lib/attributes/not-applicable-value";
@@ -18,6 +19,21 @@ export const PRODUCT_ATTRIBUTES_CHUNK_SIZE = 50;
 
 const LISTING_LIMIT = 30;
 const RESERVED_PARAMS = new Set(["page", "prices", "sort"]);
+
+/** Next.js Data Cache TTL for category listing, facets, and visible-product pool. */
+export const CATEGORY_LISTING_REVALIDATE_SECONDS = 60;
+
+export function categoryListingTagForId(categoryId: string): string {
+  return `category-listing-${categoryId}`;
+}
+
+export function categoryListingTagForPath(categoryPathOrSlug: string): string {
+  return `category-listing-path-${normalizeCategorySlugParam(categoryPathOrSlug)}`;
+}
+
+function categoryListingRevalidateTags(categoryId: string, categoryPath: string): string[] {
+  return [categoryListingTagForId(categoryId), categoryListingTagForPath(categoryPath)];
+}
 
 export type CategoryPayload = { id: string; name: string; slug: string };
 
@@ -134,10 +150,22 @@ function resolveCategoryCached(slugOrPath: string) {
   return resolveCategoryBySlugPathCached(normalizeCategorySlugParam(slugOrPath));
 }
 
-export const getVisibleProductsForCategoryCached = cache(async (categoryId: string) => {
-  const supabase = createSupabaseServiceClient();
-  return fetchShopVisibleProductsForCategory(supabase, categoryId);
-});
+async function loadVisibleProductsForCategory(categoryId: string): Promise<ShopProductRow[]> {
+  return unstable_cache(
+    async () => {
+      const supabase = createSupabaseServiceClient();
+      return fetchShopVisibleProductsForCategory(supabase, categoryId);
+    },
+    ["shop-visible-products", categoryId],
+    {
+      revalidate: CATEGORY_LISTING_REVALIDATE_SECONDS,
+      tags: [categoryListingTagForId(categoryId)]
+    }
+  )();
+}
+
+/** Per-request dedupe + 60s Data Cache for the category product pool (facets + listing). */
+export const getVisibleProductsForCategoryCached = cache(loadVisibleProductsForCategory);
 
 function parseNumericValue(value: string | null): number | null {
   if (value == null || value === "") return null;
@@ -429,6 +457,23 @@ function filterParamsToSearchParams(
   return params;
 }
 
+/** Cache key for listing / full page (category path + page + active filters + sort). */
+function buildCategoryListingCacheKey(
+  categoryPath: string,
+  page: number,
+  filterParams: Record<string, string | string[] | undefined>
+): string {
+  const normalized = normalizeCategorySlugParam(categoryPath);
+  const params = filterParamsToSearchParams(filterParams);
+  if (page > 1) params.set("page", String(page));
+  else params.delete("page");
+  const query = Array.from(params.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join("&");
+  return query ? `${normalized}|${query}` : normalized;
+}
+
 export type CategoryListingError = { error: string; status: number };
 
 export async function getCategoryProductsListing(
@@ -658,7 +703,7 @@ export async function getCategoryProductsListing(
   };
 }
 
-export async function getCategoryFiltersForPath(
+async function loadCategoryFiltersForPath(
   slugOrPath: string
 ): Promise<CategoryFiltersResponse | { error: string } | null> {
   const category = await resolveCategoryCached(slugOrPath);
@@ -669,7 +714,26 @@ export async function getCategoryFiltersForPath(
   return buildCategoryFiltersPayload(supabase, category, visibleProducts);
 }
 
-export async function getCategoryProductsForPath(
+/** Facet sidebar for a category (independent of active filters). Cached 60s per category path. */
+export async function getCategoryFiltersForPath(
+  slugOrPath: string
+): Promise<CategoryFiltersResponse | { error: string } | null> {
+  const category = await resolveCategoryCached(slugOrPath);
+  if (!category) return null;
+
+  const normalized = normalizeCategorySlugParam(slugOrPath);
+
+  return unstable_cache(
+    () => loadCategoryFiltersForPath(slugOrPath),
+    ["category-filters", normalized],
+    {
+      revalidate: CATEGORY_LISTING_REVALIDATE_SECONDS,
+      tags: categoryListingRevalidateTags(category.id, slugOrPath)
+    }
+  )();
+}
+
+async function loadCategoryProductsForPath(
   slugOrPath: string,
   filterParams: Record<string, string | string[] | undefined>
 ): Promise<CategoryProductsListingResult | CategoryListingError | null> {
@@ -686,8 +750,27 @@ export async function getCategoryProductsForPath(
   );
 }
 
-/** Single RSC load: visible products once, then facets + listing (React cache dedupes within request). */
-export async function getCategoryPageData(
+export async function getCategoryProductsForPath(
+  slugOrPath: string,
+  filterParams: Record<string, string | string[] | undefined>
+): Promise<CategoryProductsListingResult | CategoryListingError | null> {
+  const category = await resolveCategoryCached(slugOrPath);
+  if (!category) return null;
+
+  const page = Math.max(1, parseInt(String(filterParams.page ?? "1"), 10) || 1);
+  const cacheKey = buildCategoryListingCacheKey(slugOrPath, page, filterParams);
+
+  return unstable_cache(
+    () => loadCategoryProductsForPath(slugOrPath, filterParams),
+    ["category-listing", cacheKey],
+    {
+      revalidate: CATEGORY_LISTING_REVALIDATE_SECONDS,
+      tags: categoryListingRevalidateTags(category.id, slugOrPath)
+    }
+  )();
+}
+
+async function loadCategoryPageData(
   categoryPath: string,
   page: number,
   filterParams: Record<string, string | string[] | undefined>
@@ -722,4 +805,25 @@ export async function getCategoryPageData(
     filters: filtersResult,
     listing: listingResult
   };
+}
+
+/** Full category page payload (facets + grid). Cached 60s per URL (path + filters + page). */
+export async function getCategoryPageData(
+  categoryPath: string,
+  page: number,
+  filterParams: Record<string, string | string[] | undefined>
+): Promise<CategoryPageData | CategoryListingError | null> {
+  const category = await resolveCategoryCached(categoryPath);
+  if (!category) return null;
+
+  const cacheKey = buildCategoryListingCacheKey(categoryPath, page, filterParams);
+
+  return unstable_cache(
+    () => loadCategoryPageData(categoryPath, page, filterParams),
+    ["category-page-data", cacheKey],
+    {
+      revalidate: CATEGORY_LISTING_REVALIDATE_SECONDS,
+      tags: categoryListingRevalidateTags(category.id, categoryPath)
+    }
+  )();
 }

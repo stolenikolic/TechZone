@@ -87,7 +87,7 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePar
     ? await getCategoryProductsForPath(categoryPath, effectiveParams)
     : null;
   if (!metaResult || "status" in metaResult) {
-    return { title: "Category Not Found" };
+    return { title: "Kategorija nije pronađena | Tech Zone" };
   }
   const payload = metaResult;
 
@@ -99,12 +99,12 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePar
 
   const title =
     pageNum > 1
-      ? `${payload.category.name} – Page ${pageNum} – Tech Zone`
-      : `${payload.category.name} – Tech Zone`;
+      ? `${payload.category.name} – Strana ${pageNum} | Tech Zone`
+      : `${payload.category.name} | Tech Zone`;
 
   return {
     title,
-    description: `Products in ${payload.category.name}`,
+    description: `Proizvodi u kategoriji ${payload.category.name} na Tech Zone online prodavnici.`,
     alternates: { canonical }
   };
 }
