@@ -3,6 +3,7 @@
  */
 import assert from "node:assert/strict";
 import { computeAcquisitionKm } from "../src/lib/pricing/cost-km";
+import { computeOriginalPriceKm } from "../src/lib/pricing/original-price";
 import { computeFinalSellingKm, resolveSellingMultiplier, round2 } from "../src/lib/pricing/sell-price";
 import type { PricingMarginTierRow, PricingSettingsResolved, SupplierPricingRow } from "../src/lib/pricing/types";
 
@@ -15,8 +16,13 @@ const settings: PricingSettingsResolved = {
   min_absolute_profit_km: 3,
   min_margin_percent: 0.1,
   high_cost_threshold_km: 4000,
-  high_cost_max_margin_multiplier: 1.06
+  high_cost_max_margin_multiplier: 1.06,
+  original_price_markup_percent: 10
 };
+
+assert.equal(computeOriginalPriceKm(141.6, 10), 156);
+assert.equal(computeOriginalPriceKm(221.22, 10), 243);
+assert.equal(computeOriginalPriceKm(100, 10), 110);
 
 const iponSupplier: SupplierPricingRow = {
   id: "s1",

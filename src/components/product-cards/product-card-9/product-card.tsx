@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Chip from "@mui/material/Chip";
-import Rating from "@mui/material/Rating";
 import Typography from "@mui/material/Typography";
 // GLOBAL CUSTOM COMPONENTS
 import LazyImage from "components/LazyImage";
@@ -53,7 +52,7 @@ function buildProductCardTags(product: Product): string[] {
 }
 
 export default function ProductCard9({ product }: Props) {
-  const { thumbnail, title, price, discount, rating, slug, topPick, topPickLabel } = product;
+  const { thumbnail, title, price, discount, slug, topPick, topPickLabel, originalPrice } = product;
   const tags = buildProductCardTags(product);
 
   return (
@@ -99,11 +98,8 @@ export default function ProductCard9({ product }: Props) {
               </Typography>
             </Link>
 
-            {/* PRODUCT RATING / REVIEW  */}
-            <Rating size="small" value={rating} color="warn" readOnly />
-
             {/* PRODUCT PRICE */}
-            <ProductPrice price={price} discount={discount} />
+            <ProductPrice price={price} discount={discount} originalPrice={originalPrice} />
           </div>
 
           {/* PRODUCT ADD TO CART BUTTON */}

@@ -6,6 +6,7 @@ import {
   formatCategorySlugsParam,
   parseCategorySlugsParam
 } from "lib/search/product-search-tokens";
+import { mapProductPriceFields } from "lib/effective-price";
 import { getServerBaseUrl } from "utils/site-url";
 
 type SearchResultItem = {
@@ -15,6 +16,7 @@ type SearchResultItem = {
   slug: string;
   main_image: string | null;
   price: number | null;
+  originalPrice?: number;
   topPick?: boolean;
   topPickLabel?: string;
 };
@@ -36,6 +38,7 @@ function searchResultToProduct(row: SearchResultItem): Product {
     slug: row.slug,
     title: row.name,
     price,
+    ...(row.originalPrice != null && { originalPrice: row.originalPrice }),
     rating: 0,
     discount: 0,
     thumbnail,

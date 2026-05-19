@@ -24,7 +24,7 @@ interface Props {
 // ========================================================
 
 export default function ProductCard1({ product, showProductSize, showRating = true }: Props) {
-  const { slug, title, price, thumbnail, rating, discount } = product;
+  const { slug, title, price, thumbnail, rating, discount, originalPrice } = product;
 
   return (
     <StyledCard>
@@ -68,7 +68,7 @@ export default function ProductCard1({ product, showProductSize, showRating = tr
           {showProductSize ? <p className="size">Liter</p> : null}
 
           {/* PRODUCT PRICE WITH DISCOUNT */}
-          <ProductPrice discount={discount} price={price} />
+          <ProductPrice discount={discount} price={price} originalPrice={originalPrice} />
         </div>
 
         {/* ADD TO CART BUTTON */}

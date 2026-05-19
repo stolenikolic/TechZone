@@ -1,4 +1,5 @@
 // MUI
+import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid";
 import Rating from "@mui/material/Rating";
 import Typography from "@mui/material/Typography";
@@ -49,23 +50,29 @@ export default function ProductIntro({ product }: Props) {
                 Price on request
               </Typography>
             ) : product.originalPrice != null && product.originalPrice > product.price ? (
-              <>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  flexWrap: "wrap",
+                  gap: 1.5
+                }}
+              >
+                <Typography variant="h2" sx={{ color: "price.main", fontWeight: 700, lineHeight: 1 }}>
+                  {formatPrice(product.price)}
+                </Typography>
                 <Typography
                   component="span"
                   sx={{
                     fontSize: 16,
                     fontWeight: 500,
-                    color: "text.secondary",
-                    textDecoration: "line-through",
-                    marginRight: 1
+                    color: "primary.main",
+                    textDecoration: "line-through"
                   }}
                 >
                   {formatPrice(product.originalPrice)}
                 </Typography>
-                <Typography variant="h2" sx={{ color: "price.main", fontWeight: 700, mb: 0.5, lineHeight: 1 }}>
-                  {formatPrice(product.price)}
-                </Typography>
-              </>
+              </Box>
             ) : (
               <Typography variant="h2" sx={{ color: "price.main", fontWeight: 700, mb: 0.5, lineHeight: 1 }}>
                 {formatPrice(product.price)}

@@ -8,6 +8,8 @@ import {
 } from "./sell-price";
 import type { PricingMarginTierRow, PricingSettingsRow, SupplierPricingRow } from "./types";
 import { reconcileProductsIsActiveFromSupplierOffers } from "./reconcile-product-active";
+import { computeOriginalPriceKm } from "./original-price";
+import { getEffectivePrice } from "lib/effective-price";
 
 /** Number of supplier_products rows to fetch per query. Keep at 1000 to stay under PostgREST default row limit. */
 const FETCH_PAGE_SIZE = 1000;
@@ -25,6 +27,7 @@ type SupplierProductRow = {
 type ProductMarginRow = {
   id: string;
   selling_margin_override: number | null;
+  custom_price: number | null;
   categories:
     | { selling_margin_default: number | null }
     | { selling_margin_default: number | null }[]
@@ -155,13 +158,14 @@ export async function aggregatePrices(): Promise<AggregatePricesResult> {
 
   const productIds = Array.from(minCostByProduct.keys());
   const marginByProduct = new Map<string, { category: number | null; product: number | null }>();
+  const customPriceByProduct = new Map<string, number | null>();
 
   const chunkSize = 200;
   for (let i = 0; i < productIds.length; i += chunkSize) {
     const slice = productIds.slice(i, i + chunkSize);
     const { data: prodRows, error: pErr } = await supabase
       .from("products")
-      .select("id, selling_margin_override, categories(selling_margin_default)")
+      .select("id, selling_margin_override, custom_price, categories(selling_margin_default)")
       .in("id", slice);
 
     if (pErr) {
@@ -178,10 +182,15 @@ export async function aggregatePrices(): Promise<AggregatePricesResult> {
         product: pr.selling_margin_override,
         category: categoryDefaultFromProduct(pr)
       });
+      customPriceByProduct.set(
+        pr.id,
+        pr.custom_price != null ? Number(pr.custom_price) : null
+      );
     }
   }
 
-  const entries: { id: string; price: number }[] = [];
+  const markupPercent = settings.original_price_markup_percent;
+  const entries: { id: string; price: number; original_price: number }[] = [];
 
   for (const [productId, costKm] of Array.from(minCostByProduct.entries())) {
     const margins = marginByProduct.get(productId) ?? { category: null, product: null };
@@ -203,7 +212,11 @@ export async function aggregatePrices(): Promise<AggregatePricesResult> {
         warnings: settingWarnings
       };
     }
-    entries.push({ id: productId, price: round2(finalPrice) });
+    const enginePrice = round2(finalPrice);
+    const customPrice = customPriceByProduct.get(productId) ?? null;
+    const effective = getEffectivePrice(customPrice, enginePrice);
+    const original_price = computeOriginalPriceKm(effective, markupPercent);
+    entries.push({ id: productId, price: enginePrice, original_price });
   }
 
   let batches = 0;

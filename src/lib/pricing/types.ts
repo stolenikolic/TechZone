@@ -10,6 +10,7 @@ export type PricingSettingsRow = {
   min_margin_percent: number | null;
   high_cost_threshold_km: number | null;
   high_cost_max_margin_multiplier: number | null;
+  original_price_markup_percent: number | null;
 };
 
 /** Resolved numeric settings used in formulas (no nulls for required fields). */
@@ -23,6 +24,8 @@ export type PricingSettingsResolved = {
   min_margin_percent: number;
   high_cost_threshold_km: number | null;
   high_cost_max_margin_multiplier: number | null;
+  /** Percent above effective price for original_price (e.g. 10 = +10%). */
+  original_price_markup_percent: number;
 };
 
 export type PricingMarginTierRow = {

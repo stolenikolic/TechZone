@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 // LOCAL CUSTOM COMPONENTS
 import Discount from "./discount";
@@ -19,7 +20,8 @@ interface Props {
 // ========================================================
 
 export default function ProductCard17({ product, bgWhite = false }: Props) {
-  const { slug, title, price, thumbnail, images, discount, categories } = product;
+  const { slug, title, price, thumbnail, images, discount, categories, originalPrice } = product;
+  const showOriginal = originalPrice != null && originalPrice > price;
 
   return (
     <StyledCard elevation={0} bgWhite={bgWhite}>
@@ -64,9 +66,27 @@ export default function ProductCard17({ product, bgWhite = false }: Props) {
           </Typography>
         </Link>
 
-        <Typography variant="subtitle1" fontWeight={600} sx={{ color: "price.main" }}>
-          {formatPrice(price)}
-        </Typography>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 0.25
+          }}
+        >
+          {showOriginal ? (
+            <Typography
+              component="span"
+              variant="body2"
+              sx={{ color: "primary.main", textDecoration: "line-through", fontWeight: 500 }}
+            >
+              {formatPrice(originalPrice)}
+            </Typography>
+          ) : null}
+          <Typography variant="subtitle1" fontWeight={600} sx={{ color: "price.main" }}>
+            {formatPrice(price)}
+          </Typography>
+        </Box>
       </ContentWrapper>
     </StyledCard>
   );

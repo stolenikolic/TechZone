@@ -1,4 +1,5 @@
 import { getPricingConfig } from "./config";
+import { resolveOriginalPriceMarkupPercent } from "./original-price";
 import type { PricingMarginTierRow, PricingSettingsResolved, PricingSettingsRow } from "./types";
 
 /**
@@ -56,6 +57,10 @@ export function resolvePricingSettingsRow(row: PricingSettingsRow | null): {
       ? row.high_cost_max_margin_multiplier
       : null;
 
+  const original_price_markup_percent = resolveOriginalPriceMarkupPercent(
+    row?.original_price_markup_percent
+  );
+
   return {
     settings: {
       kurs_eur,
@@ -66,7 +71,8 @@ export function resolvePricingSettingsRow(row: PricingSettingsRow | null): {
       min_absolute_profit_km,
       min_margin_percent,
       high_cost_threshold_km,
-      high_cost_max_margin_multiplier
+      high_cost_max_margin_multiplier,
+      original_price_markup_percent
     },
     warnings
   };

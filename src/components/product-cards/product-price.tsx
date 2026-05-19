@@ -6,21 +6,30 @@ import FlexBox from "components/flex-box/flex-box";
 import { calculateDiscount, formatPrice } from "lib";
 
 // ==============================================================
-type Props = { price: number; discount: number };
+type Props = { price: number; discount: number; originalPrice?: number };
 // ==============================================================
 
-export default function ProductPrice({ discount, price }: Props) {
+export default function ProductPrice({ discount, price, originalPrice }: Props) {
+  const showOriginal = originalPrice != null && originalPrice > price;
+  const showDiscount = !showOriginal && discount > 0;
+
   return (
-    <FlexBox alignItems="center" gap={1} mt={0.5}>
+    <FlexBox alignItems="center" gap={1} mt={0.5} flexWrap="wrap">
       <Typography fontWeight={600} sx={{ color: "price.main" }}>
-        {calculateDiscount(price, discount)}
+        {showDiscount ? calculateDiscount(price, discount) : formatPrice(price)}
       </Typography>
 
-      {discount > 0 && (
+      {showOriginal ? (
+        <Box component="del" fontSize={12} fontWeight={500} sx={{ color: "primary.main" }}>
+          {formatPrice(originalPrice)}
+        </Box>
+      ) : null}
+
+      {showDiscount ? (
         <Box component="del" fontSize={12} fontWeight={500} color="grey.400">
           {formatPrice(price)}
         </Box>
-      )}
+      ) : null}
     </FlexBox>
   );
 }

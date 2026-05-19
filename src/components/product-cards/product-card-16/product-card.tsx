@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
 import Chip from "@mui/material/Chip";
-import Rating from "@mui/material/Rating";
 import Typography from "@mui/material/Typography";
 // LOCAL CUSTOM COMPONENTS
 import AddToCart from "./add-to-cart";
@@ -18,7 +17,9 @@ type Props = { product: Product };
 // ==============================================================
 
 export default function ProductCard16({ product }: Props) {
-  const { slug, title, thumbnail, price, discount, rating, topPick, topPickLabel } = product;
+  const { slug, title, thumbnail, price, discount, topPick, topPickLabel, originalPrice } = product;
+
+  const showOriginal = originalPrice != null && originalPrice > price;
 
   return (
     <StyledRoot
@@ -61,13 +62,18 @@ export default function ProductCard16({ product }: Props) {
             </Typography>
           </Link>
 
-          <Rating readOnly value={rating} size="small" precision={0.5} />
         </div>
 
         <div className="content-footer">
           <PriceText>
-            {calculateDiscount(price, discount)}
-            {discount ? <span className="base-price">{formatPrice(price)}</span> : null}
+            {showOriginal ? (
+              <span className="base-price base-price--original">{formatPrice(originalPrice)}</span>
+            ) : discount ? (
+              <span className="base-price">{formatPrice(price)}</span>
+            ) : null}
+            <span>
+              {showOriginal || !discount ? formatPrice(price) : calculateDiscount(price, discount)}
+            </span>
           </PriceText>
           <AddToCart product={product} />
         </div>

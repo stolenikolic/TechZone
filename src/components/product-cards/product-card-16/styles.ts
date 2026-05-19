@@ -56,6 +56,10 @@ export const StyledRoot = styled("div")(({ theme }) => ({
 }));
 
 export const PriceText = styled("p")(({ theme }) => ({
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "flex-start",
+  gap: 2,
   fontSize: 15,
   lineHeight: 1.25,
   fontWeight: 600,
@@ -65,8 +69,12 @@ export const PriceText = styled("p")(({ theme }) => ({
   color: theme.palette.price?.main ?? "#2B3445",
   ".base-price": {
     fontSize: 12,
-    marginLeft: 6,
+    lineHeight: 1.2,
+    fontWeight: 500,
     textDecoration: "line-through",
     color: theme.palette.grey[600]
+  },
+  ".base-price--original": {
+    color: theme.palette.primary.main
   }
 }));

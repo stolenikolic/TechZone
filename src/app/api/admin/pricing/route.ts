@@ -99,7 +99,8 @@ export async function PUT(request: Request) {
         "min_absolute_profit_km",
         "min_margin_percent",
         "high_cost_threshold_km",
-        "high_cost_max_margin_multiplier"
+        "high_cost_max_margin_multiplier",
+        "original_price_markup_percent"
       ] as const;
       const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
       for (const key of allowed) {

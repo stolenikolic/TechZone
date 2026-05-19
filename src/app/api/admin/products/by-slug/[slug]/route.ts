@@ -5,6 +5,7 @@ import {
   computeFinalSellingKm,
   resolvePricingSettingsRow,
   resolveSellingMultiplier,
+  syncProductOriginalPrice,
   type PricingMarginTierRow,
   type PricingSettingsRow
 } from "lib/pricing";
@@ -330,6 +331,7 @@ export async function PATCH(
     if (!product) return NextResponse.json({ error: "Product not found." }, { status: 404 });
 
     const productId = String(product.id);
+    let shouldSyncOriginalPrice = false;
 
     if (body.basic) {
       const patch: Record<string, unknown> = {};
@@ -345,6 +347,7 @@ export async function PATCH(
           return NextResponse.json({ error: "customPrice must be null or >= 0." }, { status: 400 });
         }
         patch.custom_price = v ?? null;
+        shouldSyncOriginalPrice = true;
       }
       if (Object.keys(patch).length > 0) {
         const { error } = await supabase.from("products").update(patch).eq("id", productId);
@@ -367,11 +370,16 @@ export async function PATCH(
           return NextResponse.json({ error: "price must be null or >= 0." }, { status: 400 });
         }
         patch.price = p ?? null;
+        shouldSyncOriginalPrice = true;
       }
       if (Object.keys(patch).length > 0) {
         const { error } = await supabase.from("products").update(patch).eq("id", productId);
         if (error) return NextResponse.json({ error: error.message }, { status: 400 });
       }
+    }
+
+    if (shouldSyncOriginalPrice) {
+      await syncProductOriginalPrice(supabase, productId);
     }
 
     if ("categoryId" in body) {

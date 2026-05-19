@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getEffectivePrice } from "lib/effective-price";
+import { mapProductPriceFields } from "lib/effective-price";
 import { getSearchTokens } from "lib/search/product-search-tokens";
 import { runSearchListing } from "lib/search/search-listing";
 import type { SearchCategoryFacet } from "lib/search/search-category-facets";
@@ -12,6 +12,7 @@ export type SearchResultItem = {
   slug: string;
   main_image: string | null;
   price: number | null;
+  originalPrice?: number;
   category_id?: string | null;
   topPick?: boolean;
   topPickLabel?: string;
@@ -83,15 +84,19 @@ export async function GET(request: Request) {
       category: searchParams.get("category")
     });
 
-    const productRows = listing.products.map((row) => ({
-      id: row.id,
-      name: row.name,
-      brand: row.brand,
-      slug: row.slug,
-      main_image: row.main_image,
-      price: getEffectivePrice(row.custom_price, row.price),
-      categoryId: row.category_id
-    }));
+    const productRows = listing.products.map((row) => {
+      const { price, originalPrice } = mapProductPriceFields(row);
+      return {
+        id: row.id,
+        name: row.name,
+        brand: row.brand,
+        slug: row.slug,
+        main_image: row.main_image,
+        price,
+        originalPrice,
+        categoryId: row.category_id
+      };
+    });
 
     const byCategory = new Map<string, string[]>();
     productRows.forEach((row) => {
@@ -118,6 +123,7 @@ export async function GET(request: Request) {
       slug: row.slug,
       main_image: row.main_image,
       price: row.price,
+      ...(row.originalPrice != null && { originalPrice: row.originalPrice }),
       category_id: row.categoryId,
       ...(topPickByProductId.has(row.id) && { topPick: true, topPickLabel: "Top pick" })
     }));

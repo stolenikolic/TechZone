@@ -4,7 +4,7 @@ import type Product from "models/Product.model";
 import type { FilterItem } from "models/Filters";
 import { isNotApplicableAttributeValue } from "lib/attributes/not-applicable-value";
 import { loadTopPickMapByCategory, type CategoryTopPick } from "lib/category-top-picks";
-import { getEffectivePrice } from "lib/effective-price";
+import { getEffectivePrice, mapProductPriceFields } from "lib/effective-price";
 import { parseNumericFromAttributeValue } from "lib/shop/range-filter-utils";
 import {
   fetchShopVisibleProductsForCategory,
@@ -86,6 +86,7 @@ type DbProduct = {
   main_image: string | null;
   price?: number | null;
   custom_price?: number | null;
+  original_price?: number | null;
   created_at?: string | null;
 };
 
@@ -454,13 +455,14 @@ function toProduct(
   topPickMap: Map<string, CategoryTopPick>
 ): Product {
   const thumbnail = row.main_image ?? "/assets/images/placeholder.png";
-  const price = getEffectivePrice(row.custom_price, row.price);
+  const { price, originalPrice } = mapProductPriceFields(row);
   const isTopPick = topPickMap.has(row.id);
   return {
     id: row.id,
     slug: row.slug,
     title: row.name,
     price,
+    ...(originalPrice != null && { originalPrice }),
     rating: 4,
     discount: 0,
     thumbnail,
@@ -641,7 +643,7 @@ export async function getCategoryProductsListing(
       let chunkQuery = supabase
         .from("products")
         .select(
-          "id, name, slug, description, brand, main_image, price, custom_price, created_at, is_active"
+          "id, name, slug, description, brand, main_image, price, custom_price, original_price, created_at, is_active"
         )
         .eq("category_id", category.id)
         .eq("is_active", true)
@@ -673,7 +675,7 @@ export async function getCategoryProductsListing(
       let pageQuery = supabase
         .from("products")
         .select(
-          "id, name, slug, description, brand, main_image, price, custom_price, created_at, is_active"
+          "id, name, slug, description, brand, main_image, price, custom_price, original_price, created_at, is_active"
         )
         .eq("category_id", category.id)
         .eq("is_active", true)

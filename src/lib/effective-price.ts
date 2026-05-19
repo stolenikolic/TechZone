@@ -18,3 +18,22 @@ export function getOriginalPriceForDisplay(
   if (original == null) return undefined;
   return original > effectivePrice ? original : undefined;
 }
+
+export type ProductPriceFields = {
+  price: number;
+  originalPrice?: number;
+};
+
+/** Map DB price columns to storefront effective + optional strikethrough original. */
+export function mapProductPriceFields(row: {
+  price?: unknown;
+  custom_price?: unknown;
+  original_price?: unknown;
+}): ProductPriceFields {
+  const price = getEffectivePrice(row.custom_price, row.price);
+  const originalPrice = getOriginalPriceForDisplay(row.original_price, price);
+  return {
+    price,
+    ...(originalPrice != null && { originalPrice })
+  };
+}

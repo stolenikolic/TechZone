@@ -18,6 +18,7 @@ export type SearchProductRow = {
   main_image: string | null;
   price: number | null;
   custom_price: number | null;
+  original_price: number | null;
   category_id: string | null;
   created_at: string | null;
 };
@@ -83,7 +84,7 @@ async function fetchAllSearchProductRows(
   while (true) {
     let query = supabase
       .from("products")
-      .select("id,name,brand,slug,main_image,price,custom_price,category_id,created_at")
+      .select("id,name,brand,slug,main_image,price,custom_price,original_price,category_id,created_at")
       .eq("is_active", true);
 
     for (const token of tokens) {

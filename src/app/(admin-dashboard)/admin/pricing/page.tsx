@@ -33,7 +33,9 @@ const LEGENDS: Record<string, string> = {
   min_absolute_profit_km: "Minimalna apsolutna zarada: prodajna >= nabavna + ovo.",
   min_margin_percent: "Minimalna relativna marža kao decimala (npr. 0.10 = 10%): prodajna >= nabavna * (1 + ovo).",
   high_cost_threshold_km: "Od koje nabavne (KM) vrijedi plafon marže za skupe artikle.",
-  high_cost_max_margin_multiplier: "Maksimalni multiplier m kada je nabavna >= praga (npr. 1.06)."
+  high_cost_max_margin_multiplier: "Maksimalni multiplier m kada je nabavna >= praga (npr. 1.06).",
+  original_price_markup_percent:
+    "Procenat iznad effective cijene za precrtanu (original) cijenu. Zaokružuje se na najbliži cijeli KM (npr. 10 = +10%)."
 };
 
 function numOrEmpty(s: string): number | null {
@@ -89,7 +91,9 @@ export default function AdminPricingPage() {
         min_margin_percent: s.min_margin_percent != null ? String(s.min_margin_percent) : "",
         high_cost_threshold_km: s.high_cost_threshold_km != null ? String(s.high_cost_threshold_km) : "",
         high_cost_max_margin_multiplier:
-          s.high_cost_max_margin_multiplier != null ? String(s.high_cost_max_margin_multiplier) : ""
+          s.high_cost_max_margin_multiplier != null ? String(s.high_cost_max_margin_multiplier) : "",
+        original_price_markup_percent:
+          s.original_price_markup_percent != null ? String(s.original_price_markup_percent) : ""
       });
       setTiers(
         (json.tiers ?? []).map((t, i) => ({
@@ -263,7 +267,8 @@ export default function AdminPricingPage() {
               "min_absolute_profit_km",
               "min_margin_percent",
               "high_cost_threshold_km",
-              "high_cost_max_margin_multiplier"
+              "high_cost_max_margin_multiplier",
+              "original_price_markup_percent"
             ] as const
           ).map((key) => (
             <Box key={key}>

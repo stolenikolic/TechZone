@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
 import { compareTopPickThenDate } from "lib/category-top-picks";
-import { getEffectivePrice } from "lib/effective-price";
+import { mapProductPriceFields } from "lib/effective-price";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type DbCategory = { id: string; name: string; slug: string };
@@ -15,6 +15,7 @@ type DbProduct = {
   main_image: string | null;
   price: number | null;
   custom_price: number | null;
+  original_price?: number | null;
   rating: number | null;
   categories: DbCategory | DbCategory[] | null;
   category_id?: string | null;
@@ -25,11 +26,13 @@ function toProduct(product: DbProduct, isTopPick: boolean): Product {
   const raw = product.categories;
   const category =
     raw == null ? null : Array.isArray(raw) ? raw[0] ?? null : raw;
+  const { price, originalPrice } = mapProductPriceFields(product);
   return {
     id: product.id,
     slug: product.slug,
     title: product.name,
-    price: getEffectivePrice(product.custom_price, product.price),
+    price,
+    ...(originalPrice != null && { originalPrice }),
     rating: product.rating != null ? Number(product.rating) : 0,
     discount: 0,
     thumbnail,
@@ -42,7 +45,8 @@ function toProduct(product: DbProduct, isTopPick: boolean): Product {
   };
 }
 
-const selectFieldsMinimal = "id, name, slug, description, brand, main_image, price, custom_price, rating";
+const selectFieldsMinimal =
+  "id, name, slug, description, brand, main_image, price, custom_price, original_price, rating";
 
 function toProductMinimal(row: {
   id: string;
@@ -53,15 +57,18 @@ function toProductMinimal(row: {
   main_image: string | null;
   price: number | null;
   custom_price: number | null;
+  original_price?: number | null;
   rating: number | null;
   category_id?: string | null;
 }, isTopPick: boolean): Product {
   const thumbnail = row.main_image ?? "/assets/images/placeholder.png";
+  const { price, originalPrice } = mapProductPriceFields(row);
   return {
     id: row.id,
     slug: row.slug,
     title: row.name,
-    price: getEffectivePrice(row.custom_price, row.price),
+    price,
+    ...(originalPrice != null && { originalPrice }),
     rating: row.rating != null ? Number(row.rating) : 0,
     discount: 0,
     thumbnail,
