@@ -34,7 +34,12 @@ export default interface Product {
     supplierOffers: number;
   };
   /** Product specs from product_attributes + attributes; only set when present. */
-  specifications?: { name: string; slug: string; value: string }[];
+  specifications?: {
+    name: string;
+    slug: string;
+    value: string;
+    filterDisplayType?: "checkbox" | "range" | null;
+  }[];
   /** Category-specific highlight marker in listing contexts. */
   topPick?: boolean;
   /** Label shown for highlighted category product badges. */

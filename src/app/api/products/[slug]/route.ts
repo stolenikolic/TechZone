@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
-import { filterApplicableSpecificationRows } from "lib/attributes/not-applicable-value";
+import { mapProductSpecifications } from "lib/shop/map-product-specifications";
 import { getEffectivePrice, getOriginalPriceForDisplay } from "lib/effective-price";
 import { createSupabaseServiceClient } from "utils/supabase";
 
@@ -106,40 +106,23 @@ export async function GET(
       product.thumbnail = product.images[0];
     }
 
-    const attributeSortOrder = new Map<string, number>();
+    let categoryAttributeRows = null as Parameters<typeof mapProductSpecifications>[1];
     if (category?.id) {
-      const { data: categoryAttributeRows } = await supabase
+      const { data } = await supabase
         .from("category_attributes")
-        .select("attribute_id, sort_order")
+        .select("attribute_id, sort_order, attributes(id, name, slug, filter_display_type)")
         .eq("category_id", category.id)
         .order("sort_order", { ascending: true });
-      (categoryAttributeRows ?? []).forEach((row) => {
-        if (row.attribute_id) attributeSortOrder.set(row.attribute_id, row.sort_order ?? 0);
-      });
+      categoryAttributeRows = data;
     }
 
     const { data: specRows } = await supabase
       .from("product_attributes")
-      .select("value, attributes(id, name, slug)")
+      .select("value, attributes(id, name, slug, filter_display_type)")
       .eq("product_id", row.id);
 
     if (specRows?.length) {
-      const specifications = specRows
-        .map((r: { value: string; attributes: { id: string; name: string; slug: string } | { id: string; name: string; slug: string }[] | null }) => {
-          const raw = r.attributes;
-          const a = raw == null ? null : Array.isArray(raw) ? raw[0] ?? null : raw;
-          return a ? { id: a.id, name: a.name, slug: a.slug, value: r.value } : null;
-        })
-        .filter((x): x is { id: string; name: string; slug: string; value: string } => x != null);
-      const applicable = filterApplicableSpecificationRows(specifications).sort((a, b) => {
-          const aOrder = attributeSortOrder.get(a.id);
-          const bOrder = attributeSortOrder.get(b.id);
-          if (aOrder != null && bOrder != null && aOrder !== bOrder) return aOrder - bOrder;
-          if (aOrder != null && bOrder == null) return -1;
-          if (aOrder == null && bOrder != null) return 1;
-          return a.name.localeCompare(b.name);
-        })
-        .map(({ name, slug, value }) => ({ name, slug, value }));
+      const applicable = mapProductSpecifications(specRows, categoryAttributeRows);
       if (applicable.length) product.specifications = applicable;
     }
 

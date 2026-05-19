@@ -3,6 +3,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import debounce from "lodash/debounce";
 import type Filters from "models/Filters";
 import type { CategorySidebarFilters } from "models/Filters";
+import { clampRangeTuple, parseRangeParamToTuple } from "lib/shop/range-filter-utils";
 import { getSeoFilterFromPathname } from "utils/seo-filter-slug";
 
 export type ProductFilterCardFilters = Filters | CategorySidebarFilters;
@@ -114,10 +115,10 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
   const basePathForParams = seoFilter?.basePath ?? pathname;
 
   const priceRange = filters?.priceRange;
-  const appliedPrices = useMemo(
-    () => parseRangeParam(searchParams.get("prices"), priceRange),
-    [searchParams, priceRange]
-  );
+  const appliedPrices = useMemo(() => {
+    if (!priceRange) return defaultPriceRange;
+    return parseRangeParamToTuple(searchParams.get("prices"), priceRange, 1);
+  }, [searchParams, priceRange?.min, priceRange?.max]);
   const [prices, setPrices] = useState<number[]>(appliedPrices);
   const [priceMinInputStr, setPriceMinInputStr] = useState<string>(String(appliedPrices[0]));
   const [priceMaxInputStr, setPriceMaxInputStr] = useState<string>(String(appliedPrices[1]));
@@ -149,14 +150,9 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
 
   const capacityRange = (filters as Filters | undefined)?.capacityRange;
   const capacity = useMemo<number[]>(() => {
-    const defaultVal = capacityRange ? [capacityRange.min, capacityRange.max] : [0, 0];
+    if (!capacityRange) return [0, 0];
     const param = getParam(searchParams, seoFilter?.params ?? null, "capacity");
-    if (!param?.trim()) return defaultVal;
-    const parts = param.split("-").map((s) => Number(s.trim()));
-    if (parts.length >= 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1]))
-      return [parts[0], parts[1]];
-    if (parts.length === 1 && Number.isFinite(parts[0])) return [parts[0], parts[0]];
-    return defaultVal;
+    return parseRangeParamToTuple(param, capacityRange, 1);
   }, [searchParams, seoFilter?.params, capacityRange?.min, capacityRange?.max]);
 
   const [localCapacity, setLocalCapacity] = useState<number[]>(capacity);
@@ -170,13 +166,9 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
 
   const rpmRange = (filters as Filters | undefined)?.rpmRange;
   const rpm = useMemo<number[]>(() => {
-    const defaultVal = rpmRange ? [rpmRange.min, rpmRange.max] : [0, 0];
+    if (!rpmRange) return [0, 0];
     const param = getParam(searchParams, seoFilter?.params ?? null, "rpm");
-    if (!param?.trim()) return defaultVal;
-    const parts = param.split("-").map((s) => Number(s.trim()));
-    if (parts.length >= 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1]))
-      return [parts[0], parts[1]];
-    return defaultVal;
+    return parseRangeParamToTuple(param, rpmRange, 1);
   }, [searchParams, seoFilter?.params, rpmRange?.min, rpmRange?.max]);
 
   const [localRpm, setLocalRpm] = useState<number[]>(rpm);
@@ -190,13 +182,9 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
 
   const bufferRange = (filters as Filters | undefined)?.bufferRange;
   const buffer = useMemo<number[]>(() => {
-    const defaultVal = bufferRange ? [bufferRange.min, bufferRange.max] : [0, 0];
+    if (!bufferRange) return [0, 0];
     const param = getParam(searchParams, seoFilter?.params ?? null, "buffer");
-    if (!param?.trim()) return defaultVal;
-    const parts = param.split("-").map((s) => Number(s.trim()));
-    if (parts.length >= 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1]))
-      return [parts[0], parts[1]];
-    return defaultVal;
+    return parseRangeParamToTuple(param, bufferRange, 1);
   }, [searchParams, seoFilter?.params, bufferRange?.min, bufferRange?.max]);
 
   const [localBuffer, setLocalBuffer] = useState<number[]>(buffer);
@@ -220,14 +208,9 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
 
   const readSpeedRange = (filters as Filters | undefined)?.readSpeedRange;
   const readSpeed = useMemo<number[]>(() => {
-    const defaultVal = readSpeedRange ? [readSpeedRange.min, readSpeedRange.max] : [0, 0];
+    if (!readSpeedRange) return [0, 0];
     const param = getParam(searchParams, seoFilter?.params ?? null, "read_speed");
-    if (!param?.trim()) return defaultVal;
-    const parts = param.split("-").map((s) => Number(s.trim()));
-    if (parts.length >= 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1]))
-      return [parts[0], parts[1]];
-    if (parts.length === 1 && Number.isFinite(parts[0])) return [parts[0], parts[0]];
-    return defaultVal;
+    return parseRangeParamToTuple(param, readSpeedRange, 1);
   }, [searchParams, seoFilter?.params, readSpeedRange?.min, readSpeedRange?.max]);
 
   const [localReadSpeed, setLocalReadSpeed] = useState<number[]>(readSpeed);
@@ -241,14 +224,9 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
 
   const writeSpeedRange = (filters as Filters | undefined)?.writeSpeedRange;
   const writeSpeed = useMemo<number[]>(() => {
-    const defaultVal = writeSpeedRange ? [writeSpeedRange.min, writeSpeedRange.max] : [0, 0];
+    if (!writeSpeedRange) return [0, 0];
     const param = getParam(searchParams, seoFilter?.params ?? null, "write_speed");
-    if (!param?.trim()) return defaultVal;
-    const parts = param.split("-").map((s) => Number(s.trim()));
-    if (parts.length >= 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1]))
-      return [parts[0], parts[1]];
-    if (parts.length === 1 && Number.isFinite(parts[0])) return [parts[0], parts[0]];
-    return defaultVal;
+    return parseRangeParamToTuple(param, writeSpeedRange, 1);
   }, [searchParams, seoFilter?.params, writeSpeedRange?.min, writeSpeedRange?.max]);
 
   const [localWriteSpeed, setLocalWriteSpeed] = useState<number[]>(writeSpeed);
@@ -274,19 +252,23 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
    * Update only UI filters (rpm, buffer, size, price, rating, etc.) in query.
    * SEO filters (brands, capacity) must never appear in query — they live in the path.
    */
+  const isProductSearchPage = pathname.startsWith("/products/search");
+
   const handleChangeSearchParams = useCallback(
     (key: string, value: string) => {
       if (!key || value === undefined) return;
       const params = new URLSearchParams(searchParams);
-      params.delete("brands");
-      params.delete("capacity");
+      if (!isProductSearchPage) {
+        params.delete("brands");
+        params.delete("capacity");
+      }
       params.delete("page");
       if (value === "") params.delete(key);
       else params.set(key, value);
       const query = params.toString();
       pushUrlAndRefresh(query ? `${pathname}?${query}` : pathname, key);
     },
-    [pathname, pushUrlAndRefresh, searchParams]
+    [isProductSearchPage, pathname, pushUrlAndRefresh, searchParams]
   );
 
   /**
@@ -368,16 +350,13 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
     (
       minStr: string,
       maxStr: string,
-      range: { min: number; max: number } | undefined
+      range: { min: number; max: number } | undefined,
+      step = 1
     ): [number, number] => {
       if (!range) return [0, 0];
       const min = minStr.trim() === "" ? range.min : Number(minStr);
       const max = maxStr.trim() === "" ? range.max : Number(maxStr);
-      const minNum = Number.isFinite(min) ? Math.max(range.min, Math.min(range.max, min)) : range.min;
-      const maxNum = Number.isFinite(max) ? Math.max(range.min, Math.min(range.max, max)) : range.max;
-      const finalMin = Math.min(minNum, maxNum);
-      const finalMax = Math.max(minNum, maxNum);
-      return [finalMin, finalMax];
+      return clampRangeTuple([min, max], range.min, range.max, step);
     },
     []
   );
@@ -457,36 +436,56 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
     []
   );
 
-  const handleChangePrice = useCallback((values: number[]) => {
-    setPrices(values);
-    setPriceMinInputStr(String(values[0]));
-    setPriceMaxInputStr(String(values[1]));
-  }, []);
+  const handleChangePrice = useCallback(
+    (values: number[]) => {
+      if (!priceRange) return;
+      const tuple = clampRangeTuple([values[0], values[1]], priceRange.min, priceRange.max, 1);
+      setPrices(tuple);
+      setPriceMinInputStr(String(tuple[0]));
+      setPriceMaxInputStr(String(tuple[1]));
+    },
+    [priceRange]
+  );
 
   const handleChangePriceMinInput = useCallback((str: string) => setPriceMinInputStr(str), []);
   const handleChangePriceMaxInput = useCallback((str: string) => setPriceMaxInputStr(str), []);
 
-  const handleChangeCapacity = useCallback((values: number[]) => {
-    setLocalCapacity(values);
-    setCapacityMinInputStr(String(values[0]));
-    setCapacityMaxInputStr(String(values[1]));
-  }, []);
+  const handleChangeCapacity = useCallback(
+    (values: number[]) => {
+      if (!capacityRange) return;
+      const tuple = clampRangeTuple([values[0], values[1]], capacityRange.min, capacityRange.max, 1);
+      setLocalCapacity(tuple);
+      setCapacityMinInputStr(String(tuple[0]));
+      setCapacityMaxInputStr(String(tuple[1]));
+    },
+    [capacityRange]
+  );
   const handleChangeCapacityMinInput = useCallback((str: string) => setCapacityMinInputStr(str), []);
   const handleChangeCapacityMaxInput = useCallback((str: string) => setCapacityMaxInputStr(str), []);
 
-  const handleChangeRpm = useCallback((values: number[]) => {
-    setLocalRpm(values);
-    setRpmMinInputStr(String(values[0]));
-    setRpmMaxInputStr(String(values[1]));
-  }, []);
+  const handleChangeRpm = useCallback(
+    (values: number[]) => {
+      if (!rpmRange) return;
+      const tuple = clampRangeTuple([values[0], values[1]], rpmRange.min, rpmRange.max, 1);
+      setLocalRpm(tuple);
+      setRpmMinInputStr(String(tuple[0]));
+      setRpmMaxInputStr(String(tuple[1]));
+    },
+    [rpmRange]
+  );
   const handleChangeRpmMinInput = useCallback((str: string) => setRpmMinInputStr(str), []);
   const handleChangeRpmMaxInput = useCallback((str: string) => setRpmMaxInputStr(str), []);
 
-  const handleChangeBuffer = useCallback((values: number[]) => {
-    setLocalBuffer(values);
-    setBufferMinInputStr(String(values[0]));
-    setBufferMaxInputStr(String(values[1]));
-  }, []);
+  const handleChangeBuffer = useCallback(
+    (values: number[]) => {
+      if (!bufferRange) return;
+      const tuple = clampRangeTuple([values[0], values[1]], bufferRange.min, bufferRange.max, 1);
+      setLocalBuffer(tuple);
+      setBufferMinInputStr(String(tuple[0]));
+      setBufferMaxInputStr(String(tuple[1]));
+    },
+    [bufferRange]
+  );
   const handleChangeBufferMinInput = useCallback((str: string) => setBufferMinInputStr(str), []);
   const handleChangeBufferMaxInput = useCallback((str: string) => setBufferMaxInputStr(str), []);
 
@@ -530,19 +529,29 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
     [heatsinkSelections, handleChangeSearchParams]
   );
 
-  const handleChangeReadSpeed = useCallback((values: number[]) => {
-    setLocalReadSpeed(values);
-    setReadSpeedMinInputStr(String(values[0]));
-    setReadSpeedMaxInputStr(String(values[1]));
-  }, []);
+  const handleChangeReadSpeed = useCallback(
+    (values: number[]) => {
+      if (!readSpeedRange) return;
+      const tuple = clampRangeTuple([values[0], values[1]], readSpeedRange.min, readSpeedRange.max, 1);
+      setLocalReadSpeed(tuple);
+      setReadSpeedMinInputStr(String(tuple[0]));
+      setReadSpeedMaxInputStr(String(tuple[1]));
+    },
+    [readSpeedRange]
+  );
   const handleChangeReadSpeedMinInput = useCallback((str: string) => setReadSpeedMinInputStr(str), []);
   const handleChangeReadSpeedMaxInput = useCallback((str: string) => setReadSpeedMaxInputStr(str), []);
 
-  const handleChangeWriteSpeed = useCallback((values: number[]) => {
-    setLocalWriteSpeed(values);
-    setWriteSpeedMinInputStr(String(values[0]));
-    setWriteSpeedMaxInputStr(String(values[1]));
-  }, []);
+  const handleChangeWriteSpeed = useCallback(
+    (values: number[]) => {
+      if (!writeSpeedRange) return;
+      const tuple = clampRangeTuple([values[0], values[1]], writeSpeedRange.min, writeSpeedRange.max, 1);
+      setLocalWriteSpeed(tuple);
+      setWriteSpeedMinInputStr(String(tuple[0]));
+      setWriteSpeedMaxInputStr(String(tuple[1]));
+    },
+    [writeSpeedRange]
+  );
   const handleChangeWriteSpeedMinInput = useCallback((str: string) => setWriteSpeedMinInputStr(str), []);
   const handleChangeWriteSpeedMaxInput = useCallback((str: string) => setWriteSpeedMaxInputStr(str), []);
 
@@ -613,6 +622,8 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
 
   return {
     pendingFilterKey,
+    pushUrlAndRefresh,
+    navigateWithFilterState,
     sales,
     brands,
     rating,

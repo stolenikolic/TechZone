@@ -5,6 +5,7 @@ import type { FilterItem } from "models/Filters";
 import { isNotApplicableAttributeValue } from "lib/attributes/not-applicable-value";
 import { loadTopPickMapByCategory, type CategoryTopPick } from "lib/category-top-picks";
 import { getEffectivePrice } from "lib/effective-price";
+import { parseNumericFromAttributeValue } from "lib/shop/range-filter-utils";
 import {
   fetchShopVisibleProductsForCategory,
   isShopVisibleProduct,
@@ -16,6 +17,9 @@ import { createSupabaseServiceClient } from "utils/supabase";
 
 /** Chunk size for product_attributes .in("product_id", ...) — keep in sync across listing + facets. */
 export const PRODUCT_ATTRIBUTES_CHUNK_SIZE = 50;
+
+/** Page size when loading product_attributes for facet building (must paginate; no row cap). */
+const PRODUCT_ATTRIBUTES_FACET_PAGE_SIZE = 1000;
 
 const LISTING_LIMIT = 30;
 const RESERVED_PARAMS = new Set(["page", "prices", "sort"]);
@@ -167,12 +171,46 @@ async function loadVisibleProductsForCategory(categoryId: string): Promise<ShopP
 /** Per-request dedupe + 60s Data Cache for the category product pool (facets + listing). */
 export const getVisibleProductsForCategoryCached = cache(loadVisibleProductsForCategory);
 
-function parseNumericValue(value: string | null): number | null {
-  if (value == null || value === "") return null;
-  const match = String(value).match(/\d+(?:\.\d+)?/);
-  if (!match) return null;
-  const n = Number(match[0]);
-  return Number.isNaN(n) ? null : n;
+type ProductAttributeFacetRow = { value: string | null; attribute_id: string };
+
+/** Load all product_attributes rows for facet building (paginated; avoids silent .limit truncation). */
+async function fetchProductAttributeFacetRows(
+  supabase: SupabaseClient,
+  productIds: string[],
+  attributeIds: string[]
+): Promise<ProductAttributeFacetRow[]> {
+  if (productIds.length === 0 || attributeIds.length === 0) return [];
+
+  const rows: ProductAttributeFacetRow[] = [];
+
+  for (let i = 0; i < productIds.length; i += PRODUCT_ATTRIBUTES_CHUNK_SIZE) {
+    const pidChunk = productIds.slice(i, i + PRODUCT_ATTRIBUTES_CHUNK_SIZE);
+    let offset = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from("product_attributes")
+        .select("value, attribute_id")
+        .in("product_id", pidChunk)
+        .in("attribute_id", attributeIds)
+        .order("product_id", { ascending: true })
+        .order("attribute_id", { ascending: true })
+        .range(offset, offset + PRODUCT_ATTRIBUTES_FACET_PAGE_SIZE - 1);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      const page = (data ?? []) as ProductAttributeFacetRow[];
+      if (page.length === 0) break;
+
+      rows.push(...page);
+      if (page.length < PRODUCT_ATTRIBUTES_FACET_PAGE_SIZE) break;
+      offset += PRODUCT_ATTRIBUTES_FACET_PAGE_SIZE;
+    }
+  }
+
+  return rows;
 }
 
 function toAttributeMeta(row: AttributeRow): AttributeMeta {
@@ -265,26 +303,15 @@ export async function buildCategoryFiltersPayload(
     }
   }
 
-  type PaRow = { value: string | null; attribute_id: string };
   const byAttributeId = new Map<string, Set<string>>();
 
-  for (let i = 0; i < productIds.length; i += PRODUCT_ATTRIBUTES_CHUNK_SIZE) {
-    const pidChunk = productIds.slice(i, i + PRODUCT_ATTRIBUTES_CHUNK_SIZE);
-    const { data: paRows } = await supabase
-      .from("product_attributes")
-      .select("value, attribute_id")
-      .in("product_id", pidChunk)
-      .in("attribute_id", orderedAttrIds)
-      .limit(5000);
-
-    const rows = (paRows ?? []) as PaRow[];
-    for (const row of rows) {
-      if (row.value == null || String(row.value).trim() === "") continue;
-      if (isNotApplicableAttributeValue(String(row.value))) continue;
-      if (!attributeMeta.has(row.attribute_id)) continue;
-      if (!byAttributeId.has(row.attribute_id)) byAttributeId.set(row.attribute_id, new Set());
-      byAttributeId.get(row.attribute_id)!.add(String(row.value).trim());
-    }
+  const paRows = await fetchProductAttributeFacetRows(supabase, productIds, orderedAttrIds);
+  for (const row of paRows) {
+    if (row.value == null || String(row.value).trim() === "") continue;
+    if (isNotApplicableAttributeValue(String(row.value))) continue;
+    if (!attributeMeta.has(row.attribute_id)) continue;
+    if (!byAttributeId.has(row.attribute_id)) byAttributeId.set(row.attribute_id, new Set());
+    byAttributeId.get(row.attribute_id)!.add(String(row.value).trim());
   }
 
   for (const attrId of orderedAttrIds) {
@@ -294,7 +321,7 @@ export async function buildCategoryFiltersPayload(
     const values = Array.from(valueSet).sort((a, b) => String(a).localeCompare(String(b)));
     if (meta.displayType === "range") {
       const numericValues = values
-        .map((value) => parseNumericValue(value))
+        .map((value) => parseNumericFromAttributeValue(value))
         .filter((value): value is number => value != null);
 
       if (numericValues.length === 0) continue;
@@ -577,7 +604,7 @@ export async function getCategoryProductsListing(
       } else {
         const { min: rMin, max: rMax } = parsed;
         allPaRows.forEach((row: PaRow) => {
-          const num = parseNumericValue(row.value);
+          const num = parseNumericFromAttributeValue(row.value);
           if (num != null) {
             if (num >= rMin && num <= rMax) matchingIds.add(row.product_id);
           } else {

@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { getEffectivePrice } from "lib/effective-price";
+import { getSearchTokens } from "lib/search/product-search-tokens";
+import { runSearchListing } from "lib/search/search-listing";
+import type { SearchCategoryFacet } from "lib/search/search-category-facets";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 export type SearchResultItem = {
@@ -14,36 +17,21 @@ export type SearchResultItem = {
   topPickLabel?: string;
 };
 
-const PER_PAGE = 30;
-const MAX_QUERY_LENGTH = 200;
 const MIN_QUERY_LENGTH = 2;
-const SEARCH_COLUMNS = ["name", "brand", "mpn", "ean"] as const;
+const MAX_QUERY_LENGTH = 200;
 
 export type SearchResponse = {
   products: SearchResultItem[];
   totalResults: number;
   totalPages: number;
   currentPage: number;
+  categoryFacets: SearchCategoryFacet[];
+  priceRange?: { min: number; max: number };
+  filters: Array<{ slug: string; name: string; values: string[] }>;
 };
 
-function getSearchTokens(query: string) {
-  return query
-    .toLowerCase()
-    .split(/\s+/)
-    .map((token) => token.replace(/[%,()]/g, "").trim())
-    .filter(Boolean);
-}
-
-function buildTokenFilter(token: string) {
-  return SEARCH_COLUMNS.map((column) => `${column}.ilike.%${token}%`).join(",");
-}
-
 /**
- * GET /api/search?q=...&page=...
- *
- * Token product search across name, brand, MPN, and EAN (no description, no fuzzy logic).
- * - Every query token must match somewhere in the product identity fields.
- * - 30 products per page, is_active = true only.
+ * GET /api/search?q=...&page=...&category=...&brands=...&prices=min-max&sort=...
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -58,6 +46,8 @@ export async function GET(request: Request) {
         totalResults: 0,
         totalPages: 0,
         currentPage: 1,
+        categoryFacets: [],
+        filters: [],
         error: "Query must be at least 2 characters"
       },
       { status: 400 }
@@ -74,6 +64,8 @@ export async function GET(request: Request) {
         totalResults: 0,
         totalPages: 0,
         currentPage: 1,
+        categoryFacets: [],
+        filters: [],
         error: "Query must contain searchable text"
       },
       { status: 400 }
@@ -82,52 +74,23 @@ export async function GET(request: Request) {
 
   try {
     const supabase = createSupabaseServiceClient();
-    const from = (page - 1) * PER_PAGE;
-    const to = from + PER_PAGE - 1;
+    const listing = await runSearchListing(supabase, tokens, {
+      q: safeQuery,
+      page,
+      sort: searchParams.get("sort"),
+      prices: searchParams.get("prices"),
+      brands: searchParams.get("brands"),
+      category: searchParams.get("category")
+    });
 
-    let query = supabase
-      .from("products")
-      .select("id,name,brand,slug,main_image,price,custom_price,category_id,created_at", {
-        count: "exact"
-      })
-      .eq("is_active", true)
-      .order("name", { ascending: true })
-      .range(from, to);
-
-    for (const token of tokens) {
-      query = query.or(buildTokenFilter(token));
-    }
-
-    const { data, error, count } = await query;
-
-    if (error) {
-      console.error("[search] query error:", error.message);
-      return NextResponse.json(
-        {
-          products: [],
-          totalResults: 0,
-          totalPages: 0,
-          currentPage: page,
-          error: "Search failed"
-        },
-        { status: 500 }
-      );
-    }
-
-    const rows = (data ?? []) as Array<Record<string, unknown>>;
-    const totalResults = Number(count ?? 0);
-    const totalPages = Math.max(1, Math.ceil(totalResults / PER_PAGE));
-    const currentPage = Math.min(page, totalPages);
-
-    const productRows = rows.map((row) => ({
-      id: String(row.id),
-      name: String(row.name ?? ""),
-      brand: row.brand != null ? String(row.brand) : null,
-      slug: String(row.slug ?? ""),
-      main_image: row.main_image != null ? String(row.main_image) : null,
+    const productRows = listing.products.map((row) => ({
+      id: row.id,
+      name: row.name,
+      brand: row.brand,
+      slug: row.slug,
+      main_image: row.main_image,
       price: getEffectivePrice(row.custom_price, row.price),
-      categoryId: row.category_id != null ? String(row.category_id) : null,
-      createdAt: row.created_at != null ? String(row.created_at) : null
+      categoryId: row.category_id
     }));
 
     const byCategory = new Map<string, string[]>();
@@ -138,19 +101,14 @@ export async function GET(request: Request) {
       byCategory.set(row.categoryId, list);
     });
 
-    const topPickByProductId = new Map<string, { priority: number; createdAt: string }>();
+    const topPickByProductId = new Set<string>();
     for (const [categoryId, ids] of Array.from(byCategory.entries())) {
       const { data: picks } = await supabase
         .from("category_featured_products")
-        .select("product_id, priority, created_at")
+        .select("product_id")
         .eq("category_id", categoryId)
         .in("product_id", ids);
-      (picks ?? []).forEach((pick) => {
-        topPickByProductId.set(pick.product_id, {
-          priority: pick.priority ?? 100,
-          createdAt: pick.created_at ?? ""
-        });
-      });
+      (picks ?? []).forEach((pick) => topPickByProductId.add(pick.product_id));
     }
 
     const products: SearchResultItem[] = productRows.map((row) => ({
@@ -164,13 +122,15 @@ export async function GET(request: Request) {
       ...(topPickByProductId.has(row.id) && { topPick: true, topPickLabel: "Top pick" })
     }));
 
-    const response: SearchResponse = {
+    return NextResponse.json({
       products,
-      totalResults,
-      totalPages,
-      currentPage
-    };
-    return NextResponse.json(response);
+      totalResults: listing.totalResults,
+      totalPages: listing.totalPages,
+      currentPage: listing.currentPage,
+      categoryFacets: listing.filters.categoryFacets,
+      priceRange: listing.filters.priceRange,
+      filters: listing.filters.filters
+    } satisfies SearchResponse);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error("[search]", message);
@@ -180,6 +140,8 @@ export async function GET(request: Request) {
         totalResults: 0,
         totalPages: 0,
         currentPage: page,
+        categoryFacets: [],
+        filters: [],
         error: "Search failed"
       },
       { status: 500 }

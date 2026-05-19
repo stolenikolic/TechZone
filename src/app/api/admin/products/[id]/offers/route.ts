@@ -15,6 +15,7 @@ type DbRow = {
   supplier_product_id: string;
   price_amount: number | null;
   currency: string | null;
+  is_active: boolean;
   updated_at: string;
   suppliers:
     | {
@@ -96,7 +97,7 @@ export async function GET(
     const { data: rows, error } = await supabase
       .from("supplier_products")
       .select(
-        "id, supplier_product_id, price_amount, currency, updated_at, suppliers(id, name, code, pricing_formula, cost_adjustment_multiplier)"
+        "id, supplier_product_id, price_amount, currency, is_active, updated_at, suppliers(id, name, code, pricing_formula, cost_adjustment_multiplier)"
       )
       .eq("product_id", id)
       .order("updated_at", { ascending: false });
@@ -151,6 +152,7 @@ export async function GET(
         currency: row.currency ?? "",
         acquisitionKm,
         sellingKm,
+        isActive: row.is_active !== false,
         updatedAt: row.updated_at
       };
     });

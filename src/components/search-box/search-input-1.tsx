@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, KeyboardEvent, useCallback, useEffect, useState } from "react";
+import { ChangeEvent, KeyboardEvent, Suspense, useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 // MUI
 import Box from "@mui/material/Box";
@@ -11,8 +11,10 @@ import Search from "icons/Search";
 import { CategoryLink } from "models/Layout.model";
 
 const SEARCH_PAGE = "/products/search";
+/** Stable id avoids MUI/React useId mismatch between SSR and client hydration. */
+const SEARCH_INPUT_ID = "shop-header-search";
 
-const INPUT_PROPS = {
+const INPUT_SLOT_PROPS = {
   sx: {
     border: 0,
     padding: 0,
@@ -41,19 +43,26 @@ const INPUT_PROPS = {
   )
 };
 
-// ==============================================================
-interface Props {
-  categories: CategoryLink[];
+function SearchInput1Placeholder() {
+  return (
+    <Box
+      aria-hidden
+      sx={{
+        width: "100%",
+        height: 40,
+        borderRadius: 1,
+        bgcolor: "grey.50"
+      }}
+    />
+  );
 }
-// ==============================================================
 
-export function SearchInput1({ categories }: Props) {
+function SearchInput1Field() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
 
-  // Sync input with URL: on search page show current q; on other pages show empty
   useEffect(() => {
     if (pathname === SEARCH_PAGE) {
       setSearch(searchParams.get("q") ?? "");
@@ -82,19 +91,35 @@ export function SearchInput1({ categories }: Props) {
     }
   };
 
-  if (!categories || !categories.length) return null;
-
   return (
     <TextField
+      id={SEARCH_INPUT_ID}
+      name="q"
       fullWidth
       value={search}
       variant="outlined"
       onKeyDown={handleEnter}
       onChange={handleChange}
       placeholder="Searching for..."
-      slotProps={{ input: INPUT_PROPS }}
+      slotProps={{ input: INPUT_SLOT_PROPS }}
       aria-label="Search products"
       role="searchbox"
     />
+  );
+}
+
+// ==============================================================
+interface Props {
+  categories: CategoryLink[];
+}
+// ==============================================================
+
+export function SearchInput1({ categories }: Props) {
+  if (!categories?.length) return null;
+
+  return (
+    <Suspense fallback={<SearchInput1Placeholder />}>
+      <SearchInput1Field />
+    </Suspense>
   );
 }

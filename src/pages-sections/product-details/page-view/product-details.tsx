@@ -13,6 +13,7 @@ import FrequentlyBought from "../frequently-bought";
 import ProductDescription from "../product-description";
 // CUSTOM DATA MODEL
 import Product from "models/Product.model";
+import { getLeafCategoryHref } from "lib/shop/category-filter-url";
 
 // ==============================================================
 interface Props {
@@ -22,17 +23,9 @@ interface Props {
 }
 // ==============================================================
 
-function leafCategoryHref(product: Product): string | null {
-  if (!product.category) return null;
-  if (product.parentCategory) {
-    return `/categories/${product.parentCategory.slug}/${product.category.slug}`;
-  }
-  return `/categories/${product.category.slug}`;
-}
-
 export default function ProductDetailsPageView(props: Props) {
   const { product } = props;
-  const leafHref = leafCategoryHref(product);
+  const leafHref = getLeafCategoryHref(product);
 
   return (
     <Container className="mt-2 mb-2">
@@ -70,7 +63,10 @@ export default function ProductDetailsPageView(props: Props) {
         description={<ProductDescription description={props.product.description} />}
         specifications={
           product.specifications && product.specifications.length > 0 ? (
-            <ProductSpecifications specifications={product.specifications} />
+            <ProductSpecifications
+              specifications={product.specifications}
+              categoryHref={leafHref}
+            />
           ) : undefined
         }
         reviews={<ProductReviews />}

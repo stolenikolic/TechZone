@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
 import { isNotApplicableAttributeValue } from "lib/attributes/not-applicable-value";
 import { getEffectivePrice } from "lib/effective-price";
+import { resolveEffectivePriceSource } from "lib/effective-price-source";
+import { computeAcquisitionKm, resolvePricingSettingsRow, type PricingSettingsRow } from "lib/pricing";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { guardAdminApi } from "lib/auth/admin-route";
 
@@ -29,6 +31,8 @@ type AdminProduct = Product & {
   basePrice: number | null;
   customPrice: number | null;
   effectivePrice: number;
+  effectivePriceSource: string | null;
+  linkedSuppliers: { code: string; name: string }[];
 };
 
 function hasAttributesJson(value: Record<string, unknown> | null) {
@@ -149,7 +153,17 @@ function getMasterStatus(
   };
 }
 
-function toProduct(row: DbProduct, masterStatus: MasterStatus): AdminProduct {
+function firstSupplier<T>(raw: T | T[] | null): T | null {
+  if (raw == null) return null;
+  return Array.isArray(raw) ? raw[0] ?? null : raw;
+}
+
+function toProduct(
+  row: DbProduct,
+  masterStatus: MasterStatus,
+  engineSupplierName: string | null,
+  linkedSuppliers: { code: string; name: string }[]
+): AdminProduct {
   const thumbnail = row.main_image ?? "/assets/images/placeholder.png";
     const rawCategory = row.categories;
     const category = rawCategory == null ? null : Array.isArray(rawCategory) ? rawCategory[0] ?? null : rawCategory;
@@ -173,7 +187,9 @@ function toProduct(row: DbProduct, masterStatus: MasterStatus): AdminProduct {
     // Admin-only enrichment for table columns.
     basePrice: row.price != null ? Number(row.price) : null,
     customPrice: row.custom_price != null ? Number(row.custom_price) : null,
-    effectivePrice
+    effectivePrice,
+    effectivePriceSource: resolveEffectivePriceSource(row.custom_price, row.price, engineSupplierName),
+    linkedSuppliers
   };
 }
 
@@ -205,6 +221,18 @@ export async function GET() {
     }
 
     const supplierCountByProduct = new Map<string, number>();
+    const linkedSuppliersByProduct = new Map<string, Map<string, string>>();
+    const minAcquisitionKmByProduct = new Map<string, number>();
+    const engineSupplierNameByProduct = new Map<string, string>();
+
+    const { data: settingsRows, error: settingsError } = await supabase
+      .from("pricing_settings")
+      .select("*")
+      .limit(1);
+    if (settingsError) throw new Error(settingsError.message);
+    const { settings } = resolvePricingSettingsRow(
+      (settingsRows?.[0] ?? null) as PricingSettingsRow | null
+    );
 
     const parentCategoryIdSet = new Set<string>();
     const rootCategoryById = new Map<string, { name: string; slug: string }>();
@@ -246,19 +274,71 @@ export async function GET() {
     for (;;) {
       const { data: supplierRows, error: supplierError } = await supabase
         .from("supplier_products")
-        .select("product_id")
+        .select(
+          "product_id, supplier_id, price_amount, currency, is_active, suppliers(name, code, pricing_formula, cost_adjustment_multiplier)"
+        )
         .not("product_id", "is", null)
         .order("id", { ascending: true })
         .range(supplierOffset, supplierOffset + supplierPageSize - 1);
 
       if (supplierError) throw new Error(supplierError.message);
 
-      const page = (supplierRows ?? []) as { product_id: string | null }[];
+      const page = (supplierRows ?? []) as {
+        product_id: string | null;
+        supplier_id: string;
+        price_amount: number | null;
+        currency: string | null;
+        is_active: boolean | null;
+        suppliers:
+          | {
+              name: string | null;
+              code: string | null;
+              pricing_formula: string | null;
+              cost_adjustment_multiplier: number | null;
+            }
+          | {
+              name: string | null;
+              code: string | null;
+              pricing_formula: string | null;
+              cost_adjustment_multiplier: number | null;
+            }[]
+          | null;
+      }[];
       if (page.length === 0) break;
 
       for (const row of page) {
         if (!row.product_id) continue;
         supplierCountByProduct.set(row.product_id, (supplierCountByProduct.get(row.product_id) ?? 0) + 1);
+
+        if (row.is_active === false) continue;
+
+        const supplier = firstSupplier(row.suppliers);
+        const supplierCode = (supplier?.code ?? "unknown").trim().toLowerCase();
+        const supplierName = (supplier?.name ?? supplier?.code ?? "Unknown").trim();
+        if (!linkedSuppliersByProduct.has(row.product_id)) {
+          linkedSuppliersByProduct.set(row.product_id, new Map());
+        }
+        linkedSuppliersByProduct.get(row.product_id)!.set(supplierCode, supplierName);
+
+        if (row.price_amount == null) continue;
+
+        const acquisitionKm = computeAcquisitionKm(
+          Number(row.price_amount),
+          row.currency ?? "",
+          {
+            id: row.supplier_id,
+            pricing_formula: supplier?.pricing_formula ?? null,
+            cost_adjustment_multiplier: supplier?.cost_adjustment_multiplier ?? 1
+          },
+          settings
+        );
+        if (!Number.isFinite(acquisitionKm) || acquisitionKm <= 0) continue;
+
+        const currentMin = minAcquisitionKmByProduct.get(row.product_id);
+        if (currentMin === undefined || acquisitionKm < currentMin) {
+          minAcquisitionKmByProduct.set(row.product_id, acquisitionKm);
+          engineSupplierNameByProduct.set(row.product_id, supplierName);
+        }
       }
 
       supplierOffset += page.length;
@@ -342,6 +422,9 @@ export async function GET() {
 
     return NextResponse.json(
       rows.map((row) => {
+        const linkedSuppliers = Array.from(linkedSuppliersByProduct.get(row.id) ?? new Map())
+          .map(([code, name]) => ({ code, name }))
+          .sort((a, b) => a.name.localeCompare(b.name));
         const product = toProduct(
           row,
           getMasterStatus(
@@ -350,7 +433,9 @@ export async function GET() {
             categoryReqByCategoryId,
             productAttributeIds,
             productAttributeValues
-          )
+          ),
+          engineSupplierNameByProduct.get(row.id) ?? null,
+          linkedSuppliers
         );
         const rawCategory = row.categories;
         const category = rawCategory == null ? null : Array.isArray(rawCategory) ? rawCategory[0] ?? null : rawCategory;

@@ -16,6 +16,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
 // GLOBAL CUSTOM COMPONENTS
 import OverlayScrollbar from "components/overlay-scrollbar";
@@ -35,6 +36,7 @@ const tableHeading = [
   { id: "category", label: "Category", align: "left" },
   { id: "brand", label: "Brand", align: "left" },
   { id: "masterStatusSort", label: "Master Status", align: "left" },
+  { id: "effectivePriceSource", label: "Price source", align: "left" },
   { id: "effectivePrice", label: "Effective Price", align: "left" },
   { id: "basePrice", label: "Price (Engine)", align: "left" },
   { id: "customPrice", label: "Custom Price", align: "left" },
@@ -47,6 +49,8 @@ type AdminProduct = Product & {
   basePrice?: number | null;
   customPrice?: number | null;
   effectivePrice?: number;
+  effectivePriceSource?: string | null;
+  linkedSuppliers?: { code: string; name: string }[];
 };
 type Props = { products: Product[] };
 type MasterStatusValue = NonNullable<Product["masterStatus"]>["value"];
@@ -59,7 +63,7 @@ export default function ProductsPageView({ products }: Props) {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [parentCategoryFilter, setParentCategoryFilter] = useState("all");
   const [childCategoryFilter, setChildCategoryFilter] = useState("all");
-  const [brandFilter, setBrandFilter] = useState("all");
+  const [supplierFilter, setSupplierFilter] = useState("all");
   const [publishedFilter, setPublishedFilter] = useState("all");
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
@@ -79,6 +83,7 @@ export default function ProductsPageView({ products }: Props) {
           currency: string;
           acquisitionKm: number | null;
           sellingKm: number | null;
+          isActive: boolean;
           updatedAt: string;
         }[];
       }
@@ -94,6 +99,15 @@ export default function ProductsPageView({ products }: Props) {
     if (value == null || !Number.isFinite(value)) return "-";
     return `${Math.round(value)} HUF`;
   };
+
+  const OfferActiveChip = ({ isActive }: { isActive: boolean }) => (
+    <Chip
+      label={isActive ? "active" : "inactive"}
+      color={isActive ? "success" : "error"}
+      size="small"
+      variant="outlined"
+    />
+  );
 
   const loadOffers = async (product: {
     id: string;
@@ -120,6 +134,7 @@ export default function ProductsPageView({ products }: Props) {
             currency: string;
             acquisitionKm: number | null;
             sellingKm: number | null;
+            isActive: boolean;
             updatedAt: string;
           }[];
       if (!response.ok || !Array.isArray(data)) {
@@ -220,10 +235,19 @@ export default function ProductsPageView({ products }: Props) {
     ];
   }, [parentCategoryFilter, categoryTree]);
 
-  const brandOptions = useMemo(() => {
-    const values = Array.from(new Set(adminProducts.map((item) => item.brand ?? "-")));
-    values.sort((a, b) => a.localeCompare(b));
-    return ["all", ...values];
+  const supplierOptions = useMemo(() => {
+    const priceSources = new Set<string>();
+    for (const item of adminProducts) {
+      const source = item.effectivePriceSource;
+      if (source && source !== "manual") priceSources.add(source);
+    }
+    return [
+      { value: "all", label: "all" },
+      { value: "manual", label: "manual" },
+      ...Array.from(priceSources)
+        .sort((a, b) => a.localeCompare(b))
+        .map((name) => ({ value: name, label: name }))
+    ];
   }, [adminProducts]);
 
   // RESHAPE THE PRODUCT LIST BASED TABLE HEAD CELL ID
@@ -241,7 +265,9 @@ export default function ProductsPageView({ products }: Props) {
           const childSlug = item.category?.slug ?? "";
           if (childSlug !== childCategoryFilter) return false;
         }
-        if (brandFilter !== "all" && (item.brand ?? "-") !== brandFilter) return false;
+        if (supplierFilter !== "all" && item.effectivePriceSource !== supplierFilter) {
+          return false;
+        }
         if (publishedFilter !== "all") {
           const shouldBePublished = publishedFilter === "published";
           if ((item.published ?? false) !== shouldBePublished) return false;
@@ -277,6 +303,7 @@ export default function ProductsPageView({ products }: Props) {
           name: item.title,
           brand: item.brand ?? "",
           effectivePrice,
+          effectivePriceSource: item.effectivePriceSource ?? null,
           basePrice: item.basePrice ?? null,
           customPrice: item.customPrice ?? null,
           price: effectivePrice,
@@ -290,7 +317,7 @@ export default function ProductsPageView({ products }: Props) {
           masterStatusSort: item.masterStatus?.label ?? ""
         };
       });
-  }, [adminProducts, query, quickFilter, parentCategoryFilter, childCategoryFilter, brandFilter, publishedFilter, priceMin, priceMax]);
+  }, [adminProducts, query, quickFilter, parentCategoryFilter, childCategoryFilter, supplierFilter, publishedFilter, priceMin, priceMax]);
 
   const { order, orderBy, rowsPerPage, filteredList, handleChangePage, handleRequestSort } =
     useMuiTable({ listData: reshapedProducts });
@@ -348,6 +375,20 @@ export default function ProductsPageView({ products }: Props) {
           <TextField
             select
             size="small"
+            label="Suppliers"
+            value={supplierFilter}
+            onChange={(e) => setSupplierFilter(e.target.value)}
+            sx={{ minWidth: 150 }}
+          >
+            {supplierOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            size="small"
             label="Category"
             value={parentCategoryFilter}
             onChange={(e) => {
@@ -374,20 +415,6 @@ export default function ProductsPageView({ products }: Props) {
             {childCategoryOptions.map((option) => (
               <MenuItem key={option.value} value={option.value}>
                 {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            select
-            size="small"
-            label="Brand"
-            value={brandFilter}
-            onChange={(e) => setBrandFilter(e.target.value)}
-            sx={{ minWidth: 150 }}
-          >
-            {brandOptions.map((option) => (
-              <MenuItem key={option} value={option}>
-                {option}
               </MenuItem>
             ))}
           </TextField>
@@ -426,7 +453,7 @@ export default function ProductsPageView({ products }: Props) {
             onClick={() => {
               setParentCategoryFilter("all");
               setChildCategoryFilter("all");
-              setBrandFilter("all");
+              setSupplierFilter("all");
               setPublishedFilter("all");
               setPriceMin("");
               setPriceMax("");
@@ -472,6 +499,7 @@ export default function ProductsPageView({ products }: Props) {
                                 <TableHead>
                                   <TableRow>
                                     <TableCell>Supplier</TableCell>
+                                    <TableCell>Status</TableCell>
                                     <TableCell>Supplier Product ID</TableCell>
                                     <TableCell align="right">Price (HUF)</TableCell>
                                     <TableCell align="right">Nabavna (KM)</TableCell>
@@ -481,12 +509,25 @@ export default function ProductsPageView({ products }: Props) {
                                 </TableHead>
                                 <TableBody>
                                   {(offersByProduct[product.id]?.rows ?? []).map((row) => (
-                                    <TableRow key={row.id}>
+                                    <TableRow
+                                      key={row.id}
+                                      sx={
+                                        row.isActive
+                                          ? undefined
+                                          : {
+                                              opacity: 0.62,
+                                              filter: "blur(0.35px)"
+                                            }
+                                      }
+                                    >
                                       <TableCell>
                                         {row.supplierName}
                                         <Typography variant="caption" display="block" color="text.secondary">
                                           {row.supplierCode}
                                         </Typography>
+                                      </TableCell>
+                                      <TableCell>
+                                        <OfferActiveChip isActive={row.isActive} />
                                       </TableCell>
                                       <TableCell
                                         sx={{

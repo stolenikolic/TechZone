@@ -1,6 +1,11 @@
 import { cache } from "react";
 import type Product from "models/Product.model";
-import type { CategorySidebarFilters } from "models/Filters";
+import type { SearchPageFilters } from "models/Filters";
+import type { SearchCategoryFacet } from "lib/search/search-category-facets";
+import {
+  formatCategorySlugsParam,
+  parseCategorySlugsParam
+} from "lib/search/product-search-tokens";
 import { getServerBaseUrl } from "utils/site-url";
 
 type SearchResultItem = {
@@ -16,7 +21,6 @@ type SearchResultItem = {
 
 const PER_PAGE = 30;
 
-/** Base URL for server-side fetch. */
 function getFetchBaseUrl(): string {
   if (typeof window !== "undefined") return "";
   return getServerBaseUrl();
@@ -43,14 +47,40 @@ function searchResultToProduct(row: SearchResultItem): Product {
   };
 }
 
-/** Minimal filters for search/shop pages: empty dynamic shape (no category-specific filters). */
-export const getFilters = cache(async (): Promise<CategorySidebarFilters> => {
-  return {
-    filters: [],
-    priceRange: undefined,
-    categories: []
-  };
-});
+function buildSearchApiUrl(params: {
+  query: string;
+  pageNum: number;
+  category?: string;
+  brands?: string;
+  prices?: string;
+  sort?: string;
+}): string {
+  const base = getFetchBaseUrl();
+  const searchParams = new URLSearchParams({
+    q: params.query,
+    page: String(params.pageNum)
+  });
+
+  const slugs = parseCategorySlugsParam(params.category);
+  if (slugs.length > 0) {
+    searchParams.set("category", formatCategorySlugsParam(slugs));
+  }
+  if (params.brands?.trim()) searchParams.set("brands", params.brands.trim());
+  if (params.prices?.trim()) searchParams.set("prices", params.prices.trim());
+  if (params.sort?.trim()) searchParams.set("sort", params.sort.trim());
+
+  return `${base}/api/search?${searchParams.toString()}`;
+}
+
+export type SearchPageData = {
+  products: Product[];
+  pageCount: number;
+  totalProducts: number;
+  firstIndex: number;
+  lastIndex: number;
+  categoryFacets: SearchCategoryFacet[];
+  filters: SearchPageFilters;
+};
 
 interface Params {
   q?: string;
@@ -64,74 +94,80 @@ interface Params {
   category?: string;
 }
 
-/**
- * Fetches paginated search results from /api/search?q=...&page=...
- * 30 products per page. Token search over name, brand, MPN, and EAN; is_active only.
- */
-export const getProducts = cache(
-  async ({ q, page = "1", sort, sale, prices, colors, brands, rating, category }: Params) => {
-    const query = (q ?? "").trim();
-    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+export const getSearchPageData = cache(async (params: Params): Promise<SearchPageData> => {
+  const query = (params.q ?? "").trim();
+  const pageNum = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
 
-    if (query.length < 2) {
-      return {
-        products: [] as Product[],
-        pageCount: 1,
-        totalProducts: 0,
-        firstIndex: 0,
-        lastIndex: 0
-      };
+  const empty: SearchPageData = {
+    products: [],
+    pageCount: 1,
+    totalProducts: 0,
+    firstIndex: 0,
+    lastIndex: 0,
+    categoryFacets: [],
+    filters: {
+      filters: [],
+      priceRange: undefined,
+      categories: [],
+      searchCategoryFacets: []
     }
+  };
 
-    try {
-      const base = getFetchBaseUrl();
-      const url = `${base}/api/search?q=${encodeURIComponent(query)}&page=${pageNum}`;
-      const res = await fetch(url, { next: { revalidate: 60 } });
-
-      if (!res.ok) {
-        if (res.status === 400) {
-          return {
-            products: [] as Product[],
-            pageCount: 1,
-            totalProducts: 0,
-            firstIndex: 0,
-            lastIndex: 0
-          };
-        }
-        throw new Error(`Search failed: ${res.status}`);
-      }
-
-      const data = (await res.json()) as {
-        products: SearchResultItem[];
-        totalResults: number;
-        totalPages: number;
-        currentPage: number;
-      };
-
-      const products: Product[] = (data.products ?? []).map(searchResultToProduct);
-      const totalProducts = Number(data.totalResults ?? 0);
-      const pageCount = Math.max(1, Number(data.totalPages ?? 1));
-      const currentPage = Math.min(pageNum, pageCount);
-
-      const firstIndex = totalProducts === 0 ? 0 : (currentPage - 1) * PER_PAGE + 1;
-      const lastIndex = totalProducts === 0 ? 0 : Math.min(currentPage * PER_PAGE, totalProducts);
-
-      return {
-        products,
-        pageCount,
-        totalProducts,
-        firstIndex,
-        lastIndex
-      };
-    } catch (err) {
-      console.error("[product-search]", err);
-      return {
-        products: [] as Product[],
-        pageCount: 1,
-        totalProducts: 0,
-        firstIndex: 0,
-        lastIndex: 0
-      };
-    }
+  if (query.length < 2) {
+    return empty;
   }
-);
+
+  try {
+    const url = buildSearchApiUrl({
+      query,
+      pageNum,
+      category: params.category,
+      brands: params.brands,
+      prices: params.prices,
+      sort: params.sort
+    });
+    const res = await fetch(url, { next: { revalidate: 60 } });
+
+    if (!res.ok) {
+      if (res.status === 400) return empty;
+      throw new Error(`Search failed: ${res.status}`);
+    }
+
+    const data = (await res.json()) as {
+      products: SearchResultItem[];
+      totalResults: number;
+      totalPages: number;
+      currentPage: number;
+      categoryFacets?: SearchCategoryFacet[];
+      priceRange?: { min: number; max: number };
+      filters?: SearchPageFilters["filters"];
+    };
+
+    const categoryFacets = data.categoryFacets ?? [];
+    const products: Product[] = (data.products ?? []).map(searchResultToProduct);
+    const totalProducts = Number(data.totalResults ?? 0);
+    const pageCount = Math.max(1, Number(data.totalPages ?? 1));
+    const currentPage = Math.min(pageNum, pageCount);
+
+    const firstIndex = totalProducts === 0 ? 0 : (currentPage - 1) * PER_PAGE + 1;
+    const lastIndex = totalProducts === 0 ? 0 : Math.min(currentPage * PER_PAGE, totalProducts);
+
+    return {
+      products,
+      pageCount,
+      totalProducts,
+      firstIndex,
+      lastIndex,
+      categoryFacets,
+      filters: {
+        filters: data.filters ?? [],
+        priceRange: data.priceRange,
+        categories: [],
+        searchCategoryFacets: categoryFacets
+      }
+    };
+  } catch (err) {
+    console.error("[product-search]", err);
+    return empty;
+  }
+});

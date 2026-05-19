@@ -252,7 +252,9 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
         error?: string;
         result?: {
           imported?: number;
+          succeeded?: number;
           updated?: number;
+          activated?: number;
           deactivated?: number;
           summary?: { category_name?: string };
         };
@@ -261,7 +263,7 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
       const r = json.result;
       const label = r?.summary?.category_name ?? row.category?.name ?? "kategorija";
       setActionNotice(
-        `iPon import (${label}): uvezeno ${r?.imported ?? 0}, ažurirano ${r?.updated ?? 0}, deaktivirano ponuda ${r?.deactivated ?? 0}.`
+        `iPon import (${label}): uvezeno ${r?.imported ?? 0}, obrađeno ${r?.succeeded ?? 0}, izmijenjeno ${r?.updated ?? 0}, aktivirano ${r?.activated ?? 0}, deaktivirano ${r?.deactivated ?? 0}.`
       );
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e));

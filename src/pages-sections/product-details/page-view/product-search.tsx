@@ -1,26 +1,25 @@
 "use client";
 
+import { useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-// MUI
 import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid";
 import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import Container from "@mui/material/Container";
 import IconButton from "@mui/material/IconButton";
-import Pagination from "@mui/material/Pagination";
 import Typography from "@mui/material/Typography";
-// MUI ICON COMPONENTS
 import Apps from "@mui/icons-material/Apps";
 import ViewList from "@mui/icons-material/ViewList";
 import FilterList from "@mui/icons-material/FilterList";
-// GLOBAL CUSTOM COMPONENTS
 import Sidenav from "components/side-nav";
 import { FlexBetween, FlexBox } from "components/flex-box";
 import ProductFilters from "components/products-view/filters";
+import SearchActiveFilterChips from "components/products-view/filters/search-active-filter-chips";
+import ProductPagination from "components/shop/product-pagination";
+import { isSearchPageFilters } from "models/Filters";
 import ProductsGridView from "components/products-view/products-grid-view";
 import ProductsListView from "components/products-view/products-list-view";
-// TYPES
 import type { ProductFilterCardFilters } from "components/products-view/filters/use-product-filter-card";
 import Product from "models/Product.model";
 
@@ -31,7 +30,6 @@ const SORT_OPTIONS = [
   { label: "Price High to Low", value: "desc" }
 ];
 
-// ==============================================================
 interface Props {
   filters: ProductFilterCardFilters;
   products: Product[];
@@ -40,14 +38,11 @@ interface Props {
   firstIndex: number;
   totalProducts: number;
 }
-// ==============================================================
 
 export default function ProductSearchPageView({
   filters,
   products,
   pageCount,
-  lastIndex,
-  firstIndex,
   totalProducts
 }: Props) {
   const router = useRouter();
@@ -55,29 +50,50 @@ export default function ProductSearchPageView({
   const searchParams = useSearchParams();
 
   const query = searchParams.get("q");
-  const page = searchParams.get("page") || "1";
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
   const view = searchParams.get("view") || "grid";
   const sort = searchParams.get("sort") || "relevance";
 
-  const handleChangeSearchParams = (key: string, value: string) => {
-    if (!key || !value) return;
-    const params = new URLSearchParams(searchParams);
-    params.set(key, value);
-    router.push(`${pathname}?${params.toString()}`);
+  const navigateSearch = useCallback(
+    (mutate: (p: URLSearchParams) => void, options?: { refreshServer?: boolean }) => {
+      const params = new URLSearchParams(searchParams.toString());
+      mutate(params);
+      const qs = params.toString();
+      router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      if (options?.refreshServer) {
+        router.refresh();
+      }
+    },
+    [pathname, router, searchParams]
+  );
+
+  const handleSortChange = (value: string) => {
+    navigateSearch(
+      (params) => {
+        params.set("sort", value);
+        params.delete("page");
+      },
+      { refreshServer: true }
+    );
+  };
+
+  const handleViewChange = (value: string) => {
+    navigateSearch((params) => {
+      params.set("view", value);
+    });
   };
 
   return (
     <div className="bg-white pt-2 pb-4">
       <Container>
-        {/* FILTER ACTION AREA */}
         <FlexBetween flexWrap="wrap" gap={2} mb={2}>
           {query ? (
             <div>
               <Typography variant="h5" sx={{ mb: 0.5 }}>
-                Searching for “{query}”
+                Pretraga: „{query}“
               </Typography>
               <Typography variant="body1" sx={{ color: "grey.600" }}>
-                {products.length} results found
+                {totalProducts} rezultata
               </Typography>
             </div>
           ) : (
@@ -87,7 +103,7 @@ export default function ProductSearchPageView({
           <FlexBox alignItems="center" columnGap={4} flexWrap="wrap">
             <FlexBox alignItems="center" gap={1} flex="1 1 0">
               <Typography variant="body1" sx={{ color: "grey.600", whiteSpace: "pre" }}>
-                Sort by:
+                Sortiraj:
               </Typography>
 
               <TextField
@@ -96,8 +112,7 @@ export default function ProductSearchPageView({
                 size="small"
                 value={sort}
                 variant="outlined"
-                placeholder="Sort by"
-                onChange={(e) => handleChangeSearchParams("sort", e.target.value)}
+                onChange={(e) => handleSortChange(e.target.value)}
                 sx={{ flex: "1 1 0", minWidth: "150px" }}
               >
                 {SORT_OPTIONS.map((item) => (
@@ -110,18 +125,17 @@ export default function ProductSearchPageView({
 
             <FlexBox alignItems="center" my="0.25rem">
               <Typography variant="body1" sx={{ color: "grey.600", mr: 1 }}>
-                View:
+                Prikaz:
               </Typography>
 
-              <IconButton onClick={() => handleChangeSearchParams("view", "grid")}>
+              <IconButton onClick={() => handleViewChange("grid")} aria-label="Grid view">
                 <Apps fontSize="small" color={view === "grid" ? "primary" : "inherit"} />
               </IconButton>
 
-              <IconButton onClick={() => handleChangeSearchParams("view", "list")}>
+              <IconButton onClick={() => handleViewChange("list")} aria-label="List view">
                 <ViewList fontSize="small" color={view === "list" ? "primary" : "inherit"} />
               </IconButton>
 
-              {/* SHOW IN THE SMALL DEVICE */}
               <Box display={{ md: "none", xs: "block" }}>
                 <Sidenav
                   handler={(close) => (
@@ -140,32 +154,20 @@ export default function ProductSearchPageView({
         </FlexBetween>
 
         <Grid container spacing={4}>
-          {/* PRODUCT FILTER SIDEBAR AREA */}
           <Grid size={{ xl: 2, md: 3 }} sx={{ display: { md: "block", xs: "none" } }}>
             <ProductFilters filters={filters} />
           </Grid>
 
-          {/* PRODUCT VIEW AREA */}
           <Grid size={{ xl: 10, md: 9, xs: 12 }}>
+            {isSearchPageFilters(filters) && <SearchActiveFilterChips filters={filters} />}
+
             {view === "grid" ? (
               <ProductsGridView products={products} />
             ) : (
               <ProductsListView products={products} />
             )}
 
-            <FlexBetween flexWrap="wrap" mt={6}>
-              <Typography variant="body1" sx={{ color: "grey.600" }}>
-                Showing {firstIndex}-{lastIndex} of {totalProducts} Products
-              </Typography>
-
-              <Pagination
-                color="primary"
-                variant="outlined"
-                page={+page}
-                count={pageCount}
-                onChange={(_, page) => handleChangeSearchParams("page", page.toString())}
-              />
-            </FlexBetween>
+            <ProductPagination page={page} perPage={30} totalProducts={totalProducts} />
           </Grid>
         </Grid>
       </Container>

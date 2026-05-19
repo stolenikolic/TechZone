@@ -2,7 +2,7 @@ import { shopPageMetadata } from "lib/site-metadata";
 // PAGE VIEW COMPONENT
 import { ProductSearchPageView } from "pages-sections/product-details/page-view";
 // API FUNCTIONS
-import { getFilters, getProducts } from "utils/__api__/product-search";
+import { getSearchPageData } from "utils/__api__/product-search";
 
 export const metadata = shopPageMetadata(
   "Pretraga proizvoda",
@@ -30,14 +30,11 @@ interface Props {
 export default async function ProductSearch({ searchParams }: Props) {
   const { q, page, sort, sale, prices, colors, brands, rating, category } = await searchParams;
 
-  const [filters, data] = await Promise.all([
-    getFilters(),
-    getProducts({ q, page, sort, sale, prices, colors, brands, rating, category })
-  ]);
+  const data = await getSearchPageData({ q, page, sort, sale, prices, colors, brands, rating, category });
 
   return (
     <ProductSearchPageView
-      filters={filters}
+      filters={data.filters}
       products={data.products}
       pageCount={data.pageCount}
       totalProducts={data.totalProducts}

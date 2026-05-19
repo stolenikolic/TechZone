@@ -1,3 +1,5 @@
+import type { SearchCategoryFacet } from "lib/search/search-category-facets";
+
 interface Item {
   label: string;
   value: string;
@@ -27,6 +29,22 @@ export type CategorySidebarFilters = {
   priceRange?: RangeFilter;
   categories: Category[];
 };
+
+export type { SearchCategoryFacet };
+
+/** Search results page: dynamic category facets from the current query. */
+export type SearchPageFilters = CategorySidebarFilters & {
+  searchCategoryFacets: SearchCategoryFacet[];
+};
+
+export function isSearchPageFilters(filters: unknown): filters is SearchPageFilters {
+  return (
+    typeof filters === "object" &&
+    filters !== null &&
+    "searchCategoryFacets" in filters &&
+    Array.isArray((filters as SearchPageFilters).searchCategoryFacets)
+  );
+}
 
 export default interface Filters {
   brands: Item[];

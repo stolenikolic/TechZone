@@ -13,7 +13,8 @@ export default function ProductsGridView({ products }: Props) {
     <Box
       sx={{
         display: "grid",
-        gap: 3,
+        rowGap: 3,
+        columnGap: { xs: 1, md: 2 },
         width: "100%",
         gridTemplateColumns: {
           xs: "repeat(2, minmax(0, 1fr))",

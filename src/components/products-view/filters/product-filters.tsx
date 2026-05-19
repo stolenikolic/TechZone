@@ -1,10 +1,9 @@
 "use client";
 
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 // MUI
 import Box from "@mui/material/Box";
-import Rating from "@mui/material/Rating";
 import Slider from "@mui/material/Slider";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
@@ -20,12 +19,15 @@ import { NavLink } from "components/nav-link";
 import { FlexBetween, FlexBox } from "components/flex-box";
 // LOCAL CUSTOM COMPONENTS
 import CheckboxLabel from "./checkbox-label";
+import DualRangeSlider, { formatRangeParam } from "./dual-range-slider";
 import FilterSectionTitle from "./filter-section-title";
 // CUSTOM LOCAL HOOK
 import useProductFilterCard, { type ProductFilterCardFilters } from "./use-product-filter-card";
 // TYPES
 import type Filters from "models/Filters";
 import type { CategorySidebarFilters, FilterItem } from "models/Filters";
+import { isSearchPageFilters } from "models/Filters";
+import SearchPageSidebar from "./search-page-sidebar";
 
 function isCategorySidebarFilters(f: ProductFilterCardFilters): f is CategorySidebarFilters {
   return "filters" in f && Array.isArray((f as CategorySidebarFilters).filters);
@@ -61,21 +63,6 @@ const FILTER_ACCORDION_HEADER_SX = {
   color: "grey.600"
 } as const;
 
-function parseRangeValue(param: string | null, fallback: { min: number; max: number }): [number, number] {
-  if (!param?.trim()) return [fallback.min, fallback.max];
-
-  const parts = param.split("-").map((value) => Number(value.trim()));
-  if (parts.length >= 2 && Number.isFinite(parts[0]) && Number.isFinite(parts[1])) {
-    return [parts[0], parts[1]];
-  }
-
-  return [fallback.min, fallback.max];
-}
-
-function formatRangeLabel(value: number, unit?: string) {
-  return unit ? `${value} ${unit}` : `${value}`;
-}
-
 interface RangeAttributeFilterProps {
   filter: FilterItem;
   selectedParam: string | null;
@@ -84,87 +71,17 @@ interface RangeAttributeFilterProps {
 
 function RangeAttributeFilter({ filter, selectedParam, onApply }: RangeAttributeFilterProps) {
   const range = filter.range;
-  const step = filter.step ?? 1;
-  const [localRange, setLocalRange] = useState<[number, number]>(
-    range ? parseRangeValue(selectedParam, range) : [0, 0]
-  );
-  const [minInput, setMinInput] = useState(String(localRange[0]));
-  const [maxInput, setMaxInput] = useState(String(localRange[1]));
-
-  useEffect(() => {
-    if (!range) return;
-
-    const next = parseRangeValue(selectedParam, range);
-    setLocalRange(next);
-    setMinInput(String(next[0]));
-    setMaxInput(String(next[1]));
-  }, [selectedParam, range]);
-
   if (!range) return null;
 
-  const applyRange = (nextValues?: [number, number]) => {
-    const min = nextValues?.[0] ?? (minInput.trim() === "" ? range.min : Number(minInput));
-    const max = nextValues?.[1] ?? (maxInput.trim() === "" ? range.max : Number(maxInput));
-    const minNum = Number.isFinite(min) ? Math.max(range.min, Math.min(range.max, min)) : range.min;
-    const maxNum = Number.isFinite(max) ? Math.max(range.min, Math.min(range.max, max)) : range.max;
-    const finalRange: [number, number] = [Math.min(minNum, maxNum), Math.max(minNum, maxNum)];
-
-    setLocalRange(finalRange);
-    setMinInput(String(finalRange[0]));
-    setMaxInput(String(finalRange[1]));
-    onApply(filter.slug, `${finalRange[0]}-${finalRange[1]}`);
-  };
-
   return (
-    <>
-      <Slider
-        min={range.min}
-        max={range.max}
-        step={step}
-        size="small"
-        value={localRange}
-        valueLabelDisplay="auto"
-        valueLabelFormat={(value) => formatRangeLabel(value, filter.unit)}
-        disabled={range.min === range.max}
-        onChange={(_, value) => {
-          const next = value as number[];
-          const tuple: [number, number] = [next[0], next[1]];
-          setLocalRange(tuple);
-          setMinInput(String(tuple[0]));
-          setMaxInput(String(tuple[1]));
-        }}
-        onChangeCommitted={(_, value) => {
-          const next = value as number[];
-          applyRange([next[0], next[1]]);
-        }}
-      />
-
-      <FlexBetween>
-        <TextField
-          fullWidth
-          size="small"
-          type="text"
-          inputMode="decimal"
-          placeholder={String(range.min)}
-          value={minInput}
-          onChange={(event) => setMinInput(event.target.value)}
-          onBlur={() => applyRange()}
-          onKeyDown={(event) => event.key === "Enter" && applyRange()}
-        />
-        <Typography variant="h5" sx={{ px: 1, color: "grey.600" }}>-</Typography>
-        <TextField
-          fullWidth
-          size="small"
-          type="text"
-          inputMode="decimal"
-          placeholder={String(range.max)}
-          value={maxInput}
-          onChange={(event) => setMaxInput(event.target.value)}
-          onBlur={() => applyRange()}
-          onKeyDown={(event) => event.key === "Enter" && applyRange()}
-        />
-      </FlexBetween>
-    </>
+    <DualRangeSlider
+      rangeMin={range.min}
+      rangeMax={range.max}
+      step={filter.step ?? 1}
+      unit={filter.unit}
+      selectedParam={selectedParam}
+      onCommit={(tuple) => onApply(filter.slug, formatRangeParam(tuple))}
+    />
   );
 }
 
@@ -179,7 +96,6 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
   const {
     sales,
     brands,
-    rating,
     colors,
     prices,
     priceMinInputStr,
@@ -213,7 +129,16 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
     router.push(targetPath);
   };
 
-  /** Dynamic sidebar: API-driven filters array + price + categories + rating */
+  /** Search page: category facets from current query only */
+  if (isSearchPageFilters(filters)) {
+    return (
+      <div>
+        <SearchPageSidebar filters={filters} />
+      </div>
+    );
+  }
+
+  /** Dynamic sidebar: API-driven filters array + price + categories */
   if (isCategorySidebarFilters(filters)) {
     const CATEGORIES = filters.categories;
     return (
@@ -269,41 +194,12 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
         {priceRange && (
           <>
             <FilterSectionTitle title="Price Range" loading={pendingFilterKey === "prices"} sx={{ mb: 2 }} />
-            <Slider
-              min={priceRange.min}
-              max={priceRange.max}
-              size="small"
-              value={prices}
-              valueLabelDisplay="auto"
-              valueLabelFormat={(v) => `${v}`}
-              onChange={(_, v) => handleChangePrice(v as number[])}
-              onChangeCommitted={(_, v) => debouncedApplyPriceWithValues(v as number[])}
+            <DualRangeSlider
+              rangeMin={priceRange.min}
+              rangeMax={priceRange.max}
+              selectedParam={searchParams.get("prices")}
+              onCommit={(tuple) => debouncedApplyPriceWithValues(tuple)}
             />
-            <FlexBetween>
-              <TextField
-                fullWidth
-                size="small"
-                type="text"
-                inputMode="numeric"
-                placeholder={String(priceRange.min)}
-                value={priceMinInputStr}
-                onChange={(e) => handleChangePriceMinInput(e.target.value)}
-                onBlur={applyPrice}
-                onKeyDown={(e) => e.key === "Enter" && applyPrice()}
-              />
-              <Typography variant="h5" sx={{ px: 1, color: "grey.600" }}>-</Typography>
-              <TextField
-                fullWidth
-                size="small"
-                type="text"
-                inputMode="numeric"
-                placeholder={String(priceRange.max)}
-                value={priceMaxInputStr}
-                onChange={(e) => handleChangePriceMaxInput(e.target.value)}
-                onBlur={applyPrice}
-                onKeyDown={(e) => e.key === "Enter" && applyPrice()}
-              />
-            </FlexBetween>
             <Box component={Divider} my={3} />
           </>
         )}
@@ -392,18 +288,6 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
             </Fragment>
           );
         })}
-        <FilterSectionTitle title="Ratings" loading={pendingFilterKey === "rating"} sx={{ mb: 2 }} />
-        <FormGroup>
-          {[5, 4, 3, 2, 1].map((item) => (
-            <CheckboxLabel
-              key={item}
-              checked={rating === item}
-              onChange={() => handleChangeSearchParams("rating", item.toString())}
-              label={<Rating size="small" value={item} color="warn" readOnly />}
-            />
-          ))}
-        </FormGroup>
-        <Box component={Divider} my={3} />
         {hasActiveFilters && (
           <Button
             fullWidth
@@ -567,8 +451,10 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
             value={prices}
             valueLabelDisplay="auto"
             valueLabelFormat={(v) => `${v}`}
-            onChange={(_, v) => handleChangePrice(v as number[])}
-            onChangeCommitted={(_, v) => debouncedApplyPriceWithValues(v as number[])}
+            onChange={(_, v: number | number[]) => handleChangePrice(Array.isArray(v) ? v : [v, v])}
+            onChangeCommitted={(_, v: number | number[]) =>
+              debouncedApplyPriceWithValues(Array.isArray(v) ? v : [v, v])
+            }
           />
 
           <FlexBetween>
@@ -631,8 +517,10 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
             value={localCapacity}
             valueLabelDisplay="auto"
             valueLabelFormat={(v) => `${v}`}
-            onChange={(_, v) => handleChangeCapacity(v as number[])}
-            onChangeCommitted={(_, v) => debouncedApplyCapacity(v as number[])}
+            onChange={(_, v: number | number[]) => handleChangeCapacity(Array.isArray(v) ? v : [v, v])}
+            onChangeCommitted={(_, v: number | number[]) =>
+              debouncedApplyCapacity(Array.isArray(v) ? v : [v, v])
+            }
           />
           <FlexBetween>
             <TextField
@@ -676,8 +564,8 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
             value={localRpm}
             valueLabelDisplay="auto"
             valueLabelFormat={(v) => `${v}`}
-            onChange={(_, v) => handleChangeRpm(v as number[])}
-            onChangeCommitted={(_, v) => debouncedApplyRpm(v as number[])}
+            onChange={(_, v: number | number[]) => handleChangeRpm(Array.isArray(v) ? v : [v, v])}
+            onChangeCommitted={(_, v: number | number[]) => debouncedApplyRpm(Array.isArray(v) ? v : [v, v])}
           />
           <FlexBetween>
             <TextField
@@ -721,8 +609,10 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
             value={localBuffer}
             valueLabelDisplay="auto"
             valueLabelFormat={(v) => `${v}`}
-            onChange={(_, v) => handleChangeBuffer(v as number[])}
-            onChangeCommitted={(_, v) => debouncedApplyBuffer(v as number[])}
+            onChange={(_, v: number | number[]) => handleChangeBuffer(Array.isArray(v) ? v : [v, v])}
+            onChangeCommitted={(_, v: number | number[]) =>
+              debouncedApplyBuffer(Array.isArray(v) ? v : [v, v])
+            }
           />
           <FlexBetween>
             <TextField
@@ -802,8 +692,12 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
             value={localReadSpeed}
             valueLabelDisplay="auto"
             valueLabelFormat={(v) => `${v}`}
-            onChange={(_, v) => handleChangeReadSpeed(v as number[])}
-            onChangeCommitted={(_, v) => debouncedApplyReadSpeed(v as number[])}
+            onChange={(_, v: number | number[]) =>
+              handleChangeReadSpeed(Array.isArray(v) ? v : [v, v])
+            }
+            onChangeCommitted={(_, v: number | number[]) =>
+              debouncedApplyReadSpeed(Array.isArray(v) ? v : [v, v])
+            }
           />
           <FlexBetween>
             <TextField
@@ -847,8 +741,12 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
             value={localWriteSpeed}
             valueLabelDisplay="auto"
             valueLabelFormat={(v) => `${v}`}
-            onChange={(_, v) => handleChangeWriteSpeed(v as number[])}
-            onChangeCommitted={(_, v) => debouncedApplyWriteSpeed(v as number[])}
+            onChange={(_, v: number | number[]) =>
+              handleChangeWriteSpeed(Array.isArray(v) ? v : [v, v])
+            }
+            onChangeCommitted={(_, v: number | number[]) =>
+              debouncedApplyWriteSpeed(Array.isArray(v) ? v : [v, v])
+            }
           />
           <FlexBetween>
             <TextField
@@ -930,22 +828,6 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
         ))}
       </FormGroup>
       )}
-      <Box component={Divider} my={3} />
-
-      {/* RATINGS FILTER */}
-      <FilterSectionTitle title="Ratings" loading={pendingFilterKey === "rating"} sx={{ mb: 2 }} />
-
-      <FormGroup>
-        {[5, 4, 3, 2, 1].map((item) => (
-          <CheckboxLabel
-            key={item}
-            checked={rating === item}
-            onChange={() => handleChangeSearchParams("rating", item.toString())}
-            label={<Rating size="small" value={item} color="warn" readOnly />}
-          />
-        ))}
-      </FormGroup>
-
       <Box component={Divider} my={3} />
 
       {/* COLORS: only when colors exist */}

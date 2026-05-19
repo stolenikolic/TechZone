@@ -13,6 +13,7 @@ import ViewList from "@mui/icons-material/ViewList";
 import FilterList from "@mui/icons-material/FilterList";
 import Sidenav from "components/side-nav";
 import ProductFilters from "components/products-view/filters";
+import CategoryActiveFilterChips from "components/products-view/filters/category-active-filter-chips";
 import ProductsGridView from "components/products-view/products-grid-view";
 import ProductsListView from "components/products-view/products-list-view";
 import ProductPagination from "components/shop/product-pagination";
@@ -146,6 +147,8 @@ export default function CategoryProductsSection({
           <ProductFilters key={filterKey} filters={filters} />
         </Grid>
         <Grid size={{ xl: 10, md: 9, xs: 12 }}>
+          <CategoryActiveFilterChips filters={filters} />
+
           {view === "grid" ? (
             <ProductsGridView products={products} />
           ) : (

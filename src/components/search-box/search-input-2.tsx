@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { Suspense, useState, useCallback, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 // MUI
 import Box from "@mui/material/Box";
@@ -10,14 +10,22 @@ import TextField from "@mui/material/TextField";
 import { SearchOutlinedIcon } from "./styles";
 
 const SEARCH_PAGE = "/products/search";
+const SEARCH_INPUT_ID = "shop-mobile-search";
 
-export function SearchInput2() {
+function SearchInput2Placeholder() {
+  return (
+    <Box position="relative" flex="1 1 0" maxWidth={670} mx="auto">
+      <Box aria-hidden sx={{ width: "100%", height: 44, borderRadius: 1, bgcolor: "grey.50" }} />
+    </Box>
+  );
+}
+
+function SearchInput2Field() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
 
-  // Sync input with URL: on search page show current q; on other pages show empty
   useEffect(() => {
     if (pathname === SEARCH_PAGE) {
       setSearch(searchParams.get("q") ?? "");
@@ -61,13 +69,25 @@ export function SearchInput2() {
   return (
     <Box position="relative" flex="1 1 0" maxWidth={670} mx="auto">
       <TextField
+        id={SEARCH_INPUT_ID}
+        name="q"
         fullWidth
         variant="outlined"
         placeholder="Searching for..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         slotProps={{ input: INPUT_PROPS }}
+        aria-label="Search products"
+        role="searchbox"
       />
     </Box>
+  );
+}
+
+export function SearchInput2() {
+  return (
+    <Suspense fallback={<SearchInput2Placeholder />}>
+      <SearchInput2Field />
+    </Suspense>
   );
 }

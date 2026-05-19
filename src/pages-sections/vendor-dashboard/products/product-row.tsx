@@ -15,6 +15,7 @@ import FlexBox from "components/flex-box/flex-box";
 import BazaarSwitch from "components/BazaarSwitch";
 // CUSTOM UTILS LIBRARY FUNCTION
 import { currency } from "lib";
+import { formatEffectivePriceSourceLabel } from "lib/effective-price-source";
 // STYLED COMPONENTS
 import { StyledTableRow, CategoryWrapper, StyledTableCell, StyledIconButton } from "../styles";
 
@@ -25,6 +26,7 @@ interface Product {
   name: string;
   price: number;
   effectivePrice: number;
+  effectivePriceSource: string | null;
   basePrice: number | null;
   customPrice: number | null;
   brand: string;
@@ -67,6 +69,7 @@ export default function ProductRow({ product, onToggleExpand }: Props & RowActio
     category,
     name,
     effectivePrice,
+    effectivePriceSource,
     basePrice,
     customPrice,
     image,
@@ -124,6 +127,11 @@ export default function ProductRow({ product, onToggleExpand }: Props & RowActio
         <MasterStatusChip status={masterStatus} />
       </StyledTableCell>
 
+      <StyledTableCell align="left">
+        <Typography variant="body2" color="text.secondary">
+          {formatEffectivePriceSourceLabel(effectivePriceSource)}
+        </Typography>
+      </StyledTableCell>
       <StyledTableCell align="left">{currency(effectivePrice)}</StyledTableCell>
       <StyledTableCell align="left">{basePrice != null ? currency(basePrice) : "-"}</StyledTableCell>
       <StyledTableCell align="left">{customPrice != null ? currency(customPrice) : "-"}</StyledTableCell>
