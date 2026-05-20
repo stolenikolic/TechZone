@@ -20,6 +20,7 @@ type DbProduct = {
   custom_price: number | null;
   rating: number | null;
   is_active: boolean;
+  publish_locked: boolean;
   mpn: string | null;
   ean: string | null;
   attributes: Record<string, unknown> | null;
@@ -182,7 +183,8 @@ function toProduct(
     categories: category ? [category.name] : [],
       ...(category && { category: { name: category.name, slug: category.slug } }),
     description: row.description ?? undefined,
-    published: row.is_active,
+    published: Boolean(row.is_active) && !row.publish_locked,
+    publishLocked: Boolean(row.publish_locked),
     masterStatus,
     // Admin-only enrichment for table columns.
     basePrice: row.price != null ? Number(row.price) : null,
@@ -204,7 +206,7 @@ export async function GET() {
     for (;;) {
       const { data, error } = await supabase
         .from("products")
-      .select("id, name, slug, description, brand, main_image, price, custom_price, rating, is_active, mpn, ean, attributes, categories(id, name, slug, parent_id)")
+      .select("id, name, slug, description, brand, main_image, price, custom_price, rating, is_active, publish_locked, mpn, ean, attributes, categories(id, name, slug, parent_id)")
         .order("created_at", { ascending: false })
         .range(productOffset, productOffset + pageSize - 1);
 

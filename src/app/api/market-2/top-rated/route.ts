@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
 import { compareTopPickThenDate } from "lib/category-top-picks";
 import { mapProductPriceFields } from "lib/effective-price";
+import { applyStorefrontProductVisibility } from "lib/storefront-product-visibility";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type DbCategory = { id: string; name: string; slug: string };
@@ -123,19 +124,17 @@ export async function GET() {
   try {
     const supabase = createSupabaseServiceClient();
 
-    const { data: featuredData, error: featuredError } = await supabase
-      .from("products")
-      .select(selectFields)
-      .eq("is_active", true)
+    const { data: featuredData, error: featuredError } = await applyStorefrontProductVisibility(
+      supabase.from("products").select(selectFields)
+    )
       .eq("is_featured", true)
       .order("created_at", { ascending: false })
       .limit(6);
 
     if (featuredError) {
-      const fallback = await supabase
-        .from("products")
-        .select(`${selectFieldsMinimal}, category_id`)
-        .eq("is_active", true)
+      const fallback = await applyStorefrontProductVisibility(
+        supabase.from("products").select(`${selectFieldsMinimal}, category_id`)
+      )
         .order("created_at", { ascending: false })
         .limit(6);
       if (fallback.error) {
@@ -177,10 +176,9 @@ export async function GET() {
       const existingIds = new Set(featuredRows.map((r) => r.id));
       const need = 6 - products.length;
 
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from("products")
-        .select(selectFields)
-        .eq("is_active", true)
+      const { data: fallbackData, error: fallbackError } = await applyStorefrontProductVisibility(
+        supabase.from("products").select(selectFields)
+      )
         .order("created_at", { ascending: false })
         .limit(need + Array.from(existingIds).length);
 

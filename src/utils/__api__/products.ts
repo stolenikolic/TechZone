@@ -3,6 +3,7 @@ import axios from "utils/axiosInstance";
 import { mapProductSpecifications } from "lib/shop/map-product-specifications";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { getEffectivePrice, getOriginalPriceForDisplay } from "lib/effective-price";
+import { applyStorefrontProductVisibility } from "lib/storefront-product-visibility";
 // CUSTOM DATA MODEL
 import { SlugParams } from "models/Common";
 import Product from "models/Product.model";
@@ -60,12 +61,12 @@ const getSlugs = cache(async () => {
 const getProduct = cache(async (slug: string): Promise<Product | null> => {
   try {
     const supabase = createSupabaseServiceClient();
-    const { data, error } = await supabase
-      .from("products")
-      .select("id, name, slug, description, brand, main_image, rating, price, custom_price, original_price, categories(id, name, slug, parent_id)")
-      .eq("slug", slug)
-      .eq("is_active", true)
-      .maybeSingle();
+    const { data, error } = await applyStorefrontProductVisibility(
+      supabase
+        .from("products")
+        .select("id, name, slug, description, brand, main_image, rating, price, custom_price, original_price, categories(id, name, slug, parent_id)")
+        .eq("slug", slug)
+    ).maybeSingle();
 
     if (error) {
       console.warn("[product-details]", error.message);

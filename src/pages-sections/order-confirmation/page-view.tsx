@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
+import SiteBreadcrumbs from "components/site-breadcrumbs/site-breadcrumbs";
 // STYLED COMPONENT
 import { Wrapper, StyledButton } from "./styles";
 
@@ -14,6 +15,14 @@ type Props = {
 export default function OrderConfirmationPageView({ orderId }: Props) {
   return (
     <Container className="mt-2 mb-5">
+      <SiteBreadcrumbs
+        items={[
+          { label: "Korpa", href: "/cart" },
+          { label: "Naplata", href: "/checkout" },
+          { label: "Plaćanje", href: "/payment" },
+          { label: "Potvrda narudžbe" }
+        ]}
+      />
       <Wrapper>
         <Image
           width={116}

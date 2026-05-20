@@ -5,6 +5,7 @@ import type { FilterItem } from "models/Filters";
 import { isNotApplicableAttributeValue } from "lib/attributes/not-applicable-value";
 import { loadTopPickMapByCategory, type CategoryTopPick } from "lib/category-top-picks";
 import { getEffectivePrice, mapProductPriceFields } from "lib/effective-price";
+import { applyStorefrontProductVisibility } from "lib/storefront-product-visibility";
 import { parseNumericFromAttributeValue } from "lib/shop/range-filter-utils";
 import {
   fetchShopVisibleProductsForCategory,
@@ -640,14 +641,14 @@ export async function getCategoryProductsListing(
   if (productIdFilter?.length) {
     for (let i = 0; i < productIdFilter.length; i += PRODUCT_ATTRIBUTES_CHUNK_SIZE) {
       const chunk = productIdFilter.slice(i, i + PRODUCT_ATTRIBUTES_CHUNK_SIZE);
-      let chunkQuery = supabase
-        .from("products")
-        .select(
-          "id, name, slug, description, brand, main_image, price, custom_price, original_price, created_at, is_active"
-        )
-        .eq("category_id", category.id)
-        .eq("is_active", true)
-        .in("id", chunk);
+      let chunkQuery = applyStorefrontProductVisibility(
+        supabase
+          .from("products")
+          .select(
+            "id, name, slug, description, brand, main_image, price, custom_price, original_price, created_at, is_active, publish_locked"
+          )
+          .eq("category_id", category.id)
+      ).in("id", chunk);
 
       if (brandFilterNames?.length) {
         chunkQuery = chunkQuery.in("brand", brandFilterNames);
@@ -658,28 +659,30 @@ export async function getCategoryProductsListing(
         return { error: chunkError.message, status: 500 };
       }
       candidateRows.push(
-        ...((chunkRows ?? []) as Array<DbProduct & { is_active?: boolean }>).filter((row) =>
-          isShopVisibleProduct({
-            id: row.id,
-            brand: row.brand,
-            price: row.price ?? null,
-            custom_price: row.custom_price ?? null,
-            is_active: row.is_active ?? true
-          })
+        ...((chunkRows ?? []) as Array<DbProduct & { is_active?: boolean; publish_locked?: boolean }>).filter(
+          (row) =>
+            isShopVisibleProduct({
+              id: row.id,
+              brand: row.brand,
+              price: row.price ?? null,
+              custom_price: row.custom_price ?? null,
+              is_active: row.is_active ?? true,
+              publish_locked: row.publish_locked ?? false
+            })
         )
       );
     }
   } else {
     for (let i = 0; i < categoryProductIds.length; i += PRODUCT_ATTRIBUTES_CHUNK_SIZE) {
       const chunk = categoryProductIds.slice(i, i + PRODUCT_ATTRIBUTES_CHUNK_SIZE);
-      let pageQuery = supabase
-        .from("products")
-        .select(
-          "id, name, slug, description, brand, main_image, price, custom_price, original_price, created_at, is_active"
-        )
-        .eq("category_id", category.id)
-        .eq("is_active", true)
-        .in("id", chunk);
+      let pageQuery = applyStorefrontProductVisibility(
+        supabase
+          .from("products")
+          .select(
+            "id, name, slug, description, brand, main_image, price, custom_price, original_price, created_at, is_active, publish_locked"
+          )
+          .eq("category_id", category.id)
+      ).in("id", chunk);
 
       if (brandFilterNames?.length) {
         pageQuery = pageQuery.in("brand", brandFilterNames);
@@ -690,7 +693,7 @@ export async function getCategoryProductsListing(
         return { error: pageError.message, status: 500 };
       }
 
-      const rows = (pageRows ?? []) as Array<DbProduct & { is_active?: boolean }>;
+      const rows = (pageRows ?? []) as Array<DbProduct & { is_active?: boolean; publish_locked?: boolean }>;
       candidateRows.push(
         ...rows.filter((row) =>
           isShopVisibleProduct({
@@ -698,7 +701,8 @@ export async function getCategoryProductsListing(
             brand: row.brand,
             price: row.price ?? null,
             custom_price: row.custom_price ?? null,
-            is_active: row.is_active ?? true
+            is_active: row.is_active ?? true,
+            publish_locked: row.publish_locked ?? false
           })
         )
       );

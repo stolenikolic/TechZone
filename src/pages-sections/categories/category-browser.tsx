@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
 import Container from "components/Container";
@@ -14,18 +15,22 @@ interface Props {
   title: string;
   description?: string;
   pathPrefix?: string[];
+  /** Breadcrumbs iznad naslova (istog rasporeda kao na PDP-u). */
+  breadcrumbs?: ReactNode;
 }
 
 export default function CategoryBrowser({
   categories,
   title,
   description,
-  pathPrefix = []
+  pathPrefix = [],
+  breadcrumbs
 }: Props) {
   if (!categories.length) return null;
 
   return (
     <Container>
+      {breadcrumbs}
       <SectionHeader title={title} />
 
       {description ? (

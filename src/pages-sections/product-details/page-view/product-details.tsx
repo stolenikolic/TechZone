@@ -1,7 +1,4 @@
-import Link from "next/link";
 import Container from "@mui/material/Container";
-import Breadcrumbs from "@mui/material/Breadcrumbs";
-import Typography from "@mui/material/Typography";
 // LOCAL CUSTOM COMPONENTS
 import ProductTabs from "../product-tabs";
 import ProductIntro from "../product-intro";
@@ -11,6 +8,8 @@ import AvailableShops from "../available-shops";
 import RelatedProducts from "../related-products";
 import FrequentlyBought from "../frequently-bought";
 import ProductDescription from "../product-description";
+import SiteBreadcrumbs from "components/site-breadcrumbs/site-breadcrumbs";
+import type { SiteBreadcrumbItem } from "components/site-breadcrumbs";
 // CUSTOM DATA MODEL
 import Product from "models/Product.model";
 import { getLeafCategoryHref } from "lib/shop/category-filter-url";
@@ -27,33 +26,17 @@ export default function ProductDetailsPageView(props: Props) {
   const { product } = props;
   const leafHref = getLeafCategoryHref(product);
 
+  const breadcrumbItems: SiteBreadcrumbItem[] = [
+    ...(product.parentCategory
+      ? [{ label: product.parentCategory.name, href: `/categories/${product.parentCategory.slug}` }]
+      : []),
+    ...(product.category && leafHref ? [{ label: product.category.name, href: leafHref }] : []),
+    { label: product.title }
+  ];
+
   return (
     <Container className="mt-2 mb-2">
-      {/* BREADCRUMBS: Početna / Parent / Child category / Product name */}
-      <Breadcrumbs aria-label="breadcrumb" sx={{ mb: 2 }}>
-        <Link href="/" style={{ color: "inherit", textDecoration: "none" }}>
-          <Typography variant="body2" color="text.primary" component="span">
-            Početna
-          </Typography>
-        </Link>
-        {product.parentCategory && (
-          <Link href={`/categories/${product.parentCategory.slug}`} style={{ color: "inherit", textDecoration: "none" }}>
-            <Typography variant="body2" color="text.primary" component="span">
-              {product.parentCategory.name}
-            </Typography>
-          </Link>
-        )}
-        {product.category && leafHref && (
-          <Link href={leafHref} style={{ color: "inherit", textDecoration: "none" }}>
-            <Typography variant="body2" color="text.primary" component="span">
-              {product.category.name}
-            </Typography>
-          </Link>
-        )}
-        <Typography variant="body2" color="text.secondary">
-          {product.title}
-        </Typography>
-      </Breadcrumbs>
+      <SiteBreadcrumbs items={breadcrumbItems} />
 
       {/* PRODUCT DETAILS INFO AREA */}
       <ProductIntro product={product} />

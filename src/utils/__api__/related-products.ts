@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { getEffectivePrice, getOriginalPriceForDisplay } from "lib/effective-price";
+import { applyStorefrontProductVisibility } from "lib/storefront-product-visibility";
 import Product from "models/Product.model";
 
 type DbRow = {
@@ -41,10 +42,11 @@ function rowToProduct(row: DbRow): Product {
 async function fetchActiveProducts(limit: number, offset: number): Promise<Product[]> {
   try {
     const supabase = createSupabaseServiceClient();
-    const { data, error } = await supabase
-      .from("products")
-      .select("id, name, slug, description, brand, main_image, price, custom_price, original_price, rating")
-      .eq("is_active", true)
+    const { data, error } = await applyStorefrontProductVisibility(
+      supabase
+        .from("products")
+        .select("id, name, slug, description, brand, main_image, price, custom_price, original_price, rating")
+    )
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 

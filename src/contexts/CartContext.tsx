@@ -20,6 +20,11 @@ interface CartActionType {
   payloadList?: { id: string; price: number }[];
   unavailableIds?: string[];
   cart?: CartItem[];
+  /**
+   * Kad je true (dodavanje s PDP/liste): postojeća stavka → qty += payload.qty.
+   * Kad je false/undefined (korpa, mini-korpa): qty = apsolutna vrijednost iz payloada.
+   */
+  addToExisting?: boolean;
   type:
     | "CHANGE_CART_AMOUNT"
     | "CLEAR_CART"
@@ -90,12 +95,15 @@ const reducer = (state: InitialState, action: CartActionType) => {
         return { ...state, cart: updatedCart };
       }
 
-      // IF PRODUCT ALREADY EXITS IN CART
+      // IF PRODUCT ALREADY EXISTS IN CART
       if (existIndex > -1) {
         const updatedCart = [...cartList];
+        const existing = updatedCart[existIndex];
+        const mergedQty = action.addToExisting ? existing.qty + cartItem.qty : cartItem.qty;
+        const nextQty = Math.max(1, Math.floor(mergedQty));
         updatedCart[existIndex] = {
-          ...updatedCart[existIndex],
-          qty: cartItem.qty,
+          ...existing,
+          qty: nextQty,
           // Keep cart metadata in sync when re-adding from latest product payload.
           price: cartItem.price,
           title: cartItem.title,

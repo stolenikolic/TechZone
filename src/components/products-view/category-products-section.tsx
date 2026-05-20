@@ -17,6 +17,8 @@ import CategoryActiveFilterChips from "components/products-view/filters/category
 import ProductsGridView from "components/products-view/products-grid-view";
 import ProductsListView from "components/products-view/products-list-view";
 import ProductPagination from "components/shop/product-pagination";
+import SiteBreadcrumbs from "components/site-breadcrumbs/site-breadcrumbs";
+import type { SiteBreadcrumbItem } from "components/site-breadcrumbs";
 import type { CategorySidebarFilters } from "models/Filters";
 import { FlexBetween, FlexBox } from "components/flex-box";
 import type Product from "models/Product.model";
@@ -35,6 +37,8 @@ export interface CategoryProductsSectionProps {
   products: Product[];
   page: number;
   totalProducts: number;
+  /** Breadcrumbs iznad naslova kategorije. */
+  breadcrumbItems?: SiteBreadcrumbItem[];
 }
 
 export default function CategoryProductsSection({
@@ -43,7 +47,8 @@ export default function CategoryProductsSection({
   title,
   products,
   page,
-  totalProducts
+  totalProducts,
+  breadcrumbItems
 }: CategoryProductsSectionProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -83,6 +88,8 @@ export default function CategoryProductsSection({
 
   return (
     <>
+      {breadcrumbItems && breadcrumbItems.length > 0 ? <SiteBreadcrumbs items={breadcrumbItems} /> : null}
+
       <FlexBetween flexWrap="wrap" gap={2} mb={2}>
         <div>
           <Typography variant="h5" sx={{ mb: 0.5 }}>

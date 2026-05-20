@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Avatar from "@mui/material/Avatar";
@@ -32,6 +32,7 @@ interface Product {
   brand: string;
   image: string;
   category: string;
+  /** Visible on shop: is_active && !publish_locked */
   published: boolean;
   masterStatus?: {
     value: "unlinked" | "linked" | "needs_attributes" | "ready";
@@ -80,8 +81,37 @@ export default function ProductRow({ product, onToggleExpand }: Props & RowActio
     masterStatus
   } = product;
 
-  const [productPublish, setProductPublish] = useState(published);
+  const [visibleOnShop, setVisibleOnShop] = useState(published);
+  const [togglingPublish, setTogglingPublish] = useState(false);
   const brandImage = brand?.startsWith("/") || brand?.startsWith("http");
+
+  useEffect(() => {
+    setVisibleOnShop(published);
+  }, [published]);
+
+  async function handlePublishToggle(nextVisible: boolean) {
+    const previous = visibleOnShop;
+    setVisibleOnShop(nextVisible);
+    setTogglingPublish(true);
+    try {
+      const response = await fetch(`/api/admin/products/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publishLocked: !nextVisible })
+      });
+      const data = (await response.json()) as { error?: string; published?: boolean };
+      if (!response.ok) {
+        throw new Error(data.error ?? "Failed to update publish state.");
+      }
+      if (typeof data.published === "boolean") {
+        setVisibleOnShop(data.published);
+      }
+    } catch {
+      setVisibleOnShop(previous);
+    } finally {
+      setTogglingPublish(false);
+    }
+  }
 
   return (
     <StyledTableRow
@@ -136,16 +166,28 @@ export default function ProductRow({ product, onToggleExpand }: Props & RowActio
       <StyledTableCell align="left">{basePrice != null ? currency(basePrice) : "-"}</StyledTableCell>
       <StyledTableCell align="left">{customPrice != null ? currency(customPrice) : "-"}</StyledTableCell>
 
-      <StyledTableCell align="left">
-        <BazaarSwitch
-          color="info"
-          checked={productPublish}
-          onChange={() => setProductPublish((state) => !state)}
-        />
+      <StyledTableCell align="left" onClick={(e) => e.stopPropagation()}>
+        <Tooltip
+          title={
+            visibleOnShop
+              ? "Visible on shop (active supplier offer, not manually hidden)"
+              : "Hidden on shop (manually unpublished or no active offer)"
+          }
+          arrow
+        >
+          <Box component="span" display="inline-flex">
+            <BazaarSwitch
+              color="info"
+              checked={visibleOnShop}
+              disabled={togglingPublish}
+              onChange={(_e, checked) => void handlePublishToggle(checked)}
+            />
+          </Box>
+        </Tooltip>
       </StyledTableCell>
 
       <StyledTableCell align="center">
-        <Link href={`/admin/products/${slug}`}>
+        <Link href={`/admin/products/${slug}`} onClick={(e) => e.stopPropagation()}>
           <StyledIconButton>
             <Edit />
           </StyledIconButton>
@@ -162,7 +204,7 @@ export default function ProductRow({ product, onToggleExpand }: Props & RowActio
           </StyledIconButton>
         </Link>
 
-        <StyledIconButton>
+        <StyledIconButton onClick={(e) => e.stopPropagation()}>
           <Delete />
         </StyledIconButton>
       </StyledTableCell>

@@ -26,6 +26,8 @@ export default interface Product {
   parentCategory?: { name: string; slug: string };
   reviews?: Review[];
   published?: boolean;
+  /** Admin: manual hide from shop; import may still update is_active. */
+  publishLocked?: boolean;
   masterStatus?: {
     value: "unlinked" | "linked" | "needs_attributes" | "ready";
     label: string;

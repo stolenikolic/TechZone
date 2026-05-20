@@ -3,8 +3,11 @@ import { notFound } from "next/navigation";
 import Container from "@mui/material/Container";
 import CategoryProductsSection from "components/products-view/category-products-section";
 import CategoryBrowser, { type CategoryTreeNode } from "pages-sections/categories";
+import { SiteBreadcrumbs } from "components/site-breadcrumbs";
+import type { SiteBreadcrumbItem } from "components/site-breadcrumbs";
 import api from "utils/__api__/market-2";
 import { getCategoryPageData, getCategoryProductsForPath } from "lib/shop-category-listing";
+import { getCategoryBreadcrumbTrail } from "lib/shop/category-breadcrumb-trail";
 import type Filters from "models/Filters";
 import type { CategorySidebarFilters } from "models/Filters";
 import { seoFilterSegmentsToParams } from "utils/seo-filter-slug";
@@ -36,6 +39,22 @@ function resolvePathAndFilter(slugParts: string[]): {
   const filterSegments = slugParts.slice(CATEGORY_PATH_SEGMENT_COUNT);
   const filterParams = seoFilterSegmentsToParams(filterSegments);
   return { categoryPath, filterSegments, filterParams };
+}
+
+function buildCategoryBreadcrumbItems(
+  categories: CategoryTreeNode[],
+  pathSegments: string[],
+  fallbackTitle: string
+): SiteBreadcrumbItem[] {
+  const trail = getCategoryBreadcrumbTrail(categories, pathSegments);
+  if (!trail.length) {
+    return [{ label: "Kategorije", href: "/categories" }, { label: fallbackTitle }];
+  }
+  return [
+    { label: "Kategorije", href: "/categories" },
+    ...trail.slice(0, -1).map((t) => ({ label: t.name, href: `/categories/${t.slugPath}` })),
+    { label: trail[trail.length - 1].name }
+  ];
 }
 
 /** Map market-2 category tree to Filters.categories shape for ProductFilters sidebar. */
@@ -127,9 +146,15 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   const subcategories = currentCategory?.parent ?? [];
 
   if (filterSegments.length === 0 && currentCategory && subcategories.length > 0) {
+    const categoryCrumbs = buildCategoryBreadcrumbItems(
+      categories,
+      categoryPathSegments,
+      currentCategory.name
+    );
     return (
       <div className="bg-white pt-2 pb-4">
         <CategoryBrowser
+          breadcrumbs={<SiteBreadcrumbs items={categoryCrumbs} />}
           categories={subcategories}
           title={currentCategory.name}
           description="Izaberi podkategoriju da nastaviš ka proizvodima."
@@ -154,10 +179,17 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   const filterKey =
     filterSegments.length > 0 ? `${categoryPath}-${filterSegments.join("-")}` : categoryPath;
 
+  const listingCrumbs = buildCategoryBreadcrumbItems(
+    categories,
+    categoryPathSegments,
+    payload.category.name
+  );
+
   return (
     <div className="bg-white pt-2 pb-4">
       <Container>
         <CategoryProductsSection
+          breadcrumbItems={listingCrumbs}
           filterKey={filterKey}
           filters={sidebarFilters}
           title={payload.category.name}

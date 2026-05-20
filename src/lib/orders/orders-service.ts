@@ -4,6 +4,7 @@ import {
   type PricingSettingsRow
 } from "lib/pricing";
 import Order, { OrderStatus } from "models/Order.model";
+import { applyStorefrontProductVisibility } from "lib/storefront-product-visibility";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { STANDARD_SHIPPING_FEE_KM } from "./constants";
 import type { CheckoutDetails, CreateOrderPayload, OrderCartItem } from "./types";
@@ -228,11 +229,9 @@ export async function createOrder(payload: CreateOrderPayload, userId?: string |
   const productIds = Array.from(new Set(items.map((item) => item.id)));
   const supabase = createSupabaseServiceClient();
 
-  const { data: productRows, error: productsError } = await supabase
-    .from("products")
-    .select("id, name, slug, main_image, price")
-    .in("id", productIds)
-    .eq("is_active", true);
+  const { data: productRows, error: productsError } = await applyStorefrontProductVisibility(
+    supabase.from("products").select("id, name, slug, main_image, price").in("id", productIds)
+  );
 
   if (productsError) throw new Error(productsError.message);
 

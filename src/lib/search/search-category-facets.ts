@@ -28,6 +28,7 @@ export async function fetchSearchCategoryFacets(
       .from("products")
       .select("category_id")
       .eq("is_active", true)
+      .eq("publish_locked", false)
       .not("category_id", "is", null);
 
     for (const token of tokens) {

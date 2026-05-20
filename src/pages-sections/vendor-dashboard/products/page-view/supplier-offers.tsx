@@ -302,7 +302,8 @@ export default function SupplierOffersPageView({ offers }: Props) {
 
   function openLinkDialog(offer: SupplierOfferRow) {
     setLinkOffer(offer);
-    setProductSearch(offer.masterProduct?.name ?? offer.mpn ?? offer.ean ?? "");
+    const rawProductName = getRawOfferPreview(offer.rawJson).productName;
+    setProductSearch(offer.masterProduct?.name ?? rawProductName ?? offer.mpn ?? offer.ean ?? "");
     setProductResults([]);
     setSelectedProduct(null);
     setPriceRefresh(null);

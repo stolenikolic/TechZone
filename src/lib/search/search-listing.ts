@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FilterItem } from "models/Filters";
 import { getEffectivePrice } from "lib/effective-price";
+import { applyStorefrontProductVisibility } from "lib/storefront-product-visibility";
 import { buildTokenFilter, parseCategorySlugsParam } from "lib/search/product-search-tokens";
 import {
   resolveCategoryIdsBySlugs,
@@ -82,10 +83,11 @@ async function fetchAllSearchProductRows(
   let offset = 0;
 
   while (true) {
-    let query = supabase
-      .from("products")
-      .select("id,name,brand,slug,main_image,price,custom_price,original_price,category_id,created_at")
-      .eq("is_active", true);
+    let query = applyStorefrontProductVisibility(
+      supabase
+        .from("products")
+        .select("id,name,brand,slug,main_image,price,custom_price,original_price,category_id,created_at")
+    );
 
     for (const token of tokens) {
       query = query.or(buildTokenFilter(token));

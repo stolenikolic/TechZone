@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
 import { getEffectivePrice, getOriginalPriceForDisplay } from "lib/effective-price";
+import { applyStorefrontProductVisibility } from "lib/storefront-product-visibility";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type DbProduct = {
@@ -45,11 +46,11 @@ export async function GET() {
   try {
     const supabase = createSupabaseServiceClient();
 
-    const { data, error } = await supabase
-      .from("products")
-      .select("id, name, slug, description, brand, main_image, price, custom_price, original_price, rating")
-      .eq("is_active", true)
-      .limit(3);
+    const { data, error } = await applyStorefrontProductVisibility(
+      supabase
+        .from("products")
+        .select("id, name, slug, description, brand, main_image, price, custom_price, original_price, rating")
+    ).limit(3);
 
     if (error) {
       console.error("[frequently-bought-products]", error.message);

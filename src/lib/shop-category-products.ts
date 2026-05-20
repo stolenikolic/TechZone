@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getEffectivePrice } from "lib/effective-price";
+import { applyStorefrontProductVisibility } from "lib/storefront-product-visibility";
 
 export type ShopProductRow = {
   id: string;
@@ -7,11 +8,12 @@ export type ShopProductRow = {
   price: number | null;
   custom_price: number | null;
   is_active: boolean;
+  publish_locked?: boolean;
 };
 
-/** Master proizvod vidljiv u shopu: aktivan i ima konačnu cijenu > 0. */
+/** Master proizvod vidljiv u shopu: aktivan, nije ručno sakriven, ima konačnu cijenu > 0. */
 export function isShopVisibleProduct(row: ShopProductRow): boolean {
-  if (!row.is_active) return false;
+  if (!row.is_active || row.publish_locked) return false;
   const effective = getEffectivePrice(row.custom_price, row.price);
   return Number.isFinite(effective) && effective > 0;
 }
@@ -23,11 +25,12 @@ export async function fetchShopVisibleProductsForCategory(
   supabase: SupabaseClient,
   categoryId: string
 ): Promise<ShopProductRow[]> {
-  const { data, error } = await supabase
-    .from("products")
-    .select("id, brand, price, custom_price, is_active")
-    .eq("category_id", categoryId)
-    .eq("is_active", true);
+  const { data, error } = await applyStorefrontProductVisibility(
+    supabase
+      .from("products")
+      .select("id, brand, price, custom_price, is_active, publish_locked")
+      .eq("category_id", categoryId)
+  );
 
   if (error) throw new Error(error.message);
   return ((data ?? []) as ShopProductRow[]).filter(isShopVisibleProduct);

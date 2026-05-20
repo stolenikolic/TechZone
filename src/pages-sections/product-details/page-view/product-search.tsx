@@ -12,6 +12,7 @@ import Typography from "@mui/material/Typography";
 import Apps from "@mui/icons-material/Apps";
 import ViewList from "@mui/icons-material/ViewList";
 import FilterList from "@mui/icons-material/FilterList";
+import SiteBreadcrumbs from "components/site-breadcrumbs/site-breadcrumbs";
 import Sidenav from "components/side-nav";
 import { FlexBetween, FlexBox } from "components/flex-box";
 import ProductFilters from "components/products-view/filters";
@@ -86,6 +87,14 @@ export default function ProductSearchPageView({
   return (
     <div className="bg-white pt-2 pb-4">
       <Container>
+        <SiteBreadcrumbs
+          items={
+            query
+              ? [{ label: "Pretraga", href: "/products/search" }, { label: query }]
+              : [{ label: "Pretraga" }]
+          }
+        />
+
         <FlexBetween flexWrap="wrap" gap={2} mb={2}>
           {query ? (
             <div>

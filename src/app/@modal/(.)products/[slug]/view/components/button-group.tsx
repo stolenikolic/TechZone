@@ -18,6 +18,7 @@ export default function ButtonGroup({ product }: { product: Product }) {
     setTimeout(() => {
       dispatch({
         type: "CHANGE_CART_AMOUNT",
+        addToExisting: true,
         payload: { ...product, qty: 1 }
       });
 

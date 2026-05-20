@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getEffectivePrice } from "lib/effective-price";
+import { applyStorefrontProductVisibility } from "lib/storefront-product-visibility";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type Body = { ids?: unknown };
@@ -17,11 +18,9 @@ export async function POST(request: Request) {
 
     const uniqueIds = Array.from(new Set(ids));
     const supabase = createSupabaseServiceClient();
-    const { data, error } = await supabase
-      .from("products")
-      .select("id, price, custom_price")
-      .in("id", uniqueIds)
-      .eq("is_active", true);
+    const { data, error } = await applyStorefrontProductVisibility(
+      supabase.from("products").select("id, price, custom_price").in("id", uniqueIds)
+    );
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

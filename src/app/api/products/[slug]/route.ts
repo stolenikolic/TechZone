@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
 import { mapProductSpecifications } from "lib/shop/map-product-specifications";
 import { getEffectivePrice, getOriginalPriceForDisplay } from "lib/effective-price";
+import { applyStorefrontProductVisibility } from "lib/storefront-product-visibility";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type DbCategory = { id: string; name: string; slug: string; parent_id: string | null };
@@ -58,12 +59,12 @@ export async function GET(
     const { slug } = await context.params;
     const supabase = createSupabaseServiceClient();
 
-    const { data, error } = await supabase
-      .from("products")
-      .select("id, name, slug, description, brand, main_image, rating, price, custom_price, original_price, categories(id, name, slug, parent_id)")
-      .eq("slug", slug)
-      .eq("is_active", true)
-      .maybeSingle();
+    const { data, error } = await applyStorefrontProductVisibility(
+      supabase
+        .from("products")
+        .select("id, name, slug, description, brand, main_image, rating, price, custom_price, original_price, categories(id, name, slug, parent_id)")
+        .eq("slug", slug)
+    ).maybeSingle();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

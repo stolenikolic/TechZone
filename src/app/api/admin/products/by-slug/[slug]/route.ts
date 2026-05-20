@@ -32,6 +32,7 @@ type DbProduct = {
   price: number | null;
   custom_price: number | null;
   is_active: boolean;
+  publish_locked: boolean;
   mpn: string | null;
   ean: string | null;
   selling_margin_override: number | null;
@@ -180,7 +181,7 @@ export async function GET(
     const { data: productRow, error: productError } = await supabase
       .from("products")
       .select(
-        "id, name, slug, description, brand, category_id, main_image, price, custom_price, is_active, mpn, ean, selling_margin_override, categories(id, name, slug, parent_id, selling_margin_default)"
+        "id, name, slug, description, brand, category_id, main_image, price, custom_price, is_active, publish_locked, mpn, ean, selling_margin_override, categories(id, name, slug, parent_id, selling_margin_default)"
       )
       .eq("slug", slug)
       .maybeSingle();
@@ -268,7 +269,9 @@ export async function GET(
         mainImage: product.main_image ?? "",
         price: numOrNull(product.price),
         customPrice: numOrNull(product.custom_price),
-        isActive: Boolean(product.is_active),
+        isActive: !Boolean(product.publish_locked),
+        isSupplierActive: Boolean(product.is_active),
+        publishLocked: Boolean(product.publish_locked),
         mpn: product.mpn ?? "",
         ean: product.ean ?? "",
         sellingMarginOverride: numOrNull(product.selling_margin_override)
@@ -340,7 +343,7 @@ export async function PATCH(
       if ("description" in body.basic) patch.description = body.basic.description?.trim() || null;
       if ("mpn" in body.basic) patch.mpn = body.basic.mpn?.trim() || null;
       if ("ean" in body.basic) patch.ean = body.basic.ean?.trim() || null;
-      if ("isActive" in body.basic) patch.is_active = Boolean(body.basic.isActive);
+      if ("isActive" in body.basic) patch.publish_locked = !Boolean(body.basic.isActive);
       if ("customPrice" in body.basic) {
         const v = body.basic.customPrice;
         if (v != null && (!Number.isFinite(v) || v < 0)) {

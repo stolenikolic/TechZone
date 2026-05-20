@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type Product from "models/Product.model";
 import { compareTopPickThenDate } from "lib/category-top-picks";
 import { mapProductPriceFields } from "lib/effective-price";
+import { applyStorefrontProductVisibility } from "lib/storefront-product-visibility";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type DbCategory = { id: string; name: string; slug: string };
@@ -115,18 +116,18 @@ export async function GET() {
   try {
     const supabase = createSupabaseServiceClient();
 
-    const { data, error } = await supabase
-      .from("products")
-      .select("id, name, slug, description, brand, main_image, price, custom_price, rating, categories(id, name, slug)")
-      .eq("is_active", true)
+    const { data, error } = await applyStorefrontProductVisibility(
+      supabase
+        .from("products")
+        .select("id, name, slug, description, brand, main_image, price, custom_price, rating, categories(id, name, slug)")
+    )
       .order("created_at", { ascending: false })
       .limit(6);
 
     if (error) {
-      const fallback = await supabase
-        .from("products")
-        .select(`${selectFieldsMinimal}, category_id`)
-        .eq("is_active", true)
+      const fallback = await applyStorefrontProductVisibility(
+        supabase.from("products").select(`${selectFieldsMinimal}, category_id`)
+      )
         .order("created_at", { ascending: false })
         .limit(6);
       if (fallback.error) {
