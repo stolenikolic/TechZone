@@ -6,6 +6,7 @@ import {
   supabaseAnonKey,
   supabaseServiceKey
 } from "./supabase/config";
+import { getSupabaseNodeClientOptions } from "./supabase/node-client-options";
 
 export { hasSupabasePublicConfig, hasSupabaseServerConfig };
 
@@ -16,7 +17,7 @@ export function createSupabaseClient() {
   if (!supabaseAnonKey) {
     throw new Error("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY is not set");
   }
-  return createClient(requireSupabaseUrl(), supabaseAnonKey);
+  return createClient(requireSupabaseUrl(), supabaseAnonKey, getSupabaseNodeClientOptions());
 }
 
 /**
@@ -28,5 +29,5 @@ export function createSupabaseServiceClient() {
       "Supabase service key is not set. Add SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY to your environment (e.g. .env.local). See .env.example."
     );
   }
-  return createClient(requireSupabaseUrl(), supabaseServiceKey);
+  return createClient(requireSupabaseUrl(), supabaseServiceKey, getSupabaseNodeClientOptions());
 }
