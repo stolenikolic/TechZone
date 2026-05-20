@@ -53,8 +53,9 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: node --version
-      - run: npx tsx scripts/check-job-paused.ts
-      - run: npx tsx scripts/run-ipon-import-products.ts
+      - run: node -r ./scripts/register-ws.cjs -e "console.log('node', process.version, 'WebSocket', typeof WebSocket)"
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-import-products.ts
 
   ipon_scrape_details:
     name: iPon scrape details
@@ -72,8 +73,9 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: node --version
-      - run: npx tsx scripts/check-job-paused.ts
-      - run: npx tsx scripts/run-ipon-scrape-details.ts
+      - run: node -r ./scripts/register-ws.cjs -e "console.log('node', process.version, 'WebSocket', typeof WebSocket)"
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-scrape-details.ts
 
   pcx_import:
     name: PCX import
@@ -91,8 +93,9 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: node --version
-      - run: npx tsx scripts/check-job-paused.ts
-      - run: npx tsx scripts/run-pcx-import-products.ts
+      - run: node -r ./scripts/register-ws.cjs -e "console.log('node', process.version, 'WebSocket', typeof WebSocket)"
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-pcx-import-products.ts
 
   aggregate_prices:
     name: Aggregate prices
@@ -110,8 +113,9 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: node --version
-      - run: npx tsx scripts/check-job-paused.ts
-      - run: npx tsx scripts/run-aggregate-prices.ts
+      - run: node -r ./scripts/register-ws.cjs -e "console.log('node', process.version, 'WebSocket', typeof WebSocket)"
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-aggregate-prices.ts
 
   auto_match:
     name: Auto match (supplier_products → products)
@@ -129,5 +133,6 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: node --version
-      - run: npx tsx scripts/check-job-paused.ts
-      - run: npx tsx scripts/run-auto-match.ts
+      - run: node -r ./scripts/register-ws.cjs -e "console.log('node', process.version, 'WebSocket', typeof WebSocket)"
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-auto-match.ts
