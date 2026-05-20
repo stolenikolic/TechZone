@@ -52,6 +52,7 @@ jobs:
           node-version: "22"
           cache: "npm"
       - run: npm ci
+      - run: node --version
       - run: npx tsx scripts/check-job-paused.ts
       - run: npx tsx scripts/run-ipon-import-products.ts
 
@@ -70,6 +71,7 @@ jobs:
           node-version: "22"
           cache: "npm"
       - run: npm ci
+      - run: node --version
       - run: npx tsx scripts/check-job-paused.ts
       - run: npx tsx scripts/run-ipon-scrape-details.ts
 
@@ -88,6 +90,7 @@ jobs:
           node-version: "22"
           cache: "npm"
       - run: npm ci
+      - run: node --version
       - run: npx tsx scripts/check-job-paused.ts
       - run: npx tsx scripts/run-pcx-import-products.ts
 
@@ -106,6 +109,7 @@ jobs:
           node-version: "22"
           cache: "npm"
       - run: npm ci
+      - run: node --version
       - run: npx tsx scripts/check-job-paused.ts
       - run: npx tsx scripts/run-aggregate-prices.ts
 
@@ -124,5 +128,6 @@ jobs:
           node-version: "22"
           cache: "npm"
       - run: npm ci
+      - run: node --version
       - run: npx tsx scripts/check-job-paused.ts
       - run: npx tsx scripts/run-auto-match.ts
