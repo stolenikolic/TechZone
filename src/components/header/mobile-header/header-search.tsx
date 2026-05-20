@@ -1,28 +1,25 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
-import { Fragment, PropsWithChildren, useEffect, useRef, useState } from "react";
-// MUI
+import { Fragment, PropsWithChildren, Suspense, useEffect, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
-// MUI ICON COMPONENT
 import Clear from "@mui/icons-material/Clear";
 import Search from "@mui/icons-material/Search";
-// GLOBAL CUSTOM COMPONENTS
 import FlexBetween from "components/flex-box/flex-between";
 
-export function HeaderSearch({ children }: PropsWithChildren) {
+function HeaderSearchInner({ children }: PropsWithChildren) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const currentUrl = useRef(`${pathname}?${searchParams}`);
+  const currentUrl = useRef(`${pathname}?${searchParams.toString()}`);
   const [open, setOpen] = useState(false);
 
   const handleClose = () => setOpen(false);
 
   useEffect(() => {
-    const newUrl = `${pathname}?${searchParams}`;
+    const newUrl = `${pathname}?${searchParams.toString()}`;
     if (currentUrl.current !== newUrl) {
       currentUrl.current = newUrl;
       queueMicrotask(handleClose);
@@ -51,5 +48,19 @@ export function HeaderSearch({ children }: PropsWithChildren) {
         </Box>
       </Drawer>
     </Fragment>
+  );
+}
+
+export function HeaderSearch({ children }: PropsWithChildren) {
+  return (
+    <Suspense
+      fallback={
+        <IconButton aria-label="Pretraži" disabled>
+          <Search />
+        </IconButton>
+      }
+    >
+      <HeaderSearchInner>{children}</HeaderSearchInner>
+    </Suspense>
   );
 }

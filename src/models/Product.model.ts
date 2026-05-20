@@ -46,4 +46,6 @@ export default interface Product {
   topPick?: boolean;
   /** Label shown for highlighted category product badges. */
   topPickLabel?: string;
+  /** Wishlist: product no longer available on storefront. */
+  isUnavailable?: boolean;
 }

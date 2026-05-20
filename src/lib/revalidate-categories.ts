@@ -18,10 +18,10 @@ export function revalidateCategorySurfaces(
   revalidatePath("/");
   revalidatePath("/categories", "layout");
   revalidatePath("/api/categories");
-  revalidatePath("/api/market-2/categories");
-  revalidateTag("market-2-categories", "max");
+  revalidatePath("/api/homepage/categories");
+  revalidateTag("homepage-categories", "max");
   revalidatePath("/api/search");
-  revalidatePath("/api/market-2/products");
-  revalidatePath("/api/market-2/flash-deals");
-  revalidatePath("/api/market-2/top-rated");
+  revalidatePath("/api/homepage/products");
+  revalidatePath("/api/homepage/flash-deals");
+  revalidatePath("/api/homepage/top-rated");
 }

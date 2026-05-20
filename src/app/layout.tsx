@@ -13,6 +13,7 @@ import ThemeProvider from "theme/theme-provider";
 
 // PRODUCT CART PROVIDER
 import CartProvider from "contexts/CartContext";
+import { WishlistProvider } from "contexts/WishlistContext";
 import { AuthProvider } from "contexts/AuthContext";
 
 // SITE SETTINGS PROVIDER
@@ -38,7 +39,8 @@ export default function RootLayout({ children, modal }: RootLayoutProps) {
     <html lang="bs" suppressHydrationWarning>
       <body id="body" className={geist.className}>
         <AuthProvider>
-          <CartProvider>
+          <WishlistProvider>
+            <CartProvider>
             <SettingsProvider>
               <ThemeProvider>
               <RTL>
@@ -50,7 +52,8 @@ export default function RootLayout({ children, modal }: RootLayoutProps) {
               <ProgressBar />
               </ThemeProvider>
             </SettingsProvider>
-          </CartProvider>
+            </CartProvider>
+          </WishlistProvider>
         </AuthProvider>
 
         <GoogleAnalytics gaId="G-XKPD36JXY0" />

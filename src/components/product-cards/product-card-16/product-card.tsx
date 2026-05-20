@@ -2,19 +2,14 @@ import Link from "next/link";
 import Image from "next/image";
 import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
-// LOCAL CUSTOM COMPONENTS
 import AddToCart from "./add-to-cart";
 import DiscountChip from "../discount-chip";
-// CUSTOM UTILS LIBRARY FUNCTIONS
+import WishlistHeartButton from "components/wishlist/wishlist-heart-button";
 import { calculateDiscount, formatPrice } from "lib";
-// STYLED COMPONENTS
 import { PriceText, StyledRoot } from "./styles";
-// CUSTOM DATA MODEL
 import Product from "models/Product.model";
 
-// ==============================================================
 type Props = { product: Product };
-// ==============================================================
 
 export default function ProductCard16({ product }: Props) {
   const { slug, title, thumbnail, price, discount, topPick, topPickLabel, originalPrice } = product;
@@ -33,8 +28,9 @@ export default function ProductCard16({ product }: Props) {
           : undefined
       }
     >
-      <Link href={`/products/${slug}`}>
-        <div className="img-wrapper">
+      <div className="img-wrapper" style={{ position: "relative" }}>
+        <WishlistHeartButton productId={product.id} className="wishlist-heart" sx={{ top: 6, right: 6 }} />
+        <Link href={`/products/${slug}`}>
           <Image
             src={thumbnail}
             alt={title}
@@ -51,8 +47,8 @@ export default function ProductCard16({ product }: Props) {
             />
           ) : null}
           {discount ? <DiscountChip discount={discount} sx={{ left: 20, top: 20 }} /> : null}
-        </div>
-      </Link>
+        </Link>
+      </div>
 
       <div className="content">
         <div className="content-main">

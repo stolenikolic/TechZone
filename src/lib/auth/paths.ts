@@ -7,7 +7,6 @@ export const CUSTOMER_PROTECTED_PREFIXES = [
   "/profile",
   "/orders",
   "/address",
-  "/wish-list",
   "/payment-methods",
   "/support-tickets"
 ] as const;

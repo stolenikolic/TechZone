@@ -1,7 +1,7 @@
 import { shopPageMetadata } from "lib/site-metadata";
 import { SiteBreadcrumbs } from "components/site-breadcrumbs";
 import CategoryBrowser, { type CategoryTreeNode } from "pages-sections/categories";
-import api from "utils/__api__/market-2";
+import api from "utils/__api__/homepage";
 
 export const metadata = shopPageMetadata(
   "Kategorije",

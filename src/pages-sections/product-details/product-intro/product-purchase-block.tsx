@@ -32,7 +32,7 @@ export default function ProductPurchaseBlock({ product }: Props) {
       />
       <Stack direction="row" spacing={1.5}>
         <AddToCart product={product} qty={qty} />
-        <WishlistButton />
+        <WishlistButton productId={product.id} />
       </Stack>
 
       <Stack spacing={0.75} sx={{ mt: 3.5 }}>

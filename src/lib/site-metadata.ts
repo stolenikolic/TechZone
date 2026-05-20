@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getServerBaseUrl } from "utils/site-url";
 
 export const SITE_NAME = "Tech Zone";
 
@@ -16,6 +17,14 @@ export const SITE_KEYWORDS = [
   "BiH",
   "Bosna i Hercegovina"
 ];
+
+/** Default OG/Twitter slika — puni Tech Zone logo iz public/. */
+export const SITE_OG_IMAGE = {
+  url: "/assets/images/logo.svg",
+  width: 353,
+  height: 122,
+  alt: SITE_NAME
+} as const;
 
 const SEP = " | ";
 
@@ -51,15 +60,24 @@ export function dynamicShopMetadata(name: string, description?: string): Metadat
 }
 
 export const rootMetadata: Metadata = {
+  metadataBase: new URL(getServerBaseUrl()),
   title: SITE_NAME,
   description: SITE_DESCRIPTION,
   keywords: SITE_KEYWORDS,
   applicationName: SITE_NAME,
   openGraph: {
+    title: SITE_NAME,
     siteName: SITE_NAME,
     locale: "bs_BA",
     type: "website",
-    description: SITE_DESCRIPTION
+    description: SITE_DESCRIPTION,
+    images: [SITE_OG_IMAGE]
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    images: [SITE_OG_IMAGE.url]
   }
 };
 

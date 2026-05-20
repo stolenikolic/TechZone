@@ -1,35 +1,57 @@
 import Link from "next/link";
 import Image from "next/image";
-import Box from "@mui/material/Box";
+import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
-// LOCAL CUSTOM COMPONENTS
 import Discount from "./discount";
 import HoverActions from "./hover-actions";
-// STYLED COMPONENTS
 import { ImageWrapper, ImageContainer, ContentWrapper, StyledCard } from "./styles";
-// CUSTOM DATA MODEL
 import Product from "models/Product.model";
-// CUSTOM UTILS FUNCTION
 import { formatPrice } from "lib";
 
-// ========================================================
-interface Props {
+type Props = {
   product: Product;
   bgWhite?: boolean;
-}
-// ========================================================
+  showRemoveFromWishlist?: boolean;
+};
 
-export default function ProductCard17({ product, bgWhite = false }: Props) {
-  const { slug, title, price, thumbnail, images, discount, categories, originalPrice } = product;
+export default function ProductCard17({
+  product,
+  bgWhite = false,
+  showRemoveFromWishlist = false
+}: Props) {
+  const { slug, title, price, thumbnail, images, discount, categories, originalPrice, isUnavailable } = product;
   const showOriginal = originalPrice != null && originalPrice > price;
 
   return (
-    <StyledCard elevation={0} bgWhite={bgWhite}>
+    <StyledCard
+      elevation={0}
+      bgWhite={bgWhite}
+      sx={
+        isUnavailable
+          ? {
+              opacity: 0.75,
+              ".thumbnail, .hover-thumbnail": { filter: "grayscale(1)" }
+            }
+          : undefined
+      }
+    >
       <ImageWrapper>
         <Discount discount={discount} />
-        <HoverActions product={product} />
+        {isUnavailable ? (
+          <Chip
+            size="small"
+            color="default"
+            label="Nedostupan"
+            sx={{ position: "absolute", left: 16, top: 16, zIndex: 2 }}
+          />
+        ) : null}
+        <HoverActions
+          product={product}
+          showRemoveFromWishlist={showRemoveFromWishlist}
+          disableAddToCart={isUnavailable}
+        />
 
-        <Link href={`/products/${slug}`} aria-label={`View ${title}`}>
+        <Link href={`/products/${slug}`} aria-label={`Pogledaj ${title}`}>
           <ImageContainer>
             <Image
               src={thumbnail}
@@ -60,33 +82,32 @@ export default function ProductCard17({ product, bgWhite = false }: Props) {
           {categories.length > 0 ? categories[0] : "N/A"}
         </Typography>
 
-        <Link href={`/products/${slug}`} aria-label={`View ${title}`}>
-          <Typography noWrap variant="h5" className="title">
+        <Link href={`/products/${slug}`} aria-label={`Pogledaj ${title}`}>
+          <Typography variant="h5" className="title">
             {title}
           </Typography>
         </Link>
 
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 0.25
-          }}
-        >
+        <div className="price-group">
           {showOriginal ? (
             <Typography
               component="span"
               variant="body2"
+              className="original-price"
               sx={{ color: "primary.main", textDecoration: "line-through", fontWeight: 500 }}
             >
               {formatPrice(originalPrice)}
             </Typography>
           ) : null}
-          <Typography variant="subtitle1" fontWeight={600} sx={{ color: "price.main" }}>
+          <Typography
+            variant="subtitle1"
+            className="effective-price"
+            fontWeight={600}
+            sx={{ color: "price.main" }}
+          >
             {formatPrice(price)}
           </Typography>
-        </Box>
+        </div>
       </ContentWrapper>
     </StyledCard>
   );

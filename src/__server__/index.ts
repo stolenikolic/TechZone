@@ -1,6 +1,6 @@
 import MockAdapter from "axios-mock-adapter";
 
-import { Market2Endpoints } from "./__db__/market-2";
+import { HomepageMockEndpoints } from "./__db__/homepage-demo";
 import { RelatedProductsEndpoints } from "./__db__/related-products";
 import { UsersEndpoints } from "./__db__/users";
 import { TicketsEndpoints } from "./__db__/ticket";
@@ -13,7 +13,7 @@ import { LayoutEndpoints } from "./__db__/layout";
 import { CartEndpoints } from "./__db__/cart";
 
 export const MockEndPoints = (Mock: MockAdapter) => {
-  Market2Endpoints(Mock);
+  HomepageMockEndpoints(Mock);
   UsersEndpoints(Mock);
   VendorEndpoints(Mock);
   TicketsEndpoints(Mock);

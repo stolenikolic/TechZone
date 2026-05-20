@@ -1,20 +1,13 @@
+"use client";
+
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
-// CUSTOM COMPONENTS
 import NavItem from "./nav-item";
-// STYLED COMPONENTS
+import useWishlist from "hooks/useWishlist";
 import { MainContainer } from "./styles";
 
-const MENUS = [
-  {
-    title: "DASHBOARD",
-    list: [
-      { count: 5, icon: "Packages", href: "/orders", title: "Orders" },
-      { count: 19, icon: "HeartLine", href: "/wish-list", title: "Wishlist" },
-      { count: 1, icon: "Headset", href: "/support-tickets", title: "Support Tickets" }
-    ]
-  },
+const ACCOUNT_MENUS = [
   {
     title: "ACCOUNT SETTINGS",
     list: [
@@ -26,9 +19,23 @@ const MENUS = [
 ];
 
 export function Navigation() {
+  const { count, isHydrated } = useWishlist();
+
+  const dashboardMenus = [
+    {
+      title: "DASHBOARD",
+      list: [
+        { count: 5, icon: "Packages", href: "/orders", title: "Orders" },
+        { count: isHydrated ? count : 0, icon: "HeartLine", href: "/wish-list", title: "Lista želja" },
+        { count: 1, icon: "Headset", href: "/support-tickets", title: "Support Tickets" }
+      ]
+    },
+    ...ACCOUNT_MENUS
+  ];
+
   return (
     <MainContainer>
-      {MENUS.map((item) => (
+      {dashboardMenus.map((item) => (
         <Box mt={2} key={item.title}>
           <Typography
             fontSize={12}
@@ -48,8 +55,8 @@ export function Navigation() {
       ))}
 
       <Box px={4} mt={6} pb={2}>
-        <Button disableElevation variant="outlined" color="primary" fullWidth>
-          Logout
+        <Button fullWidth color="primary" variant="contained" href="/">
+          Back to Shop
         </Button>
       </Box>
     </MainContainer>

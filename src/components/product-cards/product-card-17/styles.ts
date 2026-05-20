@@ -72,7 +72,9 @@ export const ImageContainer = styled("div")(() => ({
   aspectRatio: "1 / 1"
 }));
 
-export const HoverWrapper = styled("div")(() => ({
+export const HoverWrapper = styled("div", {
+  shouldForwardProp: (prop) => prop !== "compact"
+})<{ compact?: boolean }>(({ compact }) => ({
   zIndex: 2,
   bottom: 0,
   opacity: 0,
@@ -80,13 +82,22 @@ export const HoverWrapper = styled("div")(() => ({
   cursor: "pointer",
   position: "absolute",
   transition: "all 0.3s ease-in-out",
-  gap: ".75rem",
+  gap: compact ? "0.5rem" : ".75rem",
   display: "flex",
   alignItems: "center",
-  padding: "1rem 2rem",
+  padding: compact ? "0.5rem 0.75rem" : "1rem 2rem",
   ".view-btn": { backgroundColor: "white" },
-  ".MuiButton-root": { padding: ".75rem" },
-  a: { width: "100%" }
+  ".MuiButton-root": compact
+    ? {
+        padding: "0.35rem 0.65rem",
+        fontSize: "0.75rem",
+        lineHeight: 1.25,
+        minHeight: 32,
+        whiteSpace: "nowrap",
+        textTransform: "none"
+      }
+    : { padding: ".75rem" },
+  a: { width: "100%", minWidth: 0 }
 }));
 
 export const ContentWrapper = styled("div")(({ theme }) => ({
@@ -100,10 +111,33 @@ export const ContentWrapper = styled("div")(({ theme }) => ({
   paddingBottom: "1.5rem",
   ".title": {
     cursor: "pointer",
-    marginBottom: ".5rem",
+    marginBottom: "1rem",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+    minHeight: `calc(${theme.typography.h5.lineHeight} * 2em)`,
     ":hover": {
       textDecoration: "underline"
     }
+  },
+  ".price-group": {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 0,
+    lineHeight: 1.15
+  },
+  ".original-price": {
+    margin: 0,
+    lineHeight: 1.15
+  },
+  ".effective-price": {
+    margin: 0,
+    marginTop: "2px",
+    lineHeight: 1.15
   },
   ".category": {
     fontSize: 12,

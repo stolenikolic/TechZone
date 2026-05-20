@@ -1,7 +1,7 @@
 import { uniq } from "lodash";
 import products from "data/product-database";
 import bazaarReactDatabase from "data/bazaar-react-database";
-import { products as market2 } from "../market-2/data";
+import { products as market2 } from "../homepage-demo/data";
 import { relatedProducts, frequentlyBoughtData } from "../related-products/data";
 
 const dbProducts = [...bazaarReactDatabase, ...products];

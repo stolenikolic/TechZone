@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { categoryImageDisplayUrl } from "lib/images/category-display-url";
 import { createSupabaseServiceClient } from "utils/supabase";
 
-/** Category tree item: nested children in `parent`. Same shape as market-2 for navbar compatibility. */
+/** Category tree item: nested children in `parent`. Same shape as homepage categories for navbar compatibility. */
 export type CategoryTreeItem = {
   id: string;
   name: string;

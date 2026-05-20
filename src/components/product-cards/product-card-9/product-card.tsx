@@ -68,7 +68,7 @@ export default function ProductCard9({ product }: Props) {
       }
     >
       {/* PRODUCT FAVORITE BUTTON */}
-      <FavoriteButton />
+      <FavoriteButton productId={product.id} />
 
       <ContentWrapper>
         <div className="img-wrapper">

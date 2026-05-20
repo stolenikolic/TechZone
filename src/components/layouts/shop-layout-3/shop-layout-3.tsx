@@ -18,7 +18,7 @@ import { NavigationList } from "components/navbar";
 import { MobileMenu } from "components/mobile-navbar/mobile-menu";
 import { MobileNavigationBar } from "components/mobile-navigation";
 import { Topbar, TopbarLanguageSelector, TopbarSocialLinks } from "components/topbar";
-import { Header, HeaderCart, HeaderLogin, MobileHeader, HeaderSearch } from "components/header";
+import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, HeaderSearch } from "components/header";
 // CUSTOM DATA MODEL
 import LayoutModel from "models/Layout.model";
 
@@ -52,6 +52,7 @@ export default function ShopLayout3({
         </HeaderSearch>
 
         <HeaderLogin />
+        <HeaderWishlist />
         <HeaderCart />
       </MobileHeader.Right>
     </MobileHeader>
@@ -78,6 +79,7 @@ export default function ShopLayout3({
 
           <Header.Right>
             <HeaderLogin />
+            <HeaderWishlist />
             <HeaderCart />
           </Header.Right>
         </Header>

@@ -1,31 +1,65 @@
-import { shopPageMetadata } from "lib/site-metadata";
+import type { Metadata } from "next";
+import { pageTitle, SITE_KEYWORDS, SITE_OG_IMAGE } from "lib/site-metadata";
 // PAGE VIEW COMPONENT
 import { ProductSearchPageView } from "pages-sections/product-details/page-view";
 // API FUNCTIONS
 import { getSearchPageData } from "utils/__api__/product-search";
 
-export const metadata = shopPageMetadata(
-  "Pretraga proizvoda",
-  "Pretražite računarsku opremu i komponente na Tech Zone."
-);
-
 export const dynamic = "force-dynamic";
 
-// ==============================================================
+type SearchParams = {
+  q?: string;
+  sale?: string;
+  page?: string;
+  sort?: string;
+  prices?: string;
+  colors?: string;
+  brands?: string;
+  rating?: string;
+  category?: string;
+};
+
 interface Props {
-  searchParams: Promise<{
-    q: string;
-    sale: string;
-    page: string;
-    sort: string;
-    prices: string;
-    colors: string;
-    brands: string;
-    rating: string;
-    category: string;
-  }>;
+  searchParams: Promise<SearchParams>;
 }
-// ==============================================================
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const params = await searchParams;
+  const query = params.q?.trim() ?? "";
+  const pageNum = Math.max(1, parseInt(String(params.page ?? "1"), 10) || 1);
+
+  const titlePage = query
+    ? pageNum > 1
+      ? `Pretraga: ${query} – Strana ${pageNum}`
+      : `Pretraga: ${query}`
+    : pageNum > 1
+      ? `Pretraga proizvoda – Strana ${pageNum}`
+      : "Pretraga proizvoda";
+
+  const title = pageTitle(titlePage, "shop");
+
+  const description = query
+    ? `Rezultati pretrage za „${query}” na Tech Zone online prodavnici.`
+    : "Pretražite računarsku opremu i komponente na Tech Zone.";
+
+  return {
+    title,
+    description,
+    keywords: SITE_KEYWORDS,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      images: [SITE_OG_IMAGE]
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [SITE_OG_IMAGE.url]
+    }
+  };
+}
 
 export default async function ProductSearch({ searchParams }: Props) {
   const { q, page, sort, sale, prices, colors, brands, rating, category } = await searchParams;

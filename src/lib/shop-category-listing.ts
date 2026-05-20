@@ -14,7 +14,10 @@ import {
   type ShopProductRow
 } from "lib/shop-category-products";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { categoryImageDisplayUrl } from "lib/images/category-display-url";
 import { createSupabaseServiceClient } from "utils/supabase";
+
+const DEFAULT_CATEGORY_OG_IMAGE = "/assets/images/categories/default-category.jpg";
 
 /** Chunk size for product_attributes .in("product_id", ...) — keep in sync across listing + facets. */
 export const PRODUCT_ATTRIBUTES_CHUNK_SIZE = 50;
@@ -154,6 +157,22 @@ export const resolveCategoryBySlugPathCached = cache(async (normalizedPath: stri
 
 function resolveCategoryCached(slugOrPath: string) {
   return resolveCategoryBySlugPathCached(normalizeCategorySlugParam(slugOrPath));
+}
+
+/** OG/Twitter slika za kategoriju (storage URL ili default). */
+export async function getCategoryImageUrlForPath(categoryPath: string): Promise<string> {
+  const category = await resolveCategoryCached(categoryPath);
+  if (!category) return DEFAULT_CATEGORY_OG_IMAGE;
+
+  const supabase = createSupabaseServiceClient();
+  const { data } = await supabase
+    .from("categories")
+    .select("image_url")
+    .eq("id", category.id)
+    .maybeSingle();
+
+  const raw = data?.image_url?.trim();
+  return categoryImageDisplayUrl(raw || DEFAULT_CATEGORY_OG_IMAGE) || DEFAULT_CATEGORY_OG_IMAGE;
 }
 
 async function loadVisibleProductsForCategory(categoryId: string): Promise<ShopProductRow[]> {

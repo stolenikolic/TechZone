@@ -13,6 +13,16 @@ export const StyledRoot = styled("div")(({ theme }) => ({
   overflow: "hidden",
   border: `1px solid ${theme.palette.divider}`,
   "&:hover .img-wrapper img": { scale: 1.1 },
+  "& .wishlist-heart": {
+    opacity: 0,
+    transition: "opacity 0.2s ease-in-out"
+  },
+  "@media (hover: hover)": {
+    "&:hover .wishlist-heart": { opacity: 1 }
+  },
+  "@media (hover: none)": {
+    "& .wishlist-heart": { opacity: 1 }
+  },
   "& .img-wrapper": {
     display: "block",
     position: "relative",

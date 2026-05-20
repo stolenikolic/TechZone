@@ -3,7 +3,7 @@ import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
 import Container from "components/Container";
 import { SectionHeader } from "components/section-header";
-import CategoryCard from "pages-sections/market-2/section-3/category-card";
+import CategoryCard from "pages-sections/homepage/section-3/category-card";
 import type Category from "models/Category.model";
 
 export type CategoryTreeNode = Omit<Category, "parent"> & {

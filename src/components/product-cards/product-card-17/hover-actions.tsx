@@ -3,27 +3,28 @@
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import Button from "@mui/material/Button";
-// GLOBAL CUSTOM HOOK
 import useCart from "hooks/useCart";
-// STYLED COMPONENTS
+import useWishlist from "hooks/useWishlist";
 import { HoverWrapper } from "./styles";
-// CUSTOM DATA MODEL
 import Product from "models/Product.model";
 
-// ========================================================
-interface Props {
+type Props = {
   product: Product;
-}
-// ========================================================
+  showRemoveFromWishlist?: boolean;
+  disableAddToCart?: boolean;
+};
 
-export default function HoverActions({ product }: Props) {
+export default function HoverActions({ product, showRemoveFromWishlist = false, disableAddToCart = false }: Props) {
   const { id, slug, title, price, thumbnail } = product;
 
   const { dispatch } = useCart();
+  const { removeFromWishlist } = useWishlist();
   const [isCartLoading, setCartLoading] = useState(false);
   const [isQuickViewLoading, setQuickViewLoading] = useState(false);
+  const [isRemoveLoading, setRemoveLoading] = useState(false);
 
   const handleAddToCart = useCallback(() => {
+    if (disableAddToCart) return;
     setCartLoading(true);
 
     setTimeout(() => {
@@ -35,7 +36,7 @@ export default function HoverActions({ product }: Props) {
 
       setCartLoading(false);
     }, 500);
-  }, [dispatch, slug, id, price, title, thumbnail]);
+  }, [disableAddToCart, dispatch, slug, id, price, title, thumbnail]);
 
   const handleQuickView = useCallback(() => {
     setQuickViewLoading(true);
@@ -45,35 +46,62 @@ export default function HoverActions({ product }: Props) {
     setQuickViewLoading(false);
   }, []);
 
+  const handleRemove = useCallback(async () => {
+    setRemoveLoading(true);
+    try {
+      await removeFromWishlist(id);
+    } finally {
+      setRemoveLoading(false);
+    }
+  }, [id, removeFromWishlist]);
+
   return (
-    <HoverWrapper className="hover-box">
+    <HoverWrapper className="hover-box" compact={showRemoveFromWishlist}>
       <Link scroll={false} href="/mini-cart">
         <Button
           fullWidth
+          size={showRemoveFromWishlist ? "small" : "medium"}
           color="primary"
           variant="contained"
           loading={isCartLoading}
           onClick={handleAddToCart}
-          aria-label="Add to cart"
+          disabled={disableAddToCart}
+          aria-label={showRemoveFromWishlist ? "Dodaj u korpu" : "Add to cart"}
         >
-          Add to cart
+          {showRemoveFromWishlist ? "Dodaj u korpu" : "Add to cart"}
         </Button>
       </Link>
 
-      <Link scroll={false} href={`/products/${slug}/view`} onNavigate={handleNavigate}>
+      {!showRemoveFromWishlist ? (
+        <Link scroll={false} href={`/products/${slug}/view`} onNavigate={handleNavigate}>
+          <Button
+            fullWidth
+            disableElevation
+            color="inherit"
+            variant="contained"
+            className="view-btn"
+            onClick={handleQuickView}
+            loading={isQuickViewLoading}
+            aria-label="Quick view"
+          >
+            Quick View
+          </Button>
+        </Link>
+      ) : null}
+
+      {showRemoveFromWishlist ? (
         <Button
           fullWidth
-          disableElevation
-          color="inherit"
-          variant="contained"
-          className="view-btn"
-          onClick={handleQuickView}
-          loading={isQuickViewLoading}
-          aria-label="Quick view"
+          size="small"
+          color="error"
+          variant="outlined"
+          loading={isRemoveLoading}
+          onClick={() => void handleRemove()}
+          aria-label="Ukloni iz liste želja"
         >
-          Quick View
+          Ukloni
         </Button>
-      </Link>
+      ) : null}
     </HoverWrapper>
   );
 }

@@ -5,8 +5,13 @@ import CategoryProductsSection from "components/products-view/category-products-
 import CategoryBrowser, { type CategoryTreeNode } from "pages-sections/categories";
 import { SiteBreadcrumbs } from "components/site-breadcrumbs";
 import type { SiteBreadcrumbItem } from "components/site-breadcrumbs";
-import api from "utils/__api__/market-2";
-import { getCategoryPageData, getCategoryProductsForPath } from "lib/shop-category-listing";
+import api from "utils/__api__/homepage";
+import {
+  getCategoryImageUrlForPath,
+  getCategoryPageData,
+  getCategoryProductsForPath
+} from "lib/shop-category-listing";
+import { SITE_NAME } from "lib/site-metadata";
 import { getCategoryBreadcrumbTrail } from "lib/shop/category-breadcrumb-trail";
 import type { Category, CategorySidebarFilters } from "models/Filters";
 import { seoFilterSegmentsToParams } from "utils/seo-filter-slug";
@@ -56,7 +61,7 @@ function buildCategoryBreadcrumbItems(
   ];
 }
 
-/** Map market-2 category tree to Filters.categories shape for ProductFilters sidebar. */
+/** Map homepage category tree to Filters.categories shape for ProductFilters sidebar. */
 function buildFiltersCategories(
   categories: { name: string; slug: string; parent?: Array<{ name: string; slug: string } | string> }[] | null
 ): Category[] {
@@ -120,10 +125,27 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePar
       ? `${payload.category.name} – Strana ${pageNum} | Tech Zone`
       : `${payload.category.name} | Tech Zone`;
 
+  const description = `Proizvodi u kategoriji ${payload.category.name} na Tech Zone online prodavnici.`;
+  const ogImageUrl = await getCategoryImageUrlForPath(categoryPath);
+
   return {
     title,
-    description: `Proizvodi u kategoriji ${payload.category.name} na Tech Zone online prodavnici.`,
-    alternates: { canonical }
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: payload.category.name,
+      description,
+      type: "website",
+      url: canonical,
+      siteName: SITE_NAME,
+      images: [{ url: ogImageUrl, alt: payload.category.name }]
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: payload.category.name,
+      description,
+      images: [ogImageUrl]
+    }
   };
 }
 
