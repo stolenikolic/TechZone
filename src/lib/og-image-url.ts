@@ -1,28 +1,22 @@
 import { getServerBaseUrl } from "utils/site-url";
 
-const DEFAULT_OG_IMAGE_PATH = "/assets/images/categories/default-category.jpg";
+export const SITE_LOGO_PATH = "/assets/images/logo.svg";
 
-/**
- * Open Graph crawlers (WhatsApp, Facebook, Viber) require absolute http(s) URLs
- * and raster images (JPEG/PNG/WebP). SVG is not supported.
- */
 export function absoluteOgImageUrl(url: string | null | undefined): string {
   const trimmed = url?.trim() ?? "";
-  const path = trimmed || DEFAULT_OG_IMAGE_PATH;
-
-  if (/^https?:\/\//i.test(path)) return path;
-
+  if (!trimmed) return absoluteOgImageUrl(SITE_LOGO_PATH);
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
   const base = getServerBaseUrl().replace(/\/$/, "");
-  return path.startsWith("/") ? `${base}${path}` : `${base}/${path}`;
+  return trimmed.startsWith("/") ? `${base}${trimmed}` : `${base}/${trimmed}`;
 }
 
-export function defaultOgImageMetadata(alt: string) {
-  const url = absoluteOgImageUrl(DEFAULT_OG_IMAGE_PATH);
+/** Default OG slika (logo) za sve stranice osim kategorija i proizvoda. */
+export function siteLogoOgImage() {
   return {
-    url,
-    width: 1200,
-    height: 630,
-    alt,
-    type: "image/jpeg" as const
+    url: absoluteOgImageUrl(SITE_LOGO_PATH),
+    width: 353,
+    height: 122,
+    alt: "Tech Zone",
+    type: "image/svg+xml" as const
   };
 }

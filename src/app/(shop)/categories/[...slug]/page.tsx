@@ -12,7 +12,7 @@ import {
   getCategoryProductsForPath
 } from "lib/shop-category-listing";
 import { absoluteOgImageUrl } from "lib/og-image-url";
-import { SITE_NAME } from "lib/site-metadata";
+import { ogPageTitle, SITE_NAME } from "lib/site-metadata";
 import { getCategoryBreadcrumbTrail } from "lib/shop/category-breadcrumb-trail";
 import type { Category, CategorySidebarFilters } from "models/Filters";
 import { seoFilterSegmentsToParams } from "utils/seo-filter-slug";
@@ -121,10 +121,12 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePar
   const canonical =
     pageNum > 1 ? `${seoPath}?page=${pageNum}` : seoPath;
 
-  const title =
+  const categoryLabel =
     pageNum > 1
-      ? `${payload.category.name} – Strana ${pageNum} | Tech Zone`
-      : `${payload.category.name} | Tech Zone`;
+      ? `${payload.category.name} – Strana ${pageNum}`
+      : payload.category.name;
+  const title = `${categoryLabel} | Tech Zone`;
+  const ogTitle = ogPageTitle(categoryLabel);
 
   const description = `Proizvodi u kategoriji ${payload.category.name} na Tech Zone online prodavnici.`;
   const ogImageUrl = absoluteOgImageUrl(await getCategoryImageUrlForPath(categoryPath));
@@ -134,16 +136,16 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePar
     description,
     alternates: { canonical },
     openGraph: {
-      title: payload.category.name,
+      title: ogTitle,
       description,
       type: "website",
       url: canonical,
       siteName: SITE_NAME,
-      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: payload.category.name }]
+      images: [{ url: ogImageUrl, alt: payload.category.name }]
     },
     twitter: {
       card: "summary_large_image",
-      title: payload.category.name,
+      title: ogTitle,
       description,
       images: [ogImageUrl]
     }

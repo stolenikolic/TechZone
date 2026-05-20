@@ -9,7 +9,7 @@ import { getFrequentlyBought, getRelatedProducts } from "utils/__api__/related-p
 import { SlugParams } from "models/Common";
 import type Product from "models/Product.model";
 import { absoluteOgImageUrl } from "lib/og-image-url";
-import { SITE_NAME } from "lib/site-metadata";
+import { ogPageTitle, pageTitle, SITE_NAME } from "lib/site-metadata";
 
 /** Build schema.org Product JSON-LD for rich results (no layout/UI changes). */
 function buildProductSchema(product: Product): Record<string, unknown> {
@@ -57,7 +57,8 @@ export async function generateMetadata({ params }: SlugParams): Promise<Metadata
   const baseUrl = getBaseUrl();
   // Canonical always uses product.slug so it points to the main product page (prevents duplicate content).
   const canonicalUrl = `${baseUrl}/products/${product.slug}`;
-  const title = `${product.title} | Tech Zone`;
+  const title = pageTitle(product.title, "shop");
+  const ogTitle = ogPageTitle(product.title);
   const description =
     product.description ??
     `Kupite ${product.title} na Tech Zone — računarska oprema i komponente u BiH.`;
@@ -70,16 +71,16 @@ export async function generateMetadata({ params }: SlugParams): Promise<Metadata
     description,
     keywords: ["tech zone", "računari", "komponente", product.title],
     openGraph: {
-      title: product.title,
+      title: ogTitle,
       description,
       type: "website",
       url: canonicalUrl,
       siteName: SITE_NAME,
-      images: [{ url: mainImage, width: 1200, height: 630, alt: product.title }]
+      images: [{ url: mainImage, alt: product.title }]
     },
     twitter: {
       card: "summary_large_image",
-      title: product.title,
+      title: ogTitle,
       description,
       images: [mainImage]
     },

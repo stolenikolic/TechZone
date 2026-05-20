@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { pageTitle, SITE_KEYWORDS } from "lib/site-metadata";
+import { siteLogoOgImage } from "lib/og-image-url";
+import { ogPageTitle, pageTitle, SITE_KEYWORDS } from "lib/site-metadata";
 // PAGE VIEW COMPONENT
 import { ProductSearchPageView } from "pages-sections/product-details/page-view";
 // API FUNCTIONS
@@ -37,24 +38,28 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       : "Pretraga proizvoda";
 
   const title = pageTitle(titlePage, "shop");
+  const ogTitle = ogPageTitle(titlePage);
 
   const description = query
     ? `Rezultati pretrage za „${query}” na Tech Zone online prodavnici.`
     : "Pretražite računarsku opremu i komponente na Tech Zone.";
 
+  const logo = siteLogoOgImage();
   return {
     title,
     description,
     keywords: SITE_KEYWORDS,
     openGraph: {
-      title,
+      title: ogTitle,
       description,
-      type: "website"
+      type: "website",
+      images: [logo]
     },
     twitter: {
       card: "summary_large_image",
-      title,
-      description
+      title: ogTitle,
+      description,
+      images: [logo.url]
     }
   };
 }
