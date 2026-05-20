@@ -3,6 +3,12 @@ function withProtocol(url: string): string {
 }
 
 export function getServerBaseUrl(): string {
+  // SSR admin/data fetches must hit this Next process in dev — not production SITE_URL.
+  if (process.env.NODE_ENV === "development") {
+    const port = process.env.PORT ?? "3000";
+    return `http://127.0.0.1:${port}`;
+  }
+
   const url =
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.URL ||

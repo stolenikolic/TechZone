@@ -530,7 +530,7 @@ async function importIponCategory(
   }
 
   console.log(
-    `[iPon import] Sažetak ${cat.name}: API total=${apiTotal ?? "?"}, fetchedIds=${fetchedIds.size}, preskočeno (bez cijene)=${skippedUnparseable}, uspješno=${succeeded}, izmijenjeno=${updated}, aktivirano=${activated}, deaktivirano=${deactivated}`
+    `[iPon import] Sažetak ${cat.name}: API total=${apiTotal ?? "?"}, fetchedIds=${fetchedIds.size}, preskočeno (bez cijene)=${skippedUnparseable}, novih=${imported}, uspješno=${succeeded}, izmijenjeno=${updated}, aktivirano=${activated}, deaktivirano=${deactivated}`
   );
   if (apiTotal != null && fetchedIds.size !== apiTotal) {
     console.warn(
