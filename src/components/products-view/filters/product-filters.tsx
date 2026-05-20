@@ -1,14 +1,12 @@
-"use client";
+﻿"use client";
 
 import { Fragment, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 // MUI
 import Box from "@mui/material/Box";
-import Slider from "@mui/material/Slider";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import Collapse from "@mui/material/Collapse";
-import TextField from "@mui/material/TextField";
 import FormGroup from "@mui/material/FormGroup";
 import Typography from "@mui/material/Typography";
 import KeyboardArrowUp from "@mui/icons-material/KeyboardArrowUp";
@@ -16,15 +14,13 @@ import KeyboardArrowDown from "@mui/icons-material/KeyboardArrowDown";
 // GLOBAL CUSTOM COMPONENTS
 import AccordionHeader from "components/accordion";
 import { NavLink } from "components/nav-link";
-import { FlexBetween, FlexBox } from "components/flex-box";
 // LOCAL CUSTOM COMPONENTS
-import CheckboxLabel from "./checkbox-label";
+import FilterCheckboxRow from "./filter-checkbox-row";
 import DualRangeSlider, { formatRangeParam } from "./dual-range-slider";
 import FilterSectionTitle from "./filter-section-title";
 // CUSTOM LOCAL HOOK
 import useProductFilterCard, { type ProductFilterCardFilters } from "./use-product-filter-card";
 // TYPES
-import type Filters from "models/Filters";
 import type { CategorySidebarFilters, FilterItem } from "models/Filters";
 import { isSearchPageFilters } from "models/Filters";
 import SearchPageSidebar from "./search-page-sidebar";
@@ -92,34 +88,21 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
   const [openFilterSlugs, setOpenFilterSlugs] = useState<Record<string, boolean>>({ brand: true });
   const [expandedFilterSlugs, setExpandedFilterSlugs] = useState<Record<string, boolean>>({});
 
-  const hook = useProductFilterCard(filters);
   const {
-    sales,
-    brands,
-    colors,
-    prices,
-    priceMinInputStr,
-    priceMaxInputStr,
-    handleChangePriceMinInput,
-    handleChangePriceMaxInput,
     collapsed,
     setCollapsed,
-    handleChangeColor,
-    handleChangePrice,
-    applyPrice,
-    applyPriceWithValues,
     debouncedApplyPriceWithValues,
-    handleChangeSales,
-    handleChangeSearchParams,
     basePathForParams,
     hasSeoFilterInPath,
     getSelectedValues,
+    getFilterQueryParam,
     handleFilterChange,
     handleAttributeRangeFilterChange,
-    pendingFilterKey
-  } = hook;
-
-  const priceRange = hook.priceRange;
+    isFilterPending,
+    isSectionPending,
+    filterValuePendingKey,
+    priceRange
+  } = useProductFilterCard(filters);
 
   const activeFilterKeys = Array.from(searchParams.keys()).filter((key) => key !== "page");
   const hasActiveFilters = activeFilterKeys.length > 0 || hasSeoFilterInPath;
@@ -193,11 +176,11 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
         <Box component={Divider} my={3} />
         {priceRange && (
           <>
-            <FilterSectionTitle title="Price Range" loading={pendingFilterKey === "prices"} sx={{ mb: 2 }} />
+            <FilterSectionTitle title="Price Range" loading={isSectionPending("prices")} sx={{ mb: 2 }} />
             <DualRangeSlider
               rangeMin={priceRange.min}
               rangeMax={priceRange.max}
-              selectedParam={searchParams.get("prices")}
+              selectedParam={getFilterQueryParam("prices")}
               onCommit={(tuple) => debouncedApplyPriceWithValues(tuple)}
             />
             <Box component={Divider} my={3} />
@@ -219,30 +202,31 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
                 onClick={() => setOpenFilterSlugs((state) => ({ ...state, [filter.slug]: !open }))}
                 sx={FILTER_ACCORDION_HEADER_SX}
               >
-                <FilterSectionTitle title={filter.name} loading={pendingFilterKey === filter.slug} />
+                <FilterSectionTitle title={filter.name} loading={isSectionPending(filter.slug)} />
               </AccordionHeader>
 
               <Collapse in={open}>
                 {isRangeFilter ? (
                   <RangeAttributeFilter
                     filter={filter}
-                    selectedParam={searchParams.get(filter.slug)}
+                    selectedParam={getFilterQueryParam(filter.slug)}
                     onApply={handleAttributeRangeFilterChange}
                   />
                 ) : (
                   <>
                     <FormGroup>
                       {visibleValues.map((value) => {
-                        const selected = isBrand
-                          ? getSelectedValues(filter.slug).includes(normalizeBrandValue(value))
-                          : getSelectedValues(filter.slug).includes(value);
+                        const normalized = isBrand ? normalizeBrandValue(value) : value;
+                        const selected = getSelectedValues(filter.slug).includes(normalized);
+                        const pendingKey = filterValuePendingKey(filter.slug, normalized);
 
                         return (
-                          <CheckboxLabel
+                          <FilterCheckboxRow
                             key={value}
                             label={formatFilterValue(filter.slug, value)}
                             checked={selected}
                             onChange={() => handleFilterChange(filter.slug, value, !selected)}
+                            pending={isFilterPending(pendingKey)}
                           />
                         );
                       })}
@@ -253,14 +237,17 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
                         <Collapse in={expanded} timeout="auto" unmountOnExit>
                           <FormGroup>
                             {hiddenValues.map((value) => {
-                              const selected = getSelectedValues(filter.slug).includes(normalizeBrandValue(value));
+                              const normalized = normalizeBrandValue(value);
+                              const selected = getSelectedValues(filter.slug).includes(normalized);
+                              const pendingKey = filterValuePendingKey(filter.slug, normalized);
 
                               return (
-                                <CheckboxLabel
+                                <FilterCheckboxRow
                                   key={value}
                                   label={formatFilterValue(filter.slug, value)}
                                   checked={selected}
                                   onChange={() => handleFilterChange(filter.slug, value, !selected)}
+                                  pending={isFilterPending(pendingKey)}
                                 />
                               );
                             })}
@@ -304,570 +291,5 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
     );
   }
 
-  /** Legacy sidebar: fixed filter keys (search/shops) */
-  const {
-    brands: BRANDS,
-    categories: CATEGORIES,
-    others: OTHERS,
-    colors: COLORS,
-    capacityRange,
-    rpmRange,
-    bufferRange,
-    sizeOptions,
-    connectionOptions,
-    readSpeedRange,
-    writeSpeedRange,
-    pcieGenerationOptions,
-    heatsinkOptions
-  } = filters as Filters;
-
-  const {
-    localCapacity,
-    localRpm,
-    localBuffer,
-    capacityMinInputStr,
-    capacityMaxInputStr,
-    rpmMinInputStr,
-    rpmMaxInputStr,
-    bufferMinInputStr,
-    bufferMaxInputStr,
-    handleChangeCapacityMinInput,
-    handleChangeCapacityMaxInput,
-    handleChangeRpmMinInput,
-    handleChangeRpmMaxInput,
-    handleChangeBufferMinInput,
-    handleChangeBufferMaxInput,
-    sizeSelections,
-    connectionSelections,
-    handleChangeBrand,
-    debouncedApplyCapacity,
-    debouncedApplyRpm,
-    debouncedApplyBuffer,
-    debouncedApplyReadSpeed,
-    debouncedApplyWriteSpeed,
-    handleChangeCapacity,
-    handleChangeRpm,
-    handleChangeBuffer,
-    handleChangeReadSpeed,
-    handleChangeWriteSpeed,
-    applyCapacity,
-    applyRpm,
-    applyBuffer,
-    applyReadSpeed,
-    applyWriteSpeed,
-    localReadSpeed,
-    localWriteSpeed,
-    readSpeedMinInputStr,
-    readSpeedMaxInputStr,
-    writeSpeedMinInputStr,
-    writeSpeedMaxInputStr,
-    handleChangeReadSpeedMinInput,
-    handleChangeReadSpeedMaxInput,
-    handleChangeWriteSpeedMinInput,
-    handleChangeWriteSpeedMaxInput,
-    handleChangeSize,
-    handleChangeConnection,
-    pcieGenerationSelections,
-    heatsinkSelections,
-    handleChangePcieGeneration,
-    handleChangeHeatsink
-  } = hook;
-
-  return (
-    <div>
-      {/* LEGACY: fixed filter keys (search/shops) */}
-      <Typography variant="h6" sx={{ mb: 1.25 }}>
-        Categories
-      </Typography>
-
-      {CATEGORIES.map((item) =>
-        item.children ? (
-          <Fragment key={item.title}>
-            <AccordionHeader
-              open={collapsed}
-              onClick={() => setCollapsed((state) => !state)}
-              sx={FILTER_ACCORDION_HEADER_SX}
-            >
-              <Typography component="span">{item.title}</Typography>
-            </AccordionHeader>
-
-            <Collapse in={collapsed}>
-              {item.children.map((child) => {
-                const title = getCategoryChildTitle(child);
-                const href = getCategoryChildHref(child);
-
-                const content = (
-                  <Typography
-                    variant="body1"
-                    sx={{
-                      py: 0.75,
-                      pl: "22px",
-                      fontSize: 14,
-                      cursor: "pointer",
-                      color: "grey.600"
-                    }}
-                  >
-                    {title}
-                  </Typography>
-                );
-
-                return href ? (
-                  <NavLink href={href} key={title}>
-                    {content}
-                  </NavLink>
-                ) : (
-                  <Fragment key={title}>{content}</Fragment>
-                );
-              })}
-            </Collapse>
-          </Fragment>
-        ) : (
-          <Typography
-            variant="body1"
-            key={item.title}
-            sx={{
-              py: 0.75,
-              fontSize: 14,
-              cursor: "pointer",
-              color: "grey.600"
-            }}
-          >
-            {item.title}
-          </Typography>
-        )
-      )}
-
-      <Box component={Divider} my={3} />
-
-      {/* PRICE RANGE: only when category has price data */}
-      {priceRange && (
-        <>
-          <FilterSectionTitle title="Price Range" loading={pendingFilterKey === "prices"} sx={{ mb: 2 }} />
-
-          <Slider
-            min={priceRange.min}
-            max={priceRange.max}
-            size="small"
-            value={prices}
-            valueLabelDisplay="auto"
-            valueLabelFormat={(v) => `${v}`}
-            onChange={(_, v: number | number[]) => handleChangePrice(Array.isArray(v) ? v : [v, v])}
-            onChangeCommitted={(_, v: number | number[]) =>
-              debouncedApplyPriceWithValues(Array.isArray(v) ? v : [v, v])
-            }
-          />
-
-          <FlexBetween>
-            <TextField
-              fullWidth
-              size="small"
-              type="text"
-              inputMode="numeric"
-              placeholder={String(priceRange.min)}
-              value={priceMinInputStr}
-              onChange={(e) => handleChangePriceMinInput(e.target.value)}
-              onBlur={applyPrice}
-              onKeyDown={(e) => e.key === "Enter" && applyPrice()}
-            />
-            <Typography variant="h5" sx={{ px: 1, color: "grey.600" }}>
-              -
-            </Typography>
-            <TextField
-              fullWidth
-              size="small"
-              type="text"
-              inputMode="numeric"
-              placeholder={String(priceRange.max)}
-              value={priceMaxInputStr}
-              onChange={(e) => handleChangePriceMaxInput(e.target.value)}
-              onBlur={applyPrice}
-              onKeyDown={(e) => e.key === "Enter" && applyPrice()}
-            />
-          </FlexBetween>
-          <Box component={Divider} my={3} />
-        </>
-      )}
-
-      {/* BRANDS: only when category has brands */}
-      {BRANDS.length > 0 && (
-        <>
-          <FilterSectionTitle title="Brands" loading={pendingFilterKey === "brand"} sx={{ mb: 2 }} />
-          <FormGroup>
-            {BRANDS.map(({ label, value }) => (
-              <CheckboxLabel
-                key={value}
-                label={label}
-                checked={brands.includes(value)}
-                onChange={() => handleChangeBrand(value)}
-              />
-            ))}
-          </FormGroup>
-          <Box component={Divider} my={3} />
-        </>
-      )}
-
-      {/* CAPACITY: only when category has capacity attribute */}
-      {capacityRange && (
-        <>
-          <FilterSectionTitle title="Capacity" loading={pendingFilterKey === "capacity"} sx={{ mb: 2 }} />
-          <Slider
-            min={capacityRange.min}
-            max={capacityRange.max}
-            size="small"
-            value={localCapacity}
-            valueLabelDisplay="auto"
-            valueLabelFormat={(v) => `${v}`}
-            onChange={(_, v: number | number[]) => handleChangeCapacity(Array.isArray(v) ? v : [v, v])}
-            onChangeCommitted={(_, v: number | number[]) =>
-              debouncedApplyCapacity(Array.isArray(v) ? v : [v, v])
-            }
-          />
-          <FlexBetween>
-            <TextField
-              fullWidth
-              size="small"
-              type="text"
-              inputMode="numeric"
-              placeholder={String(capacityRange.min)}
-              value={capacityMinInputStr}
-              onChange={(e) => handleChangeCapacityMinInput(e.target.value)}
-              onBlur={() => applyCapacity()}
-              onKeyDown={(e) => e.key === "Enter" && applyCapacity()}
-            />
-            <Typography variant="h5" sx={{ px: 1, color: "grey.600" }}>
-              -
-            </Typography>
-            <TextField
-              fullWidth
-              size="small"
-              type="text"
-              inputMode="numeric"
-              placeholder={String(capacityRange.max)}
-              value={capacityMaxInputStr}
-              onChange={(e) => handleChangeCapacityMaxInput(e.target.value)}
-              onBlur={() => applyCapacity()}
-              onKeyDown={(e) => e.key === "Enter" && applyCapacity()}
-            />
-          </FlexBetween>
-          <Box component={Divider} my={3} />
-        </>
-      )}
-
-      {/* RPM: only when category has rpm attribute */}
-      {rpmRange && (
-        <>
-          <FilterSectionTitle title="RPM" loading={pendingFilterKey === "rpm"} sx={{ mb: 2 }} />
-          <Slider
-            min={rpmRange.min}
-            max={rpmRange.max}
-            size="small"
-            value={localRpm}
-            valueLabelDisplay="auto"
-            valueLabelFormat={(v) => `${v}`}
-            onChange={(_, v: number | number[]) => handleChangeRpm(Array.isArray(v) ? v : [v, v])}
-            onChangeCommitted={(_, v: number | number[]) => debouncedApplyRpm(Array.isArray(v) ? v : [v, v])}
-          />
-          <FlexBetween>
-            <TextField
-              fullWidth
-              size="small"
-              type="text"
-              inputMode="numeric"
-              placeholder={String(rpmRange.min)}
-              value={rpmMinInputStr}
-              onChange={(e) => handleChangeRpmMinInput(e.target.value)}
-              onBlur={() => applyRpm()}
-              onKeyDown={(e) => e.key === "Enter" && applyRpm()}
-            />
-            <Typography variant="h5" sx={{ px: 1, color: "grey.600" }}>
-              -
-            </Typography>
-            <TextField
-              fullWidth
-              size="small"
-              type="text"
-              inputMode="numeric"
-              placeholder={String(rpmRange.max)}
-              value={rpmMaxInputStr}
-              onChange={(e) => handleChangeRpmMaxInput(e.target.value)}
-              onBlur={() => applyRpm()}
-              onKeyDown={(e) => e.key === "Enter" && applyRpm()}
-            />
-          </FlexBetween>
-          <Box component={Divider} my={3} />
-        </>
-      )}
-
-      {/* BUFFER: only when category has buffer attribute */}
-      {bufferRange && (
-        <>
-          <FilterSectionTitle title="Buffer" loading={pendingFilterKey === "buffer"} sx={{ mb: 2 }} />
-          <Slider
-            min={bufferRange.min}
-            max={bufferRange.max}
-            size="small"
-            value={localBuffer}
-            valueLabelDisplay="auto"
-            valueLabelFormat={(v) => `${v}`}
-            onChange={(_, v: number | number[]) => handleChangeBuffer(Array.isArray(v) ? v : [v, v])}
-            onChangeCommitted={(_, v: number | number[]) =>
-              debouncedApplyBuffer(Array.isArray(v) ? v : [v, v])
-            }
-          />
-          <FlexBetween>
-            <TextField
-              fullWidth
-              size="small"
-              type="text"
-              inputMode="numeric"
-              placeholder={String(bufferRange.min)}
-              value={bufferMinInputStr}
-              onChange={(e) => handleChangeBufferMinInput(e.target.value)}
-              onBlur={() => applyBuffer()}
-              onKeyDown={(e) => e.key === "Enter" && applyBuffer()}
-            />
-            <Typography variant="h5" sx={{ px: 1, color: "grey.600" }}>
-              -
-            </Typography>
-            <TextField
-              fullWidth
-              size="small"
-              type="text"
-              inputMode="numeric"
-              placeholder={String(bufferRange.max)}
-              value={bufferMaxInputStr}
-              onChange={(e) => handleChangeBufferMaxInput(e.target.value)}
-              onBlur={() => applyBuffer()}
-              onKeyDown={(e) => e.key === "Enter" && applyBuffer()}
-            />
-          </FlexBetween>
-          <Box component={Divider} my={3} />
-        </>
-      )}
-
-      {/* SIZE: only when category has size_inch or size attribute */}
-      {sizeOptions && sizeOptions.length > 0 && (
-        <>
-          <FilterSectionTitle title="Size" loading={pendingFilterKey === "size"} sx={{ mb: 2 }} />
-          <FormGroup>
-            {sizeOptions.map((option) => (
-              <CheckboxLabel
-                key={option}
-                label={option}
-                checked={sizeSelections.includes(option)}
-                onChange={() => handleChangeSize(option)}
-              />
-            ))}
-          </FormGroup>
-          <Box component={Divider} my={3} />
-        </>
-      )}
-
-      {/* CONNECTION: only when category has connection attribute (e.g. SSD) */}
-      {connectionOptions && connectionOptions.length > 0 && (
-        <>
-          <FilterSectionTitle title="Connection" loading={pendingFilterKey === "connection"} sx={{ mb: 2 }} />
-          <FormGroup>
-            {connectionOptions.map((option) => (
-              <CheckboxLabel
-                key={option}
-                label={option}
-                checked={(connectionSelections ?? []).includes(option)}
-                onChange={() => handleChangeConnection(option)}
-              />
-            ))}
-          </FormGroup>
-          <Box component={Divider} my={3} />
-        </>
-      )}
-
-      {/* READ SPEED: SSD */}
-      {readSpeedRange && (
-        <>
-          <FilterSectionTitle title="Read speed (MB/s)" loading={pendingFilterKey === "read_speed"} sx={{ mb: 2 }} />
-          <Slider
-            min={readSpeedRange.min}
-            max={readSpeedRange.max}
-            size="small"
-            value={localReadSpeed}
-            valueLabelDisplay="auto"
-            valueLabelFormat={(v) => `${v}`}
-            onChange={(_, v: number | number[]) =>
-              handleChangeReadSpeed(Array.isArray(v) ? v : [v, v])
-            }
-            onChangeCommitted={(_, v: number | number[]) =>
-              debouncedApplyReadSpeed(Array.isArray(v) ? v : [v, v])
-            }
-          />
-          <FlexBetween>
-            <TextField
-              fullWidth
-              size="small"
-              type="text"
-              inputMode="numeric"
-              placeholder={String(readSpeedRange.min)}
-              value={readSpeedMinInputStr}
-              onChange={(e) => handleChangeReadSpeedMinInput(e.target.value)}
-              onBlur={() => applyReadSpeed()}
-              onKeyDown={(e) => e.key === "Enter" && applyReadSpeed()}
-            />
-            <Typography variant="h5" sx={{ px: 1, color: "grey.600" }}>
-              -
-            </Typography>
-            <TextField
-              fullWidth
-              size="small"
-              type="text"
-              inputMode="numeric"
-              placeholder={String(readSpeedRange.max)}
-              value={readSpeedMaxInputStr}
-              onChange={(e) => handleChangeReadSpeedMaxInput(e.target.value)}
-              onBlur={() => applyReadSpeed()}
-              onKeyDown={(e) => e.key === "Enter" && applyReadSpeed()}
-            />
-          </FlexBetween>
-          <Box component={Divider} my={3} />
-        </>
-      )}
-
-      {/* WRITE SPEED: SSD */}
-      {writeSpeedRange && (
-        <>
-          <FilterSectionTitle title="Write speed (MB/s)" loading={pendingFilterKey === "write_speed"} sx={{ mb: 2 }} />
-          <Slider
-            min={writeSpeedRange.min}
-            max={writeSpeedRange.max}
-            size="small"
-            value={localWriteSpeed}
-            valueLabelDisplay="auto"
-            valueLabelFormat={(v) => `${v}`}
-            onChange={(_, v: number | number[]) =>
-              handleChangeWriteSpeed(Array.isArray(v) ? v : [v, v])
-            }
-            onChangeCommitted={(_, v: number | number[]) =>
-              debouncedApplyWriteSpeed(Array.isArray(v) ? v : [v, v])
-            }
-          />
-          <FlexBetween>
-            <TextField
-              fullWidth
-              size="small"
-              type="text"
-              inputMode="numeric"
-              placeholder={String(writeSpeedRange.min)}
-              value={writeSpeedMinInputStr}
-              onChange={(e) => handleChangeWriteSpeedMinInput(e.target.value)}
-              onBlur={() => applyWriteSpeed()}
-              onKeyDown={(e) => e.key === "Enter" && applyWriteSpeed()}
-            />
-            <Typography variant="h5" sx={{ px: 1, color: "grey.600" }}>
-              -
-            </Typography>
-            <TextField
-              fullWidth
-              size="small"
-              type="text"
-              inputMode="numeric"
-              placeholder={String(writeSpeedRange.max)}
-              value={writeSpeedMaxInputStr}
-              onChange={(e) => handleChangeWriteSpeedMaxInput(e.target.value)}
-              onBlur={() => applyWriteSpeed()}
-              onKeyDown={(e) => e.key === "Enter" && applyWriteSpeed()}
-            />
-          </FlexBetween>
-          <Box component={Divider} my={3} />
-        </>
-      )}
-
-      {/* PCIe GENERATION: SSD */}
-      {pcieGenerationOptions && pcieGenerationOptions.length > 0 && (
-        <>
-          <FilterSectionTitle title="PCIe generation" loading={pendingFilterKey === "pcie_generation"} sx={{ mb: 2 }} />
-          <FormGroup>
-            {pcieGenerationOptions.map((option) => (
-              <CheckboxLabel
-                key={option}
-                label={option === "-" ? "N/A (SATA)" : option}
-                checked={(pcieGenerationSelections ?? []).includes(option)}
-                onChange={() => handleChangePcieGeneration(option)}
-              />
-            ))}
-          </FormGroup>
-          <Box component={Divider} my={3} />
-        </>
-      )}
-
-      {/* HEATSINK: SSD */}
-      {heatsinkOptions && heatsinkOptions.length > 0 && (
-        <>
-          <FilterSectionTitle title="Heatsink" loading={pendingFilterKey === "heatsink"} sx={{ mb: 2 }} />
-          <FormGroup>
-            {heatsinkOptions.map((option) => (
-              <CheckboxLabel
-                key={option}
-                label={option === "true" ? "Yes" : option === "false" ? "No" : option}
-                checked={(heatsinkSelections ?? []).includes(option)}
-                onChange={() => handleChangeHeatsink(option)}
-              />
-            ))}
-          </FormGroup>
-          <Box component={Divider} my={3} />
-        </>
-      )}
-
-      {/* SALES OPTIONS: only when others exist */}
-      {OTHERS.length > 0 && (
-      <FormGroup>
-        {OTHERS.map(({ label, value }) => (
-          <CheckboxLabel
-            key={value}
-            label={label}
-            checked={sales.includes(value)}
-            onChange={() => handleChangeSales(value)}
-          />
-        ))}
-      </FormGroup>
-      )}
-      <Box component={Divider} my={3} />
-
-      {/* COLORS: only when colors exist */}
-      {COLORS.length > 0 && (
-        <>
-      <FilterSectionTitle title="Colors" loading={pendingFilterKey === "colors"} sx={{ mb: 2 }} />
-      <FlexBox mb={2} flexWrap="wrap" gap={1.5}>
-        {COLORS.map((item) => (
-          <Box
-            key={item}
-            bgcolor={item}
-            onClick={() => handleChangeColor(item)}
-            sx={{
-              width: 25,
-              height: 25,
-              flexShrink: 0,
-              outlineOffset: 1,
-              cursor: "pointer",
-              borderRadius: 3,
-              outline: colors.includes(item) ? 1 : 0,
-              outlineColor: item
-            }}
-          />
-        ))}
-      </FlexBox>
-        </>
-      )}
-
-      {hasActiveFilters && (
-        <Button
-          fullWidth
-          disableElevation
-          color="error"
-          variant="contained"
-          onClick={handleClearFilters}
-          sx={{ mt: 4 }}
-        >
-          Clear all filters
-        </Button>
-      )}
-    </div>
-  );
+  return null;
 }

@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { cloneFilterParams, toFilterUrlSnapshot } from "lib/shop/filter-url-snapshot";
+import usePendingFilterNavigation from "hooks/usePendingFilterNavigation";
 import { parseRangeParamToTuple } from "lib/shop/range-filter-utils";
 import {
   formatCategorySlugsParam,
@@ -23,28 +25,37 @@ function parseBrandSlugs(param: string | null): string[] {
 }
 
 export default function useSearchFilterParams(filters: SearchPageFilters) {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const {
+    pendingSnapshot,
+    getEffectiveParams,
+    getEffectivePathname,
+    pushUrlAndRefresh,
+    isFilterPending,
+    isSectionPending,
+    filterValuePendingKey
+  } = usePendingFilterNavigation();
 
   const pushParams = useCallback(
-    (mutate: (params: URLSearchParams) => void) => {
-      const params = new URLSearchParams(searchParams);
+    (mutate: (params: URLSearchParams) => void, filterKeys: string | string[]) => {
+      const path = getEffectivePathname();
+      const params = cloneFilterParams(getEffectiveParams());
       params.delete("page");
       mutate(params);
-      const query = params.toString();
-      router.push(query ? `${pathname}?${query}` : pathname, { scroll: false });
-      setTimeout(() => router.refresh(), 0);
+      pushUrlAndRefresh(toFilterUrlSnapshot(path, params), filterKeys);
     },
-    [pathname, router, searchParams]
+    [getEffectiveParams, getEffectivePathname, pushUrlAndRefresh]
   );
 
   const selectedCategorySlugs = useMemo(
-    () => parseCategorySlugsParam(searchParams.get("category")),
-    [searchParams]
+    () => parseCategorySlugsParam(getEffectiveParams().get("category")),
+    [getEffectiveParams, pendingSnapshot]
   );
 
-  const selectedBrandSlugs = useMemo(() => parseBrandSlugs(searchParams.get("brands")), [searchParams]);
+  const selectedBrandSlugs = useMemo(
+    () => parseBrandSlugs(getEffectiveParams().get("brands")),
+    [getEffectiveParams, pendingSnapshot]
+  );
 
   const categoryFacetBySlug = useMemo(
     () => new Map(filters.searchCategoryFacets.map((facet) => [facet.slug.toLowerCase(), facet])),
@@ -66,7 +77,7 @@ export default function useSearchFilterParams(filters: SearchPageFilters) {
     const priceRange = filters.priceRange;
     if (!priceRange) return null;
 
-    const [min, max] = parseRangeParamToTuple(searchParams.get("prices"), priceRange, 1);
+    const [min, max] = parseRangeParamToTuple(getEffectiveParams().get("prices"), priceRange, 1);
     const isDefault = min === priceRange.min && max === priceRange.max;
     if (isDefault) return null;
 
@@ -74,7 +85,7 @@ export default function useSearchFilterParams(filters: SearchPageFilters) {
       id: "price",
       label: `${min} – ${max} KM`
     };
-  }, [filters.priceRange, searchParams]);
+  }, [filters.priceRange, getEffectiveParams, pendingSnapshot]);
 
   const chips = useMemo((): ActiveFilterChip[] => {
     const items: ActiveFilterChip[] = [];
@@ -115,7 +126,7 @@ export default function useSearchFilterParams(filters: SearchPageFilters) {
         } else if (chip.id === "price") {
           params.delete("prices");
         }
-      });
+      }, chip.id);
     },
     [pushParams]
   );
@@ -125,7 +136,7 @@ export default function useSearchFilterParams(filters: SearchPageFilters) {
       params.delete("category");
       params.delete("brands");
       params.delete("prices");
-    });
+    }, "clear");
   }, [pushParams]);
 
   const toggleCategory = useCallback(
@@ -138,9 +149,9 @@ export default function useSearchFilterParams(filters: SearchPageFilters) {
           : [...current, normalized];
         if (next.length === 0) params.delete("category");
         else params.set("category", formatCategorySlugsParam(next));
-      });
+      }, ["category", filterValuePendingKey("category", normalized)]);
     },
-    [pushParams]
+    [filterValuePendingKey, pushParams]
   );
 
   return {
@@ -149,6 +160,12 @@ export default function useSearchFilterParams(filters: SearchPageFilters) {
     removeChip,
     clearAllFilters,
     toggleCategory,
-    selectedCategorySlugs
+    selectedCategorySlugs,
+    isFilterPending,
+    isSectionPending,
+    filterValuePendingKey,
+    /** Za price slider u search sidebaru. */
+    getEffectiveParams,
+    pendingSnapshot
   };
 }

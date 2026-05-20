@@ -8,8 +8,7 @@ import type { SiteBreadcrumbItem } from "components/site-breadcrumbs";
 import api from "utils/__api__/market-2";
 import { getCategoryPageData, getCategoryProductsForPath } from "lib/shop-category-listing";
 import { getCategoryBreadcrumbTrail } from "lib/shop/category-breadcrumb-trail";
-import type Filters from "models/Filters";
-import type { CategorySidebarFilters } from "models/Filters";
+import type { Category, CategorySidebarFilters } from "models/Filters";
 import { seoFilterSegmentsToParams } from "utils/seo-filter-slug";
 
 interface CategoryPageParams {
@@ -60,7 +59,7 @@ function buildCategoryBreadcrumbItems(
 /** Map market-2 category tree to Filters.categories shape for ProductFilters sidebar. */
 function buildFiltersCategories(
   categories: { name: string; slug: string; parent?: Array<{ name: string; slug: string } | string> }[] | null
-): Filters["categories"] {
+): Category[] {
   if (!categories || !Array.isArray(categories)) return [];
   return categories.map((item) => {
     const children =

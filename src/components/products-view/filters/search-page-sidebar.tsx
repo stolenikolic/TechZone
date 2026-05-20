@@ -11,7 +11,7 @@ import KeyboardArrowUp from "@mui/icons-material/KeyboardArrowUp";
 import KeyboardArrowDown from "@mui/icons-material/KeyboardArrowDown";
 import AccordionHeader from "components/accordion";
 import type { SearchPageFilters } from "models/Filters";
-import CheckboxLabel from "./checkbox-label";
+import FilterCheckboxRow from "./filter-checkbox-row";
 import DualRangeSlider from "./dual-range-slider";
 import FilterSectionTitle from "./filter-section-title";
 import SearchCategoryFilter from "./search-category-filter";
@@ -39,7 +39,15 @@ export default function SearchPageSidebar({ filters }: Props) {
   const [expandedBrands, setExpandedBrands] = useState(false);
 
   const hook = useProductFilterCard(filters);
-  const { pendingFilterKey, debouncedApplyPriceWithValues, getSelectedValues, handleFilterChange } = hook;
+  const {
+    pendingFilterKey,
+    isFilterPending,
+    isSectionPending,
+    filterValuePendingKey,
+    debouncedApplyPriceWithValues,
+    getSelectedValues,
+    handleFilterChange
+  } = hook;
 
   const priceRange = filters.priceRange;
   const brandFilter = filters.filters.find((item) => item.slug === "brand");
@@ -76,19 +84,21 @@ export default function SearchPageSidebar({ filters }: Props) {
             onClick={() => setOpenBrand((state) => !state)}
             sx={FILTER_ACCORDION_HEADER_SX}
           >
-            <FilterSectionTitle title={brandFilter.name} loading={pendingFilterKey === "brand"} />
+            <FilterSectionTitle title={brandFilter.name} loading={isSectionPending("brand")} />
           </AccordionHeader>
 
           <Collapse in={openBrand}>
             <FormGroup>
               {visibleBrands.map((value) => {
                 const selected = getSelectedValues("brand").includes(normalizeBrandValue(value));
+                const norm = normalizeBrandValue(value);
                 return (
-                  <CheckboxLabel
+                  <FilterCheckboxRow
                     key={value}
                     label={value}
                     checked={selected}
                     onChange={() => handleFilterChange("brand", value, !selected)}
+                    pending={isFilterPending(filterValuePendingKey("brand", norm))}
                   />
                 );
               })}
@@ -100,12 +110,14 @@ export default function SearchPageSidebar({ filters }: Props) {
                   <FormGroup>
                     {hiddenBrands.map((value) => {
                       const selected = getSelectedValues("brand").includes(normalizeBrandValue(value));
+                      const norm = normalizeBrandValue(value);
                       return (
-                        <CheckboxLabel
+                        <FilterCheckboxRow
                           key={value}
                           label={value}
                           checked={selected}
                           onChange={() => handleFilterChange("brand", value, !selected)}
+                          pending={isFilterPending(filterValuePendingKey("brand", norm))}
                         />
                       );
                     })}

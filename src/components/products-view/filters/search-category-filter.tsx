@@ -8,7 +8,7 @@ import KeyboardArrowDown from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUp from "@mui/icons-material/KeyboardArrowUp";
 import type { SearchCategoryFacet } from "lib/search/search-category-facets";
 import type { SearchPageFilters } from "models/Filters";
-import CheckboxLabel from "./checkbox-label";
+import FilterCheckboxRow from "./filter-checkbox-row";
 import FilterSectionTitle from "./filter-section-title";
 import useSearchFilterParams from "./use-search-filter-params";
 
@@ -22,7 +22,8 @@ interface Props {
 }
 
 export default function SearchCategoryFilter({ facets, filters }: Props) {
-  const { selectedCategorySlugs, toggleCategory } = useSearchFilterParams(filters);
+  const { selectedCategorySlugs, toggleCategory, isFilterPending, filterValuePendingKey } =
+    useSearchFilterParams(filters);
   const [expanded, setExpanded] = useState(false);
 
   if (facets.length === 0) return null;
@@ -38,12 +39,14 @@ export default function SearchCategoryFilter({ facets, filters }: Props) {
         {visibleFacets.map((facet) => {
           const checked = selectedCategorySlugs.includes(facet.slug.toLowerCase());
 
+          const slug = facet.slug.toLowerCase();
           return (
-            <CheckboxLabel
+            <FilterCheckboxRow
               key={facet.slug}
               checked={checked}
               onChange={() => toggleCategory(facet.slug)}
               label={`${facet.name} (${facet.count})`}
+              pending={isFilterPending(filterValuePendingKey("category", slug))}
             />
           );
         })}

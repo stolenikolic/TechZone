@@ -82,8 +82,7 @@ export default function useCategoryFilterChips(filters: CategorySidebarFilters) 
   const seoParams = seoFilter?.params ?? null;
   const basePathForParams = seoFilter?.basePath ?? pathname;
 
-  const { capacity, capacityRange, navigateWithFilterState, handleFilterChange, pushUrlAndRefresh } =
-    useProductFilterCard(filters);
+  const { handleFilterChange, clearFilterParam, pushUrlAndRefresh } = useProductFilterCard(filters);
 
   const brandFilter = filters.filters.find((item) => item.slug === "brand");
   const brandNameBySlug = useMemo(() => {
@@ -125,10 +124,8 @@ export default function useCategoryFilterChips(filters: CategorySidebarFilters) 
     (chip: ActiveFilterChip) => {
       if (chip.id.startsWith("brand:")) {
         const slug = chip.id.replace("brand:", "");
-        const nextBrands = getSelectedValues(searchParams, seoParams, "brand").filter(
-          (item) => item !== slug
-        );
-        navigateWithFilterState(nextBrands, capacity, "brand");
+        const displayName = brandNameBySlug.get(slug) ?? slug;
+        handleFilterChange("brand", displayName, false);
         return;
       }
 
@@ -143,20 +140,7 @@ export default function useCategoryFilterChips(filters: CategorySidebarFilters) 
 
       if (chip.id.startsWith("range:")) {
         const slug = chip.id.replace("range:", "");
-        if (slug === "capacity" && capacityRange) {
-          navigateWithFilterState(
-            getSelectedValues(searchParams, seoParams, "brand"),
-            [capacityRange.min, capacityRange.max],
-            slug
-          );
-          return;
-        }
-
-        const params = new URLSearchParams(searchParams);
-        params.delete(slug);
-        params.delete("page");
-        const query = params.toString();
-        pushUrlAndRefresh(query ? `${pathname}?${query}` : pathname, slug);
+        clearFilterParam(slug);
         return;
       }
 
@@ -172,15 +156,13 @@ export default function useCategoryFilterChips(filters: CategorySidebarFilters) 
       }
     },
     [
-      capacity,
-      capacityRange,
+      brandNameBySlug,
+      clearFilterParam,
       filters.filters,
-      navigateWithFilterState,
       handleFilterChange,
       pathname,
       pushUrlAndRefresh,
-      searchParams,
-      seoParams
+      searchParams
     ]
   );
 
