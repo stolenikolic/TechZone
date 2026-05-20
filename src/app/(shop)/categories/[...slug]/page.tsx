@@ -11,6 +11,7 @@ import {
   getCategoryPageData,
   getCategoryProductsForPath
 } from "lib/shop-category-listing";
+import { absoluteOgImageUrl } from "lib/og-image-url";
 import { SITE_NAME } from "lib/site-metadata";
 import { getCategoryBreadcrumbTrail } from "lib/shop/category-breadcrumb-trail";
 import type { Category, CategorySidebarFilters } from "models/Filters";
@@ -126,7 +127,7 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePar
       : `${payload.category.name} | Tech Zone`;
 
   const description = `Proizvodi u kategoriji ${payload.category.name} na Tech Zone online prodavnici.`;
-  const ogImageUrl = await getCategoryImageUrlForPath(categoryPath);
+  const ogImageUrl = absoluteOgImageUrl(await getCategoryImageUrlForPath(categoryPath));
 
   return {
     title,
@@ -138,7 +139,7 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePar
       type: "website",
       url: canonical,
       siteName: SITE_NAME,
-      images: [{ url: ogImageUrl, alt: payload.category.name }]
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: payload.category.name }]
     },
     twitter: {
       card: "summary_large_image",

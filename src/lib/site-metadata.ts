@@ -18,14 +18,6 @@ export const SITE_KEYWORDS = [
   "Bosna i Hercegovina"
 ];
 
-/** Default OG/Twitter slika — puni Tech Zone logo iz public/. */
-export const SITE_OG_IMAGE = {
-  url: "/assets/images/logo.svg",
-  width: 353,
-  height: 122,
-  alt: SITE_NAME
-} as const;
-
 const SEP = " | ";
 
 export function pageTitle(page: string, scope: "shop" | "admin" = "shop"): string {
@@ -70,14 +62,12 @@ export const rootMetadata: Metadata = {
     siteName: SITE_NAME,
     locale: "bs_BA",
     type: "website",
-    description: SITE_DESCRIPTION,
-    images: [SITE_OG_IMAGE]
+    description: SITE_DESCRIPTION
   },
   twitter: {
     card: "summary_large_image",
     title: SITE_NAME,
-    description: SITE_DESCRIPTION,
-    images: [SITE_OG_IMAGE.url]
+    description: SITE_DESCRIPTION
   }
 };
 

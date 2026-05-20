@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { pageTitle, SITE_KEYWORDS, SITE_OG_IMAGE } from "lib/site-metadata";
+import { pageTitle, SITE_KEYWORDS } from "lib/site-metadata";
 // PAGE VIEW COMPONENT
 import { ProductSearchPageView } from "pages-sections/product-details/page-view";
 // API FUNCTIONS
@@ -49,14 +49,12 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     openGraph: {
       title,
       description,
-      type: "website",
-      images: [SITE_OG_IMAGE]
+      type: "website"
     },
     twitter: {
       card: "summary_large_image",
       title,
-      description,
-      images: [SITE_OG_IMAGE.url]
+      description
     }
   };
 }

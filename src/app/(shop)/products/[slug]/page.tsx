@@ -8,6 +8,8 @@ import { getFrequentlyBought, getRelatedProducts } from "utils/__api__/related-p
 // CUSTOM DATA MODEL
 import { SlugParams } from "models/Common";
 import type Product from "models/Product.model";
+import { absoluteOgImageUrl } from "lib/og-image-url";
+import { SITE_NAME } from "lib/site-metadata";
 
 /** Build schema.org Product JSON-LD for rich results (no layout/UI changes). */
 function buildProductSchema(product: Product): Record<string, unknown> {
@@ -59,8 +61,9 @@ export async function generateMetadata({ params }: SlugParams): Promise<Metadata
   const description =
     product.description ??
     `Kupite ${product.title} na Tech Zone — računarska oprema i komponente u BiH.`;
-  const mainImage =
-    product.images?.[0] ?? product.thumbnail ?? `${baseUrl}/assets/images/placeholder.png`;
+  const mainImage = absoluteOgImageUrl(
+    product.images?.[0] ?? product.thumbnail ?? "/assets/images/categories/default-category.jpg"
+  );
 
   return {
     title,
@@ -71,7 +74,8 @@ export async function generateMetadata({ params }: SlugParams): Promise<Metadata
       description,
       type: "website",
       url: canonicalUrl,
-      images: [{ url: mainImage, alt: product.title }]
+      siteName: SITE_NAME,
+      images: [{ url: mainImage, width: 1200, height: 630, alt: product.title }]
     },
     twitter: {
       card: "summary_large_image",
