@@ -1,24 +1,16 @@
-name: Background jobs
+# Ručno pokretanje pojedinačnih jobova (admin test / popravka).
+# Automatski noćni lanac: nightly-pipeline.yml (schedule).
 
-# Nightly pipeline (GitHub cron = UTC):
-#   cron "0 20 * * *" → 20:00 UTC ≈ 21:00 CET (zima) / 22:00 CEST (ljeto)
-#   Za 21:00 ljeti (CEST): promijeni u "0 19 * * *"
-#
-# Redoslijed:
-#   ipon_import ──┐ paralelno
-#   pcx_import  ──┘ → auto_match → aggregate_prices → ipon_scrape_details → enrichment
+name: Background jobs (manual)
 
 on:
-  schedule:
-    - cron: "0 20 * * *"
   workflow_dispatch:
     inputs:
       job:
-        description: "nightly_pipeline = cijeli lanac; inače samo jedan job"
+        description: "Koji job pokrenuti"
         required: true
         type: choice
         options:
-          - nightly_pipeline
           - ipon_import
           - pcx_import
           - auto_match
@@ -34,128 +26,18 @@ env:
   SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
 concurrency:
-  group: background-jobs-${{ github.event.schedule && 'nightly' || inputs.job }}
+  group: background-jobs-manual-${{ inputs.job }}
   cancel-in-progress: false
 
 jobs:
-  ipon_import:
-    name: "1a · iPon import"
-    if: >-
-      github.event.schedule != '' ||
-      inputs.job == 'nightly_pipeline' ||
-      inputs.job == 'ipon_import'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    env:
-      JOB_TRIGGERED_BY: cron
-      JOB_TYPE: ipon_import
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
-      - run: npm ci
-      - run: node --version
-      - run: node -r ./scripts/register-ws.cjs -e "console.log('node', process.version, 'WebSocket', typeof WebSocket)"
-      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
-      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-import-products.ts
-
-  pcx_import:
-    name: "1b · PCX import"
-    if: >-
-      github.event.schedule != '' ||
-      inputs.job == 'nightly_pipeline' ||
-      inputs.job == 'pcx_import'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    env:
-      JOB_TRIGGERED_BY: cron
-      JOB_TYPE: pcx_import
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
-      - run: npm ci
-      - run: node --version
-      - run: node -r ./scripts/register-ws.cjs -e "console.log('node', process.version, 'WebSocket', typeof WebSocket)"
-      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
-      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-pcx-import-products.ts
-
-  auto_match:
-    name: "2 · Auto match"
-    needs: [ipon_import, pcx_import]
-    if: >-
-      always() && (
-        (
-          (github.event.schedule != '' || inputs.job == 'nightly_pipeline') &&
-          needs.ipon_import.result == 'success' &&
-          needs.pcx_import.result == 'success'
-        ) ||
-        inputs.job == 'auto_match'
-      )
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      JOB_TRIGGERED_BY: cron
-      JOB_TYPE: auto_match
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
-      - run: npm ci
-      - run: node -r ./scripts/register-ws.cjs -e "console.log('node', process.version, 'WebSocket', typeof WebSocket)"
-      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
-      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-auto-match.ts
-
-  aggregate_prices:
-    name: "3 · Aggregate prices"
-    needs: [auto_match]
-    if: >-
-      always() && (
-        (
-          (github.event.schedule != '' || inputs.job == 'nightly_pipeline') &&
-          needs.auto_match.result == 'success'
-        ) ||
-        inputs.job == 'aggregate_prices'
-      )
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      JOB_TRIGGERED_BY: cron
-      JOB_TYPE: aggregate_prices
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
-      - run: npm ci
-      - run: node -r ./scripts/register-ws.cjs -e "console.log('node', process.version, 'WebSocket', typeof WebSocket)"
-      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
-      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-aggregate-prices.ts
-
-  ipon_scrape_details:
-    name: "4 · iPon scrape details"
-    needs: [aggregate_prices]
-    if: >-
-      always() && (
-        (
-          (github.event.schedule != '' || inputs.job == 'nightly_pipeline') &&
-          needs.aggregate_prices.result == 'success'
-        ) ||
-        inputs.job == 'ipon_scrape_details'
-      )
+  run:
+    name: ${{ inputs.job }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      JOB_TRIGGERED_BY: cron
-      JOB_TYPE: ipon_scrape_details
-      IPON_SCRAPE_UNTIL_EMPTY: "1"
+      JOB_TRIGGERED_BY: manual
+      JOB_TYPE: ${{ inputs.job }}
+      IPON_SCRAPE_UNTIL_EMPTY: ${{ inputs.job == 'ipon_scrape_details' && '1' || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -163,33 +45,15 @@ jobs:
           node-version: "22"
           cache: "npm"
       - run: npm ci
-      - run: node -r ./scripts/register-ws.cjs -e "console.log('node', process.version, 'WebSocket', typeof WebSocket)"
+      - run: node --version
       - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
-      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-scrape-details.ts
-
-  enrichment:
-    name: "5 · Enrichment"
-    needs: [ipon_scrape_details]
-    if: >-
-      always() && (
-        (
-          (github.event.schedule != '' || inputs.job == 'nightly_pipeline') &&
-          needs.ipon_scrape_details.result == 'success'
-        ) ||
-        inputs.job == 'enrichment'
-      )
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    env:
-      JOB_TRIGGERED_BY: cron
-      JOB_TYPE: enrichment
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
-      - run: npm ci
-      - run: node -r ./scripts/register-ws.cjs -e "console.log('node', process.version, 'WebSocket', typeof WebSocket)"
-      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
-      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-enrichment.ts
+      - run: |
+          case "${{ inputs.job }}" in
+            ipon_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-import-products.ts ;;
+            pcx_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-pcx-import-products.ts ;;
+            auto_match) npx tsx -r ./scripts/register-ws.cjs scripts/run-auto-match.ts ;;
+            aggregate_prices) npx tsx -r ./scripts/register-ws.cjs scripts/run-aggregate-prices.ts ;;
+            ipon_scrape_details) npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-scrape-details.ts ;;
+            enrichment) npx tsx -r ./scripts/register-ws.cjs scripts/run-enrichment.ts ;;
+            *) echo "Unknown job"; exit 1 ;;
+          esac
