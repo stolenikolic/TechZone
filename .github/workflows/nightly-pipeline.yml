@@ -47,6 +47,8 @@ jobs:
     env:
       JOB_TRIGGERED_BY: cron
       JOB_TYPE: pcx_import
+      # 0 = bez limita po runu (lokalno u .env.local; na GHA inače default 5)
+      PCX_MAX_PRODUCTS_PER_RUN: "0"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

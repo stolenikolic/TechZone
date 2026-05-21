@@ -38,6 +38,7 @@ jobs:
       JOB_TRIGGERED_BY: manual
       JOB_TYPE: ${{ inputs.job }}
       IPON_SCRAPE_UNTIL_EMPTY: ${{ inputs.job == 'ipon_scrape_details' && '1' || '' }}
+      PCX_MAX_PRODUCTS_PER_RUN: ${{ inputs.job == 'pcx_import' && '0' || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
