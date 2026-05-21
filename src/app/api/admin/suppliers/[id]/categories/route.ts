@@ -95,6 +95,44 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 }
 
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await guardAdminApi();
+  if (denied) return denied;
+  try {
+    const { id: supplierId } = await context.params;
+    const body = (await request.json()) as {
+      id?: string;
+      supplierCategoryKey?: string | null;
+      listingUrl?: string | null;
+      isActive?: boolean;
+      sortOrder?: number;
+    };
+    if (!body.id) {
+      return NextResponse.json({ error: "id required" }, { status: 400 });
+    }
+    const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (body.supplierCategoryKey !== undefined) {
+      update.supplier_category_key = body.supplierCategoryKey;
+    }
+    if (body.listingUrl !== undefined) update.listing_url = body.listingUrl;
+    if (body.isActive !== undefined) update.is_active = body.isActive;
+    if (body.sortOrder !== undefined) update.sort_order = body.sortOrder;
+
+    const supabase = createSupabaseServiceClient();
+    const { error } = await supabase
+      .from("supplier_categories")
+      .update(update)
+      .eq("id", body.id)
+      .eq("supplier_id", supplierId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    invalidateRegistryCaches(supplierId);
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
 export async function DELETE(request: Request, context: { params: Promise<{ id: string }> }) {
   const denied = await guardAdminApi();
   if (denied) return denied;

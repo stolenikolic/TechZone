@@ -4,6 +4,12 @@ import {
   IPON_SUPPLIER_ID,
   runIponImportForSupplierCategory
 } from "lib/suppliers/ipon/importProducts";
+import {
+  PCX_SUPPLIER_ID,
+  runPcxImportForSupplierCategory
+} from "lib/suppliers/pcx/importProducts";
+import { runFirstshopImportForSupplierCategory } from "lib/suppliers/firstshop/importProducts";
+import { FIRSTSHOP_SUPPLIER_ID } from "lib/suppliers/firstshop/constants";
 import { guardAdminApi } from "lib/auth/admin-route";
 import { createSupabaseServiceClient } from "utils/supabase";
 
@@ -19,9 +25,13 @@ export async function POST(
   try {
     const { id: supplierId, rowId } = await context.params;
 
-    if (supplierId !== IPON_SUPPLIER_ID) {
+    if (
+      supplierId !== IPON_SUPPLIER_ID &&
+      supplierId !== PCX_SUPPLIER_ID &&
+      supplierId !== FIRSTSHOP_SUPPLIER_ID
+    ) {
       return NextResponse.json(
-        { error: "Ručni import po kategoriji je trenutno podržan samo za iPon." },
+        { error: "Ručni import po kategoriji je podržan samo za iPon, PCX i FirstShop." },
         { status: 400 }
       );
     }
@@ -54,9 +64,14 @@ export async function POST(
     const categoryMeta = Array.isArray(categoryJoin) ? categoryJoin[0] : categoryJoin;
     const categoryName = categoryMeta?.name ?? categoryMeta?.slug ?? row.internal_category_id;
 
+    const isPcx = supplierId === PCX_SUPPLIER_ID;
+    const isFirstshop = supplierId === FIRSTSHOP_SUPPLIER_ID;
+    const categoryKey =
+      row.supplier_category_key?.trim() || categoryMeta?.slug || categoryName;
+
     const { runId, value } = await withJobRun(
       {
-        jobType: "ipon_import",
+        jobType: isFirstshop ? "firstshop_import" : isPcx ? "pcx_import" : "ipon_import",
         supplierId,
         triggeredBy: "manual",
         initialSummary: {
@@ -66,13 +81,27 @@ export async function POST(
           internal_category_id: row.internal_category_id
         }
       },
-      async () =>
-        runIponImportForSupplierCategory({
+      async () => {
+        if (isFirstshop) {
+          return runFirstshopImportForSupplierCategory({
+            listingUrl,
+            categoryKey,
+            name: categoryName
+          });
+        }
+        if (isPcx) {
+          return runPcxImportForSupplierCategory({
+            listingUrl,
+            name: categoryName
+          });
+        }
+        return runIponImportForSupplierCategory({
           internalCategoryId: row.internal_category_id,
           listingUrl,
           supplierCategoryKey: row.supplier_category_key,
           name: categoryName
-        })
+        });
+      }
     );
 
     return NextResponse.json({ success: true, runId, result: value });

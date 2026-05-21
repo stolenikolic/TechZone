@@ -25,7 +25,11 @@ import TableRow from "@mui/material/TableRow";
 import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import Edit from "@mui/icons-material/Edit";
+import Delete from "@mui/icons-material/Delete";
 import { IPON_SUPPLIER_ID } from "lib/suppliers/ipon/constants";
+import { FIRSTSHOP_SUPPLIER_ID, PCX_SUPPLIER_ID } from "lib/suppliers/registry";
+import { StyledIconButton } from "../styles";
 
 type Supplier = {
   id: string;
@@ -107,8 +111,12 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   const isIponSupplier = supplierId === IPON_SUPPLIER_ID;
+  const isPcxSupplier = supplierId === PCX_SUPPLIER_ID;
+  const isFirstshopSupplier = supplierId === FIRSTSHOP_SUPPLIER_ID;
+  const supportsCategoryImport = isIponSupplier || isPcxSupplier || isFirstshopSupplier;
 
   const [openCatModal, setOpenCatModal] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [openMappingModal, setOpenMappingModal] = useState(false);
   const [openConfigModal, setOpenConfigModal] = useState(false);
 
@@ -208,26 +216,57 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
     }
   };
 
-  const handleAddCategory = async () => {
-    if (!catForm.internalCategoryId) return;
+  const resetCatForm = () => {
+    setEditingCategoryId(null);
+    setCatForm({ internalCategoryId: "", supplierCategoryKey: "", listingUrl: "", sortOrder: 0, isActive: true });
+  };
+
+  const openAddCategoryModal = () => {
+    resetCatForm();
+    setOpenCatModal(true);
+  };
+
+  const openEditCategoryModal = (row: SupplierCategoryRow) => {
+    setEditingCategoryId(row.id);
+    setCatForm({
+      internalCategoryId: row.internalCategoryId,
+      supplierCategoryKey: row.supplierCategoryKey ?? "",
+      listingUrl: row.listingUrl ?? "",
+      sortOrder: row.sortOrder,
+      isActive: row.isActive
+    });
+    setOpenCatModal(true);
+  };
+
+  const closeCatModal = () => {
+    setOpenCatModal(false);
+    resetCatForm();
+  };
+
+  const handleSaveCategory = async () => {
+    if (!editingCategoryId && !catForm.internalCategoryId) return;
     setBusy(true);
     setActionError(null);
     try {
+      const payload = {
+        supplierCategoryKey: catForm.supplierCategoryKey || null,
+        listingUrl: catForm.listingUrl || null,
+        sortOrder: catForm.sortOrder,
+        isActive: catForm.isActive
+      };
       const res = await fetch(`/api/admin/suppliers/${supplierId}/categories`, {
-        method: "POST",
+        method: editingCategoryId ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          internalCategoryId: catForm.internalCategoryId,
-          supplierCategoryKey: catForm.supplierCategoryKey || null,
-          listingUrl: catForm.listingUrl || null,
-          sortOrder: catForm.sortOrder,
-          isActive: catForm.isActive
-        })
+        body: JSON.stringify(
+          editingCategoryId
+            ? { id: editingCategoryId, ...payload }
+            : { internalCategoryId: catForm.internalCategoryId, ...payload }
+        )
       });
       const json = (await res.json()) as { error?: string };
       if (!res.ok || json.error) throw new Error(json.error ?? "Save failed");
-      setOpenCatModal(false);
-      setCatForm({ internalCategoryId: "", supplierCategoryKey: "", listingUrl: "", sortOrder: 0, isActive: true });
+      closeCatModal();
+      setActionNotice(editingCategoryId ? "Kategorija ažurirana." : "Kategorija dodana.");
       await loadAll();
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e));
@@ -256,15 +295,31 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
           updated?: number;
           activated?: number;
           deactivated?: number;
+          upserted?: number;
+          skippedNoPrice?: number;
+          skippedNoSupplierProductId?: number;
+          skippedDuplicateCikkszam?: number;
+          skippedDuplicateId?: number;
+          staleDeactivated?: number;
           summary?: { category_name?: string };
         };
       };
       if (!res.ok || json.error) throw new Error(json.error ?? "Import nije uspio.");
       const r = json.result;
       const label = r?.summary?.category_name ?? row.category?.name ?? "kategorija";
-      setActionNotice(
-        `iPon import (${label}): uvezeno ${r?.imported ?? 0}, obrađeno ${r?.succeeded ?? 0}, izmijenjeno ${r?.updated ?? 0}, aktivirano ${r?.activated ?? 0}, deaktivirano ${r?.deactivated ?? 0}.`
-      );
+      if (isFirstshopSupplier) {
+        setActionNotice(
+          `FirstShop import (${label}): uvezeno ${r?.upserted ?? 0}, preskočeno bez cijene ${r?.skippedNoPrice ?? 0}, bez ID ${r?.skippedNoSupplierProductId ?? 0}, duplikat ${r?.skippedDuplicateId ?? 0}, deaktivirano ${r?.staleDeactivated ?? 0}.`
+        );
+      } else if (isPcxSupplier) {
+        setActionNotice(
+          `PCX import (${label}): uvezeno ${r?.upserted ?? 0}, preskočeno bez cijene ${r?.skippedNoPrice ?? 0}, bez ID ${r?.skippedNoSupplierProductId ?? 0}, duplikat ${r?.skippedDuplicateCikkszam ?? 0}, deaktivirano ${r?.staleDeactivated ?? 0}.`
+        );
+      } else {
+        setActionNotice(
+          `iPon import (${label}): uvezeno ${r?.imported ?? 0}, obrađeno ${r?.succeeded ?? 0}, izmijenjeno ${r?.updated ?? 0}, aktivirano ${r?.activated ?? 0}, deaktivirano ${r?.deactivated ?? 0}.`
+        );
+      }
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -451,14 +506,17 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ p: 2 }}>
             <Box>
               <Typography variant="subtitle1">Kategorije ovog dobavljača</Typography>
-              {isIponSupplier ? (
+              {supportsCategoryImport ? (
                 <Typography variant="caption" color="text.secondary" display="block">
-                  Pun iPon import (jobs) koristi redove s Active=yes. „Import sada” uvijek samo taj listing;
-                  deaktivacija ponuda samo u toj internoj kategoriji.
+                  {isFirstshopSupplier
+                    ? "Pun FirstShop import (jobs) čita sve aktivne kategorije iz tabele. „Import sada” skrejpuje cijeli listing za ovaj red."
+                    : isPcxSupplier
+                      ? "Pun PCX import (jobs) ide po svim kategorijama s cap-om po runu. „Import sada” skrejpuje cijeli listing ove kategorije."
+                      : "Pun iPon import (jobs) koristi redove s Active=yes. „Import sada” uvijek samo taj listing; deaktivacija ponuda samo u toj internoj kategoriji."}
                 </Typography>
               ) : null}
             </Box>
-            <Button variant="contained" size="small" onClick={() => setOpenCatModal(true)} disabled={busy}>
+            <Button variant="contained" size="small" onClick={openAddCategoryModal} disabled={busy}>
               Dodaj kategoriju
             </Button>
           </Stack>
@@ -470,14 +528,14 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
                 <TableCell>Source key</TableCell>
                 <TableCell>Listing URL</TableCell>
                 <TableCell>Active</TableCell>
-                    {isIponSupplier ? <TableCell align="right">Import</TableCell> : null}
-                    <TableCell />
+                    {supportsCategoryImport ? <TableCell align="right">Import</TableCell> : null}
+                    <TableCell align="center">Akcije</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {supplierCategories.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={isIponSupplier ? 7 : 6}>
+                      <TableCell colSpan={supportsCategoryImport ? 7 : 6}>
                     <Typography align="center" sx={{ py: 2 }} color="text.secondary">
                       Nema kategorija (hardcoded fallback i dalje radi).
                     </Typography>
@@ -495,7 +553,7 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
                     <TableCell>
                       <Chip size="small" label={row.isActive ? "yes" : "no"} color={row.isActive ? "success" : "default"} />
                     </TableCell>
-                    {isIponSupplier ? (
+                    {supportsCategoryImport ? (
                       <TableCell align="right">
                         <Button
                           size="small"
@@ -512,10 +570,22 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
                         </Button>
                       </TableCell>
                     ) : null}
-                    <TableCell align="right">
-                      <Button color="error" size="small" onClick={() => void handleDeleteCategory(row.id)} disabled={busy}>
-                        Obriši
-                      </Button>
+                    <TableCell align="center">
+                      <StyledIconButton
+                        onClick={() => openEditCategoryModal(row)}
+                        disabled={busy}
+                        title="Uredi"
+                      >
+                        <Edit />
+                      </StyledIconButton>
+                      <StyledIconButton
+                        onClick={() => void handleDeleteCategory(row.id)}
+                        disabled={busy}
+                        title="Obriši"
+                        sx={{ "&:hover": { color: "error.main" } }}
+                      >
+                        <Delete />
+                      </StyledIconButton>
                     </TableCell>
                   </TableRow>
                 ))
@@ -696,8 +766,8 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
         </Card>
       )}
 
-      <Dialog open={openCatModal} onClose={() => setOpenCatModal(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Nova kategorija</DialogTitle>
+      <Dialog open={openCatModal} onClose={closeCatModal} fullWidth maxWidth="sm">
+        <DialogTitle>{editingCategoryId ? "Uredi kategoriju" : "Nova kategorija"}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0 }}>
             <Grid size={12}>
@@ -708,6 +778,8 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
                 label="Interna kategorija"
                 value={catForm.internalCategoryId}
                 onChange={(e) => setCatForm({ ...catForm, internalCategoryId: e.target.value })}
+                disabled={Boolean(editingCategoryId)}
+                helperText={editingCategoryId ? "Interna kategorija se ne mijenja na postojećem redu." : undefined}
               >
                 {categories.map((c) => (
                   <MenuItem key={c.id} value={c.id}>
@@ -753,8 +825,8 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenCatModal(false)}>Otkaži</Button>
-          <Button onClick={() => void handleAddCategory()} variant="contained" disabled={busy}>
+          <Button onClick={closeCatModal}>Otkaži</Button>
+          <Button onClick={() => void handleSaveCategory()} variant="contained" disabled={busy}>
             Sačuvaj
           </Button>
         </DialogActions>

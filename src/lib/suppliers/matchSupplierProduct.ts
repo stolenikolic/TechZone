@@ -1,5 +1,10 @@
 import { createSupabaseServiceClient } from "utils/supabase";
-import { normalizeEan, normalizeMpn } from "./normalizeProductIdentifiers";
+import {
+  eanFromMpnField,
+  normalizeEan,
+  normalizeMpn,
+  normalizeMpnForMatchCompare
+} from "./normalizeProductIdentifiers";
 
 type SupabaseClient = ReturnType<typeof createSupabaseServiceClient>;
 
@@ -16,9 +21,16 @@ export type MatchSkipReason =
   | "ambiguous_mpn"
   | "no_unique_match";
 
+export type MatchMethod =
+  | "ean"
+  | "mpn"
+  | "ean_via_offer"
+  | "mpn_via_offer"
+  | "none";
+
 export type MatchAudit = {
   result: "linked" | "skipped";
-  method: "ean" | "mpn" | "none";
+  method: MatchMethod;
   reason?: MatchSkipReason;
   candidateCount: number;
   normalized: {
@@ -31,7 +43,7 @@ export type MatchAudit = {
 export type MatchResolution =
   | {
       productId: string;
-      method: "ean" | "mpn";
+      method: "ean" | "mpn" | "ean_via_offer" | "mpn_via_offer";
       audit: MatchAudit;
     }
   | {
@@ -48,15 +60,29 @@ export function mergeMatchAudit(rawJson: unknown, audit: MatchAudit) {
   return { ...base, matchAudit: audit };
 }
 
-function normalizeMpnForCompare(value: string | null | undefined) {
-  const normalized = normalizeMpn(value);
-  return normalized ? normalized.toLowerCase() : null;
-}
-
 function uniqueMatches(rows: ProductIdentifierRow[], compare: (row: ProductIdentifierRow) => boolean) {
   const unique = new Map<string, ProductIdentifierRow>();
   for (const row of rows) {
     if (!compare(row)) continue;
+    if (!unique.has(row.id)) unique.set(row.id, row);
+  }
+  return Array.from(unique.values());
+}
+
+/** MPN step: MPN↔MPN plus EAN-in-MPN field ↔ row EAN (parallel, same candidate pool). */
+function rowMatchesMpnStep(
+  row: ProductIdentifierRow,
+  mpnCompare: string,
+  eanCross: string | null
+): boolean {
+  if (normalizeMpnForMatchCompare(row.mpn) === mpnCompare) return true;
+  if (eanCross && normalizeEan(row.ean) === eanCross) return true;
+  return false;
+}
+
+function mergeCandidateRows(rows: ProductIdentifierRow[]): ProductIdentifierRow[] {
+  const unique = new Map<string, ProductIdentifierRow>();
+  for (const row of rows) {
     if (!unique.has(row.id)) unique.set(row.id, row);
   }
   return Array.from(unique.values());
@@ -67,7 +93,7 @@ export function decideMatchFromCandidates(
   candidates: { byEan: ProductIdentifierRow[]; byMpn: ProductIdentifierRow[] }
 ): MatchResolution {
   const ean = normalizeEan(identifiers.ean);
-  const mpn = normalizeMpnForCompare(identifiers.mpn);
+  const mpn = normalizeMpnForMatchCompare(identifiers.mpn);
 
   if (ean) {
     const matches = uniqueMatches(candidates.byEan, (row) => normalizeEan(row.ean) === ean);
@@ -100,7 +126,8 @@ export function decideMatchFromCandidates(
   }
 
   if (mpn) {
-    const matches = uniqueMatches(candidates.byMpn, (row) => normalizeMpnForCompare(row.mpn) === mpn);
+    const eanCross = eanFromMpnField(identifiers.mpn);
+    const matches = uniqueMatches(candidates.byMpn, (row) => rowMatchesMpnStep(row, mpn, eanCross));
     if (matches.length === 1) {
       return {
         productId: matches[0].id,
@@ -143,6 +170,186 @@ export function decideMatchFromCandidates(
   };
 }
 
+/** Factor 2: match via linked supplier_products (product_id set). Factor 1 body unchanged above. */
+export function decideMatchFromLinkedOffers(
+  identifiers: { ean?: string | null; mpn?: string | null },
+  candidates: { byEan: ProductIdentifierRow[]; byMpn: ProductIdentifierRow[] }
+): MatchResolution {
+  const ean = normalizeEan(identifiers.ean);
+  const mpn = normalizeMpnForMatchCompare(identifiers.mpn);
+
+  if (ean) {
+    const matches = uniqueMatches(candidates.byEan, (row) => normalizeEan(row.ean) === ean);
+    if (matches.length === 1) {
+      return {
+        productId: matches[0].id,
+        method: "ean_via_offer",
+        audit: {
+          result: "linked",
+          method: "ean_via_offer",
+          candidateCount: 1,
+          normalized: { ean, mpn: mpn ? normalizeMpn(identifiers.mpn) : null },
+          matchedProductId: matches[0].id
+        }
+      };
+    }
+    if (matches.length > 1) {
+      return {
+        productId: null,
+        method: "none",
+        audit: {
+          result: "skipped",
+          method: "ean_via_offer",
+          reason: "ambiguous_ean",
+          candidateCount: matches.length,
+          normalized: { ean, mpn: mpn ? normalizeMpn(identifiers.mpn) : null }
+        }
+      };
+    }
+  }
+
+  if (mpn) {
+    const eanCross = eanFromMpnField(identifiers.mpn);
+    const matches = uniqueMatches(candidates.byMpn, (row) => rowMatchesMpnStep(row, mpn, eanCross));
+    if (matches.length === 1) {
+      return {
+        productId: matches[0].id,
+        method: "mpn_via_offer",
+        audit: {
+          result: "linked",
+          method: "mpn_via_offer",
+          candidateCount: 1,
+          normalized: { ean, mpn: normalizeMpn(identifiers.mpn) },
+          matchedProductId: matches[0].id
+        }
+      };
+    }
+    if (matches.length > 1) {
+      return {
+        productId: null,
+        method: "none",
+        audit: {
+          result: "skipped",
+          method: "mpn_via_offer",
+          reason: "ambiguous_mpn",
+          candidateCount: matches.length,
+          normalized: { ean, mpn: normalizeMpn(identifiers.mpn) }
+        }
+      };
+    }
+  }
+
+  const reason: MatchSkipReason = ean || mpn ? "no_unique_match" : "missing_identifiers";
+  return {
+    productId: null,
+    method: "none",
+    audit: {
+      result: "skipped",
+      method: "none",
+      reason,
+      candidateCount: 0,
+      normalized: { ean, mpn: mpn ? normalizeMpn(identifiers.mpn) : null }
+    }
+  };
+}
+
+function shouldRunLinkedOfferMatch(tier1: MatchResolution): boolean {
+  if (tier1.productId) return false;
+  const reason = tier1.audit.reason;
+  return reason !== "ambiguous_ean" && reason !== "ambiguous_mpn";
+}
+
+/**
+ * PostgREST ilike on raw MPN; compact needles miss hyphenated values (e.g. GVR76… vs GV-R76…).
+ * Final equality still uses {@link normalizeMpnForMatchCompare}.
+ */
+export function buildMpnIlikePattern(mpn: string): string | null {
+  const compareKey = normalizeMpnForMatchCompare(mpn);
+  if (!compareKey) return null;
+
+  const longTokens = compareKey.split(" ").filter((t) => t.length >= 6);
+  if (longTokens.length > 0) {
+    const best = longTokens.reduce((a, b) => (a.length >= b.length ? a : b));
+    return `%${best}%`;
+  }
+
+  const parts = compareKey.split(" ").filter((t) => t.length >= 2);
+  if (parts.length >= 2) {
+    return `%${parts.join("%")}%`;
+  }
+
+  const compact = compareKey.replace(/[^a-z0-9]/g, "");
+  if (compact.length >= 4) {
+    return `%${compact.slice(0, Math.min(12, compact.length))}%`;
+  }
+
+  return `%${compareKey.replace(/[^a-z0-9]+/g, "%")}%`;
+}
+
+type LinkedOfferRow = {
+  product_id: string;
+  mpn: string | null;
+  ean: string | null;
+};
+
+function mapLinkedOffersToCandidates(rows: LinkedOfferRow[]): ProductIdentifierRow[] {
+  return rows.map((row) => ({
+    id: row.product_id,
+    mpn: row.mpn,
+    ean: row.ean,
+    created_at: null
+  }));
+}
+
+async function loadLinkedOffersByEan(supabase: SupabaseClient, normalizedEan: string) {
+  const { data, error } = await supabase
+    .from("supplier_products")
+    .select("product_id, mpn, ean")
+    .eq("ean", normalizedEan)
+    .not("product_id", "is", null)
+    .limit(25);
+
+  if (error) throw new Error(`supplier_products EAN lookup failed: ${error.message}`);
+  return mapLinkedOffersToCandidates((data ?? []) as LinkedOfferRow[]);
+}
+
+async function loadLinkedOffersByMpn(supabase: SupabaseClient, mpn: string) {
+  const compareKey = normalizeMpnForMatchCompare(mpn);
+  const eanCross = eanFromMpnField(mpn);
+  const pattern = buildMpnIlikePattern(mpn);
+  if (!compareKey && !eanCross) return [];
+
+  const byPattern =
+    compareKey && pattern
+      ? await (async () => {
+          const { data, error } = await supabase
+            .from("supplier_products")
+            .select("product_id, mpn, ean")
+            .ilike("mpn", pattern)
+            .not("product_id", "is", null)
+            .limit(50);
+          if (error) throw new Error(`supplier_products MPN lookup failed: ${error.message}`);
+          return (data ?? []) as LinkedOfferRow[];
+        })()
+      : [];
+
+  const byEan = eanCross ? await loadLinkedOffersByEan(supabase, eanCross) : [];
+  const byEanRows: LinkedOfferRow[] = byEan.map((row) => ({
+    product_id: row.id,
+    mpn: row.mpn,
+    ean: row.ean
+  }));
+
+  const filtered = [...byPattern, ...byEanRows].filter((row) =>
+    rowMatchesMpnStep(
+      { id: row.product_id, mpn: row.mpn, ean: row.ean },
+      compareKey ?? "",
+      eanCross
+    )
+  );
+  return mapLinkedOffersToCandidates(filtered);
+}
+
 async function loadProductsByEan(supabase: SupabaseClient, normalizedEan: string) {
   const { data, error } = await supabase
     .from("products")
@@ -154,15 +361,29 @@ async function loadProductsByEan(supabase: SupabaseClient, normalizedEan: string
   return (data ?? []) as ProductIdentifierRow[];
 }
 
-async function loadProductsByMpn(supabase: SupabaseClient, normalizedMpn: string) {
-  const { data, error } = await supabase
-    .from("products")
-    .select("id, ean, mpn, created_at")
-    .ilike("mpn", normalizedMpn)
-    .limit(25);
+async function loadProductsByMpn(supabase: SupabaseClient, mpn: string) {
+  const compareKey = normalizeMpnForMatchCompare(mpn);
+  const eanCross = eanFromMpnField(mpn);
+  const pattern = buildMpnIlikePattern(mpn);
+  if (!compareKey && !eanCross) return [];
 
-  if (error) throw new Error(`products MPN lookup failed: ${error.message}`);
-  return (data ?? []) as ProductIdentifierRow[];
+  const byPattern =
+    compareKey && pattern
+      ? await (async () => {
+          const { data, error } = await supabase
+            .from("products")
+            .select("id, ean, mpn, created_at")
+            .ilike("mpn", pattern)
+            .limit(50);
+          if (error) throw new Error(`products MPN lookup failed: ${error.message}`);
+          return (data ?? []) as ProductIdentifierRow[];
+        })()
+      : [];
+
+  const byEan = eanCross ? await loadProductsByEan(supabase, eanCross) : [];
+  return mergeCandidateRows([...byPattern, ...byEan]).filter((row) =>
+    rowMatchesMpnStep(row, compareKey ?? "", eanCross)
+  );
 }
 
 export async function resolveSupplierProductMatch(
@@ -172,10 +393,27 @@ export async function resolveSupplierProductMatch(
   const normalizedEan = normalizeEan(identifiers.ean);
   const normalizedMpn = normalizeMpn(identifiers.mpn);
 
+  const mpnForLookup = identifiers.mpn ?? normalizedMpn;
   const [byEan, byMpn] = await Promise.all([
     normalizedEan ? loadProductsByEan(supabase, normalizedEan) : Promise.resolve([]),
-    normalizedMpn ? loadProductsByMpn(supabase, normalizedMpn) : Promise.resolve([])
+    normalizedMpn && mpnForLookup ? loadProductsByMpn(supabase, mpnForLookup) : Promise.resolve([])
   ]);
 
-  return decideMatchFromCandidates(identifiers, { byEan, byMpn });
+  const tier1 = decideMatchFromCandidates(identifiers, { byEan, byMpn });
+  if (tier1.productId) return tier1;
+  if (!shouldRunLinkedOfferMatch(tier1)) return tier1;
+
+  const [byEanOffers, byMpnOffers] = await Promise.all([
+    normalizedEan ? loadLinkedOffersByEan(supabase, normalizedEan) : Promise.resolve([]),
+    normalizedMpn && mpnForLookup
+      ? loadLinkedOffersByMpn(supabase, mpnForLookup)
+      : Promise.resolve([])
+  ]);
+
+  const tier2 = decideMatchFromLinkedOffers(identifiers, {
+    byEan: byEanOffers,
+    byMpn: byMpnOffers
+  });
+  if (tier2.productId) return tier2;
+  return tier1;
 }

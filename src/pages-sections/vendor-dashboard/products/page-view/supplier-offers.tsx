@@ -507,16 +507,21 @@ export default function SupplierOffersPageView({ offers }: Props) {
             bgcolor: "grey.100"
           }}
         >
-          {(autoMatchEvents.length
-            ? autoMatchEvents
-                .map((event) => {
-                  const stamp = formatDate(event.created_at);
-                  const supplierPart = event.supplier_product_id ? ` sp=${event.supplier_product_id}` : "";
-                  const productPart = event.matched_product_id ? ` p=${event.matched_product_id}` : "";
-                  return `[${stamp}] ${event.level.toUpperCase()} ${event.message}${supplierPart}${productPart}`;
-                })
-                .join("\n")
-            : "Auto-match log will appear here.")}
+          {(() => {
+            const consoleEvents = autoMatchEvents.filter(
+              (event) => event.message.includes("LINKED") || event.level === "error"
+            );
+            return consoleEvents.length
+              ? consoleEvents
+                  .map((event) => {
+                    const stamp = formatDate(event.created_at);
+                    const supplierPart = event.supplier_product_id ? ` sp=${event.supplier_product_id}` : "";
+                    const productPart = event.matched_product_id ? ` p=${event.matched_product_id}` : "";
+                    return `[${stamp}] ${event.level.toUpperCase()} ${event.message}${supplierPart}${productPart}`;
+                  })
+                  .join("\n")
+              : "Auto-match log will appear here when offers are linked.";
+          })()}
         </Box>
       </Card>
 

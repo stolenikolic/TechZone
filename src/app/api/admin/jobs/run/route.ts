@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { withJobRun, type JobType } from "lib/jobs/job-runner";
 import { IPON_SUPPLIER_ID } from "lib/suppliers/ipon/categories";
-import { PCX_SUPPLIER_ID } from "lib/suppliers/registry";
+import { FIRSTSHOP_SUPPLIER_ID, PCX_SUPPLIER_ID } from "lib/suppliers/registry";
 import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +12,7 @@ const ALLOWED: JobType[] = [
   "ipon_import",
   "ipon_scrape_details",
   "pcx_import",
+  "firstshop_import",
   "aggregate_prices",
   "auto_match",
   "enrichment",
@@ -26,6 +27,8 @@ function supplierIdForDashboardJob(jobType: JobType): string | null {
       return IPON_SUPPLIER_ID;
     case "pcx_import":
       return PCX_SUPPLIER_ID;
+    case "firstshop_import":
+      return FIRSTSHOP_SUPPLIER_ID;
     default:
       return null;
   }
@@ -68,6 +71,10 @@ async function runJob(
   if (jobType === "pcx_import") {
     const { runPcxImportProducts } = await import("lib/suppliers/pcx/importProducts");
     return runPcxImportProducts();
+  }
+  if (jobType === "firstshop_import") {
+    const { runFirstshopImportProducts } = await import("lib/suppliers/firstshop/importProducts");
+    return runFirstshopImportProducts();
   }
   if (jobType === "aggregate_prices") {
     const { aggregatePrices, wrapAggregatePricesJobResult } = await import("lib/pricing");

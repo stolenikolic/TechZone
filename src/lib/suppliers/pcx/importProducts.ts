@@ -595,6 +595,93 @@ export type PcxImportResult = {
   };
 };
 
+export type PcxSupplierCategoryImportInput = {
+  listingUrl: string;
+  /** Label za log / job summary (npr. ime interne kategorije). */
+  name?: string;
+};
+
+export function buildPcxCategoryFromSupplierRow(input: PcxSupplierCategoryImportInput): PcxCategory {
+  const url = input.listingUrl.trim();
+  if (!url) {
+    throw new Error("Listing URL je obavezan za PCX import ove kategorije.");
+  }
+  return {
+    name: input.name ?? "category",
+    url
+  };
+}
+
+export type PcxSingleCategoryImportResult = {
+  success: boolean;
+  upserted: number;
+  skippedNoPrice: number;
+  skippedNoSupplierProductId: number;
+  skippedDuplicateCikkszam: number;
+  staleDeactivated: number;
+  pricesAggregated: number;
+  summary: {
+    single_category: true;
+    category_name: string;
+    upserted: number;
+    skipped_no_price: number;
+    skipped_no_supplier_product_id: number;
+    skipped_duplicate_cikkszam: number;
+    stale_deactivated: number;
+    prices_aggregated: number;
+    aggregate_batches?: number;
+    aggregate_error?: string;
+    aggregate_warnings?: string[];
+  };
+};
+
+/**
+ * Ručni import jedne kategorije (jedan red supplier_categories).
+ * Ne mijenja ponašanje `runPcxImportProducts` (pun sync svih kategorija s cap-om po runu).
+ */
+export async function runPcxImportForSupplierCategory(
+  input: PcxSupplierCategoryImportInput
+): Promise<PcxSingleCategoryImportResult> {
+  const category = buildPcxCategoryFromSupplierRow(input);
+  remainingSlots = Number.MAX_SAFE_INTEGER;
+  isFirstHttpRequest = true;
+  supabaseSingleton = createSupabaseServiceClient();
+
+  const stats = await importCategory(category);
+  const agg = await aggregatePrices();
+
+  console.log("[PCX import] Jedna kategorija završena.", {
+    category: category.name,
+    upserted: stats.upserted,
+    skippedNoPrice: stats.skippedNoPrice,
+    staleDeactivated: stats.staleDeactivated,
+    pricesUpdated: agg.updated
+  });
+
+  return {
+    success: !agg.error,
+    upserted: stats.upserted,
+    skippedNoPrice: stats.skippedNoPrice,
+    skippedNoSupplierProductId: stats.skippedNoSupplierProductId,
+    skippedDuplicateCikkszam: stats.skippedDuplicateCikkszam,
+    staleDeactivated: stats.staleDeactivated,
+    pricesAggregated: agg.updated,
+    summary: {
+      single_category: true,
+      category_name: category.name,
+      upserted: stats.upserted,
+      skipped_no_price: stats.skippedNoPrice,
+      skipped_no_supplier_product_id: stats.skippedNoSupplierProductId,
+      skipped_duplicate_cikkszam: stats.skippedDuplicateCikkszam,
+      stale_deactivated: stats.staleDeactivated,
+      prices_aggregated: agg.updated,
+      aggregate_batches: agg.batches,
+      ...(agg.error ? { aggregate_error: agg.error } : {}),
+      ...(agg.warnings?.length ? { aggregate_warnings: agg.warnings } : {})
+    }
+  };
+}
+
 /**
  * Resets per-run throttle, then imports every category in `PCX_CATEGORIES`
  * until the global cap is reached (env `PCX_MAX_PRODUCTS_PER_RUN`, default 5; `0` = no limit).
@@ -645,3 +732,5 @@ export async function runPcxImportProducts(): Promise<PcxImportResult> {
     return { success: false, remainingSlots, error: msg, summary };
   }
 }
+
+export { PCX_SUPPLIER_ID };

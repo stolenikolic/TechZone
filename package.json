@@ -24,6 +24,8 @@
     "ipon:sync": "tsx scripts/run-ipon-sync.ts",
     "pcx:import-products": "tsx scripts/run-pcx-import-products.ts",
     "pcx:import-products:full": "cross-env PCX_MAX_PRODUCTS_PER_RUN=0 tsx scripts/run-pcx-import-products.ts",
+    "firstshop:import-products": "tsx scripts/run-firstshop-import-products.ts",
+    "firstshop:import-products:full": "cross-env FIRSTSHOP_MAX_PRODUCTS_PER_RUN=0 tsx scripts/run-firstshop-import-products.ts",
     "aggregate-prices": "tsx scripts/run-aggregate-prices.ts",
     "auto-match": "tsx scripts/run-auto-match.ts",
     "test:auto-link": "tsx scripts/test-match-supplier-product.ts && tsx scripts/test-auto-link-import-integration.ts",

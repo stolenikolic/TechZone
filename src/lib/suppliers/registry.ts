@@ -15,6 +15,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { IPON_CATEGORIES, IPON_SUPPLIER_ID } from "lib/suppliers/ipon/categories";
 import { PCX_CATEGORIES } from "lib/suppliers/pcx/categories";
+import { FIRSTSHOP_CATEGORIES } from "lib/suppliers/firstshop/categories";
+import { FIRSTSHOP_SUPPLIER_ID } from "lib/suppliers/firstshop/constants";
 
 export type RegistryCategory = {
   internalCategoryId: string;
@@ -114,11 +116,21 @@ function fallbackCategoriesForSupplier(supplierId: string): RegistryCategory[] {
       sortOrder: (idx + 1) * 10
     })).filter((c) => c.internalCategoryId);
   }
+  if (supplierId === FIRSTSHOP_SUPPLIER_ID) {
+    return FIRSTSHOP_CATEGORIES.map((c, idx) => ({
+      internalCategoryId: c.internalCategoryId ?? "",
+      supplierCategoryKey: c.categoryKey,
+      listingUrl: c.url,
+      sortOrder: (idx + 1) * 10
+    })).filter((c) => c.internalCategoryId);
+  }
   return [];
 }
 
 /** Mirror of the constant in `src/lib/suppliers/pcx/importProducts.ts`. */
 export const PCX_SUPPLIER_ID = "f4a8b2c0-9d1e-4f3a-bc5d-6e7f8091a2b3";
+
+export { FIRSTSHOP_SUPPLIER_ID };
 
 /**
  * Vraća listu kategorija koje dobavljač sinkuje. DB-first; ako tabela `supplier_categories`

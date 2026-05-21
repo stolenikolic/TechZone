@@ -95,7 +95,6 @@ export async function runAutoMatch(jobHandle?: JobRunHandle): Promise<AutoMatchR
       .select("id, supplier_id, supplier_product_id, mpn, ean, raw_json")
       .is("product_id", null)
       .eq("master_match_status", "pending_review")
-      .eq("is_active", true)
       .order("id", { ascending: true })
       .limit(PAGE_SIZE);
 
@@ -124,7 +123,6 @@ export async function runAutoMatch(jobHandle?: JobRunHandle): Promise<AutoMatchR
 
     const page = (data ?? []) as PendingSupplierRow[];
     if (page.length === 0) break;
-    await insertEvent(runId, "info", `Processing ${page.length} offers...`);
 
     for (const row of page) {
       scanned += 1;
@@ -135,12 +133,6 @@ export async function runAutoMatch(jobHandle?: JobRunHandle): Promise<AutoMatchR
 
       if (!match.productId) {
         skipped += 1;
-        await insertEvent(
-          runId,
-          match.audit.reason?.includes("ambiguous") ? "warn" : "info",
-          `SKIPPED ${match.audit.reason ?? "no_unique_match"} via ${match.audit.method.toUpperCase()}`,
-          { supplierProductId: row.supplier_product_id }
-        );
         const { error: skipUpdateError } = await supabase
           .from("supplier_products")
           .update({

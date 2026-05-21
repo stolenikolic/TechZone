@@ -59,9 +59,27 @@ jobs:
       - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
       - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-pcx-import-products.ts
 
+  firstshop_import:
+    name: "1c · FirstShop import"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      JOB_TRIGGERED_BY: cron
+      JOB_TYPE: firstshop_import
+      FIRSTSHOP_MAX_PRODUCTS_PER_RUN: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-firstshop-import-products.ts
+
   auto_match:
     name: "2 · Auto match"
-    needs: [ipon_import, pcx_import]
+    needs: [ipon_import, pcx_import, firstshop_import]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

@@ -16,6 +16,7 @@ export type JobType =
   | "ipon_import"
   | "ipon_scrape_details"
   | "pcx_import"
+  | "firstshop_import"
   | "aggregate_prices"
   | "auto_match"
   | "enrichment"
