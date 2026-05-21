@@ -15,10 +15,10 @@ export function getSupabaseNodeClientOptions(): SupabaseClientOptions<"public"> 
   if (major >= 22 && typeof globalThis.WebSocket !== "undefined") return undefined;
 
   // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const WebSocketImpl = require("ws") as typeof import("ws");
-  globalThis.WebSocket = WebSocketImpl as unknown as typeof WebSocket;
+  const WebSocketImpl = require("ws") as typeof WebSocket;
+  globalThis.WebSocket = WebSocketImpl;
 
   return {
-    realtime: { transport: WebSocketImpl as unknown as typeof WebSocket }
+    realtime: { transport: WebSocketImpl }
   };
 }

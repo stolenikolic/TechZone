@@ -85,6 +85,7 @@
     "@types/react-dom": "19.2.3",
     "@types/react-scroll": "^1.8.10",
     "@types/stylis": "^4.2.7",
+    "@types/ws": "^8.18.1",
     "bazaar-tools": "^2.0.0",
     "dotenv": "^16.4.5",
     "eslint": "^9.39.2",
