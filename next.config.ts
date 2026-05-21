@@ -1,6 +1,14 @@
+import path from "path";
 import type { NextConfig } from "next";
+import { fileURLToPath } from "url";
+
+const appRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
+  // Avoid picking parent package-lock.json (TechZone-main/) as workspace root on CI/Netlify.
+  turbopack: {
+    root: appRoot
+  },
   images: {
     // Avoid serving stale optimized images for hours after Storage URL changes.
     minimumCacheTTL: 60,
