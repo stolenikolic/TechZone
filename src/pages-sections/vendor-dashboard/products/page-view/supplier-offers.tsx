@@ -606,6 +606,9 @@ export default function SupplierOffersPageView({ offers }: Props) {
             </TextField>
           </Grid>
         </Grid>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+          {filteredOffers.length} rezultata
+        </Typography>
       </Card>
 
       <Card>

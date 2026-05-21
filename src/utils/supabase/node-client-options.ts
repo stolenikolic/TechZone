@@ -9,7 +9,7 @@ function nodeMajorVersion(): number | null {
  * Node.js < 22: realtime-js rejects the runtime unless `ws` is passed as transport.
  * Node 20 may define experimental globalThis.WebSocket — we still must pass `ws`.
  */
-export function getSupabaseNodeClientOptions(): SupabaseClientOptions | undefined {
+export function getSupabaseNodeClientOptions(): SupabaseClientOptions<"public"> | undefined {
   const major = nodeMajorVersion();
   if (major == null) return undefined;
   if (major >= 22 && typeof globalThis.WebSocket !== "undefined") return undefined;
@@ -19,7 +19,6 @@ export function getSupabaseNodeClientOptions(): SupabaseClientOptions | undefine
   globalThis.WebSocket = WebSocketImpl as unknown as typeof WebSocket;
 
   return {
-    realtime: { transport: WebSocketImpl as unknown as typeof WebSocket },
-    global: { WebSocket: WebSocketImpl as unknown as typeof WebSocket }
+    realtime: { transport: WebSocketImpl as unknown as typeof WebSocket }
   };
 }
