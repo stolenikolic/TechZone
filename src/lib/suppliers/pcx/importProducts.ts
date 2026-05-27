@@ -10,6 +10,12 @@ import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
 import { aggregatePrices, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { getSupplierCategories } from "lib/suppliers/registry";
+import {
+  hasLikelyProductDetailHtml,
+  isSupplierDetailBlocked,
+  isSupplierListingBlocked,
+  isSupplierWarmupBlocked
+} from "lib/suppliers/shared/bot-challenge";
 import { collectAdditionalProperty, type SpecRow, type SpecSnapshot } from "lib/suppliers/shared/spec-snapshot";
 import { PCX_CATEGORIES } from "./categories";
 
@@ -76,11 +82,6 @@ function delayMs(ms: number): Promise<void> {
 
 function jitteredDelayMs(): number {
   return REQUEST_DELAY_MIN_MS + Math.floor(Math.random() * (REQUEST_DELAY_JITTER_MS + 1));
-}
-
-function isCaptchaLikeHtml(html: string): boolean {
-  const l = html.toLowerCase();
-  return l.includes("captcha") || l.includes("verify");
 }
 
 /** Cookie jar — name → value. Persists across all requests within one run. */
@@ -211,8 +212,8 @@ async function warmupPcxSession(): Promise<void> {
     referer: null,
     skipDelay: true
   });
-  if (isCaptchaLikeHtml(homepageHtml)) {
-    throw new Error("[PCX] Stopped: CAPTCHA / verify page detected (homepage warmup).");
+  if (isSupplierWarmupBlocked(homepageHtml)) {
+    throw new Error("[PCX] Stopped: bot challenge page detected (homepage warmup).");
   }
   console.log(`[PCX][warmup] homepage OK, cookies=${cookieJar.size}`);
 }
@@ -560,11 +561,11 @@ export async function importCategory(category: (typeof PCX_CATEGORIES)[number]):
   while (remainingSlots > 0 && page <= 200) {
     const listUrl = buildCategoryListUrl(category.url, page);
     const listHtml = await fetchPcxHtml(listUrl, { kind: "listing" });
-    if (isCaptchaLikeHtml(listHtml)) {
-      throw new Error("[PCX] Stopped: CAPTCHA / verify page detected (category listing).");
-    }
 
     const pageItems = parseCategoryListingHtml(listHtml);
+    if (isSupplierListingBlocked(listHtml, pageItems.length)) {
+      throw new Error("[PCX] Stopped: bot challenge page detected (category listing).");
+    }
     const newItems = pageItems.filter((i) => !seenUrlsThisCategory.has(i.supplierProductUrl));
     for (const i of newItems) seenUrlsThisCategory.add(i.supplierProductUrl);
 
@@ -591,8 +592,9 @@ export async function importCategory(category: (typeof PCX_CATEGORIES)[number]):
         kind: "pdp",
         referer: listUrl
       });
-      if (isCaptchaLikeHtml(detailHtml)) {
-        throw new Error("[PCX] Stopped: CAPTCHA / verify page detected (product detail).");
+      const hasProductSignals = hasLikelyProductDetailHtml(detailHtml);
+      if (isSupplierDetailBlocked(detailHtml, hasProductSignals)) {
+        throw new Error("[PCX] Stopped: bot challenge page detected (product detail).");
       }
 
       const detail = parseProductDetailHtml(detailHtml);

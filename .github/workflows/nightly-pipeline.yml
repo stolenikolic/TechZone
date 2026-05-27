@@ -43,7 +43,8 @@ jobs:
   pcx_import:
     name: "1b · PCX import"
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # GHA hard cap is 360 min per job; was 45m and PCX full catalog was cancelled mid-run.
+    timeout-minutes: 360
     env:
       JOB_TRIGGERED_BY: cron
       JOB_TYPE: pcx_import

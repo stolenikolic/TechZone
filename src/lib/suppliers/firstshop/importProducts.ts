@@ -10,6 +10,12 @@ import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
 import { aggregatePrices, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { getSupplierCategories } from "lib/suppliers/registry";
+import {
+  hasLikelyProductDetailHtml,
+  isSupplierDetailBlocked,
+  isSupplierListingBlocked,
+  isSupplierWarmupBlocked
+} from "lib/suppliers/shared/bot-challenge";
 import type { SpecRow, SpecSnapshot } from "lib/suppliers/shared/spec-snapshot";
 import { FIRSTSHOP_SUPPLIER_ID } from "./constants";
 import { FIRSTSHOP_CATEGORIES, type FirstshopCategory } from "./categories";
@@ -70,11 +76,6 @@ function delayMs(ms: number): Promise<void> {
 
 function jitteredDelayMs(): number {
   return REQUEST_DELAY_MIN_MS + Math.floor(Math.random() * (REQUEST_DELAY_JITTER_MS + 1));
-}
-
-function isCaptchaLikeHtml(html: string): boolean {
-  const l = html.toLowerCase();
-  return l.includes("captcha") || l.includes("verify");
 }
 
 /** Cookie jar — name → value. Persists across all requests within one run. */
@@ -172,8 +173,8 @@ async function warmupFirstshopSession(): Promise<void> {
     referer: null,
     skipDelay: true
   });
-  if (isCaptchaLikeHtml(homepageHtml)) {
-    throw new Error("[FirstShop] Stopped: CAPTCHA / verify page detected (homepage warmup).");
+  if (isSupplierWarmupBlocked(homepageHtml)) {
+    throw new Error("[FirstShop] Stopped: bot challenge page detected (homepage warmup).");
   }
   console.log(`[FirstShop][warmup] homepage OK, cookies=${cookieJar.size}`);
 }
@@ -476,15 +477,15 @@ export async function importCategory(category: FirstshopCategory): Promise<First
   while (remainingSlots > 0 && page <= maxPage) {
     const listUrl = buildCategoryListUrl(category.url, page);
     const listHtml = await fetchFirstshopHtml(listUrl, { kind: "listing" });
-    if (isCaptchaLikeHtml(listHtml)) {
-      throw new Error("[FirstShop] Stopped: CAPTCHA / verify page detected (category listing).");
-    }
 
     if (page === 1) {
       maxPage = parseMaxListingPage(listHtml);
     }
 
     const pageItems = parseCategoryListingHtml(listHtml);
+    if (isSupplierListingBlocked(listHtml, pageItems.length)) {
+      throw new Error("[FirstShop] Stopped: bot challenge page detected (category listing).");
+    }
     const newItems = pageItems.filter((i) => !seenUrlsThisCategory.has(i.supplierProductUrl));
     for (const i of newItems) seenUrlsThisCategory.add(i.supplierProductUrl);
 
@@ -511,8 +512,10 @@ export async function importCategory(category: FirstshopCategory): Promise<First
         kind: "pdp",
         referer: listUrl
       });
-      if (isCaptchaLikeHtml(detailHtml)) {
-        throw new Error("[FirstShop] Stopped: CAPTCHA / verify page detected (product detail).");
+      const hasProductSignals =
+        hasLikelyProductDetailHtml(detailHtml) || !!extractCikkszamFromDetailHtml(detailHtml);
+      if (isSupplierDetailBlocked(detailHtml, hasProductSignals)) {
+        throw new Error("[FirstShop] Stopped: bot challenge page detected (product detail).");
       }
 
       const detail = parseProductDetailHtml(detailHtml, item.supplierProductUrl);
