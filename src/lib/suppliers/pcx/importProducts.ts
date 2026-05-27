@@ -54,13 +54,28 @@ function buildCategoryListUrl(categoryUrl: string, page: number): string {
   return u.toString();
 }
 
-const PCX_HEADERS: HeadersInit = {
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-  "Accept-Language": "hu-HU,hu;q=0.9,en;q=0.8"
-};
+/**
+ * Anti-WAF strategy (mirrors FirstShop):
+ *   1. Session cookie jar — homepage warmup before scrape.
+ *   2. Full Chrome 122 header set (sec-ch-ua / sec-fetch-*).
+ *   3. Referer chain: homepage → listing → PDP.
+ *   4. 1.5–3 s jittered delay between requests.
+ *   5. Retry 521/502/503 with backoff; re-warmup before final attempt.
+ */
+const PCX_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
+const REQUEST_DELAY_MIN_MS = 1500;
+const REQUEST_DELAY_JITTER_MS = 1500;
+const TRANSIENT_HTTP_STATUSES = new Set([521, 502, 503]);
+const TRANSIENT_RETRY_BACKOFF_MS = [5000, 15000] as const;
 
 function delayMs(ms: number): Promise<void> {
   return new Promise((res) => setTimeout(res, ms));
+}
+
+function jitteredDelayMs(): number {
+  return REQUEST_DELAY_MIN_MS + Math.floor(Math.random() * (REQUEST_DELAY_JITTER_MS + 1));
 }
 
 function isCaptchaLikeHtml(html: string): boolean {
@@ -68,19 +83,138 @@ function isCaptchaLikeHtml(html: string): boolean {
   return l.includes("captcha") || l.includes("verify");
 }
 
-let isFirstHttpRequest = true;
+/** Cookie jar — name → value. Persists across all requests within one run. */
+const cookieJar = new Map<string, string>();
 
-async function fetchPcxHtml(url: string): Promise<string> {
-  if (!isFirstHttpRequest) {
-    await delayMs(3000);
+function getCookieHeader(): string | undefined {
+  if (cookieJar.size === 0) return undefined;
+  return Array.from(cookieJar.entries())
+    .map(([k, v]) => `${k}=${v}`)
+    .join("; ");
+}
+
+function ingestSetCookies(res: Response): void {
+  type ResponseWithGetSetCookie = Response & { headers: Headers & { getSetCookie?: () => string[] } };
+  const headers = (res as ResponseWithGetSetCookie).headers;
+  const raw = typeof headers.getSetCookie === "function" ? headers.getSetCookie() : [];
+  for (const cookie of raw) {
+    const firstSemi = cookie.indexOf(";");
+    const pair = firstSemi >= 0 ? cookie.slice(0, firstSemi) : cookie;
+    const eq = pair.indexOf("=");
+    if (eq <= 0) continue;
+    const name = pair.slice(0, eq).trim();
+    const value = pair.slice(eq + 1).trim();
+    if (!name) continue;
+    cookieJar.set(name, value);
+  }
+}
+
+type PcxFetchKind = "homepage" | "listing" | "pdp";
+
+function buildPcxHeaders(kind: PcxFetchKind, referer: string | null): HeadersInit {
+  const headers: Record<string, string> = {
+    "User-Agent": PCX_USER_AGENT,
+    Accept:
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "Accept-Language": "hu-HU,hu;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Cache-Control": "max-age=0",
+    Connection: "keep-alive",
+    "sec-ch-ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": '"Windows"',
+    "sec-fetch-dest": "document",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-site": kind === "homepage" || !referer ? "none" : "same-origin",
+    "sec-fetch-user": "?1",
+    "Upgrade-Insecure-Requests": "1"
+  };
+  if (referer) headers.Referer = referer;
+  const cookie = getCookieHeader();
+  if (cookie) headers.Cookie = cookie;
+  return headers;
+}
+
+type PcxFetchOptions = {
+  kind?: PcxFetchKind;
+  referer?: string | null;
+  skipDelay?: boolean;
+};
+
+let isFirstHttpRequest = true;
+let lastPcxUrl: string | null = null;
+
+function parseHttpStatusFromPcxError(message: string): number | null {
+  const m = message.match(/\[PCX\] HTTP (\d+) for /);
+  if (!m) return null;
+  const n = Number(m[1]);
+  return Number.isFinite(n) ? n : null;
+}
+
+async function fetchPcxHtmlOnce(url: string, options: PcxFetchOptions = {}): Promise<string> {
+  const kind: PcxFetchKind = options.kind ?? "pdp";
+  const referer = options.referer === undefined ? lastPcxUrl : options.referer;
+
+  if (!isFirstHttpRequest && !options.skipDelay) {
+    await delayMs(jitteredDelayMs());
   }
   isFirstHttpRequest = false;
 
-  const res = await fetch(url, { headers: PCX_HEADERS });
+  const res = await fetch(url, { headers: buildPcxHeaders(kind, referer) });
+  ingestSetCookies(res);
+
   if (!res.ok) {
     throw new Error(`[PCX] HTTP ${res.status} for ${url}`);
   }
+  lastPcxUrl = url;
   return res.text();
+}
+
+async function fetchPcxHtml(url: string, options: PcxFetchOptions = {}): Promise<string> {
+  const maxAttempts = 1 + TRANSIENT_RETRY_BACKOFF_MS.length;
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (attempt > 0) {
+      const backoff = TRANSIENT_RETRY_BACKOFF_MS[attempt - 1];
+      if (attempt === maxAttempts - 1) {
+        console.warn(`[PCX][retry] re-warmup before final attempt for ${url}`);
+        await warmupPcxSession();
+      }
+      console.warn(`[PCX][retry] attempt=${attempt + 1}/${maxAttempts} backoff=${backoff}ms url=${url}`);
+      await delayMs(backoff);
+    }
+
+    try {
+      return await fetchPcxHtmlOnce(url, options);
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      const status = parseHttpStatusFromPcxError(lastError.message);
+      if (status == null || !TRANSIENT_HTTP_STATUSES.has(status) || attempt >= maxAttempts - 1) {
+        throw lastError;
+      }
+    }
+  }
+
+  throw lastError ?? new Error(`[PCX] fetch failed for ${url}`);
+}
+
+function resetPcxHttpState(): void {
+  cookieJar.clear();
+  isFirstHttpRequest = true;
+  lastPcxUrl = null;
+}
+
+/** Warmup: GET homepage to receive anti-bot session cookies before scraping. */
+async function warmupPcxSession(): Promise<void> {
+  const homepageHtml = await fetchPcxHtmlOnce(`${BASE_ORIGIN}/`, {
+    kind: "homepage",
+    referer: null,
+    skipDelay: true
+  });
+  if (isCaptchaLikeHtml(homepageHtml)) {
+    throw new Error("[PCX] Stopped: CAPTCHA / verify page detected (homepage warmup).");
+  }
+  console.log(`[PCX][warmup] homepage OK, cookies=${cookieJar.size}`);
 }
 
 type PcxListingItem = {
@@ -425,7 +559,7 @@ export async function importCategory(category: (typeof PCX_CATEGORIES)[number]):
 
   while (remainingSlots > 0 && page <= 200) {
     const listUrl = buildCategoryListUrl(category.url, page);
-    const listHtml = await fetchPcxHtml(listUrl);
+    const listHtml = await fetchPcxHtml(listUrl, { kind: "listing" });
     if (isCaptchaLikeHtml(listHtml)) {
       throw new Error("[PCX] Stopped: CAPTCHA / verify page detected (category listing).");
     }
@@ -453,7 +587,10 @@ export async function importCategory(category: (typeof PCX_CATEGORIES)[number]):
         break;
       }
 
-      const detailHtml = await fetchPcxHtml(item.supplierProductUrl);
+      const detailHtml = await fetchPcxHtml(item.supplierProductUrl, {
+        kind: "pdp",
+        referer: listUrl
+      });
       if (isCaptchaLikeHtml(detailHtml)) {
         throw new Error("[PCX] Stopped: CAPTCHA / verify page detected (product detail).");
       }
@@ -688,7 +825,7 @@ export async function runPcxImportForSupplierCategory(
  */
 export async function runPcxImportProducts(): Promise<PcxImportResult> {
   remainingSlots = getMaxProductsPerRun();
-  isFirstHttpRequest = true;
+  resetPcxHttpState();
   supabaseSingleton = createSupabaseServiceClient();
 
   const summary = {
@@ -705,6 +842,7 @@ export async function runPcxImportProducts(): Promise<PcxImportResult> {
   };
 
   try {
+    await warmupPcxSession();
     const categories = await resolvePcxCategoriesFromRegistry();
     summary.categories = categories.length;
     for (const category of categories) {
