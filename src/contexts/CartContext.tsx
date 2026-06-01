@@ -1,10 +1,27 @@
 "use client";
 
-import { createContext, PropsWithChildren, useEffect, useMemo, useReducer, useState } from "react";
+import {
+  createContext,
+  PropsWithChildren,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState
+} from "react";
+import { useAuth } from "contexts/AuthContext";
+import {
+  loadUserCartFromBrowser,
+  mergeGuestCartFromBrowser,
+  syncUserCartFromBrowser
+} from "lib/cart/cart-client";
 
 // =================================================================================
 type InitialState = { cart: CartItem[]; warning: string | null };
-const CART_STORAGE_KEY = "techzone_guest_cart_v1";
+export const CART_STORAGE_KEY = "techzone_guest_cart_v1";
+
+const CART_SYNC_DEBOUNCE_MS = 600;
 
 export interface CartItem {
   id: string;
@@ -41,10 +58,12 @@ const INITIAL_STATE: InitialState = { cart: [], warning: null };
 interface ContextProps {
   state: InitialState;
   dispatch: (args: CartActionType) => void;
+  isHydrated: boolean;
 }
 // ==============================================================
 
 export const CartContext = createContext<ContextProps>({} as ContextProps);
+
 function sanitizeCart(items: unknown): CartItem[] {
   if (!Array.isArray(items)) return [];
   return items
@@ -75,27 +94,51 @@ function sanitizeCart(items: unknown): CartItem[] {
     .filter((item): item is CartItem => item != null);
 }
 
+function readGuestCart(): CartItem[] {
+  try {
+    const raw = window.localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return [];
+    return sanitizeCart(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+function writeGuestCart(cart: CartItem[]) {
+  try {
+    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
+function clearGuestCart() {
+  try {
+    window.localStorage.removeItem(CART_STORAGE_KEY);
+  } catch {
+    // Ignore storage errors.
+  }
+}
+
 const reducer = (state: InitialState, action: CartActionType) => {
   switch (action.type) {
     case "HYDRATE_CART": {
       const hydrated = sanitizeCart(action.cart);
       return { ...state, cart: hydrated };
     }
-    case "CHANGE_CART_AMOUNT":
+    case "CHANGE_CART_AMOUNT": {
       const cartList = state.cart;
       const cartItem = action.payload;
 
       if (cartItem === undefined) return state;
 
-      const existIndex = cartList.findIndex((item) => item.id === cartItem!.id);
+      const existIndex = cartList.findIndex((item) => item.id === cartItem.id);
 
-      // REMOVE ITEM IF QUANTITY IS LESS THAN 1
       if (cartItem.qty < 1) {
-        const updatedCart = cartList.filter((item) => item.id !== cartItem!.id);
+        const updatedCart = cartList.filter((item) => item.id !== cartItem.id);
         return { ...state, cart: updatedCart };
       }
 
-      // IF PRODUCT ALREADY EXISTS IN CART
       if (existIndex > -1) {
         const updatedCart = [...cartList];
         const existing = updatedCart[existIndex];
@@ -104,7 +147,6 @@ const reducer = (state: InitialState, action: CartActionType) => {
         updatedCart[existIndex] = {
           ...existing,
           qty: nextQty,
-          // Keep cart metadata in sync when re-adding from latest product payload.
           price: cartItem.price,
           title: cartItem.title,
           slug: cartItem.slug,
@@ -114,7 +156,7 @@ const reducer = (state: InitialState, action: CartActionType) => {
       }
 
       return { ...state, cart: [...cartList, cartItem], warning: null };
-
+    }
     case "CLEAR_CART":
       return { ...state, cart: [], warning: null };
     case "SYNC_CART_PRICES": {
@@ -158,39 +200,106 @@ const reducer = (state: InitialState, action: CartActionType) => {
 };
 
 export default function CartProvider({ children }: PropsWithChildren) {
+  const { user, loading: authLoading } = useAuth();
   const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
   const [isHydrated, setIsHydrated] = useState(false);
+  const mergeStartedRef = useRef(false);
+  const prevUserIdRef = useRef<string | null>(null);
+  const skipNextSyncRef = useRef(false);
+  const serverCartLoadedRef = useRef(false);
+
   const cartSyncKey = useMemo(
     () => state.cart.map((item) => `${item.id}:${item.qty}`).join("|"),
     [state.cart]
   );
   const cartIds = useMemo(() => state.cart.map((item) => item.id), [state.cart]);
-  useEffect(() => {
+
+  const hydrateGuest = useCallback(() => {
+    skipNextSyncRef.current = true;
+    dispatch({ type: "HYDRATE_CART", cart: readGuestCart() });
+    setIsHydrated(true);
+  }, []);
+
+  const hydrateAuthenticated = useCallback(async () => {
+    serverCartLoadedRef.current = false;
+    skipNextSyncRef.current = true;
     try {
-      const raw = window.localStorage.getItem(CART_STORAGE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as unknown;
-      dispatch({ type: "HYDRATE_CART", cart: sanitizeCart(parsed) });
+      const items = await loadUserCartFromBrowser();
+      dispatch({ type: "HYDRATE_CART", cart: items });
+      serverCartLoadedRef.current = true;
     } catch {
-      // Ignore broken localStorage payloads.
+      serverCartLoadedRef.current = false;
     } finally {
       setIsHydrated(true);
     }
   }, []);
 
   useEffect(() => {
-    if (!isHydrated) return;
-    try {
-      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state.cart));
-    } catch {
-      // Ignore persistence errors (e.g. storage unavailable).
+    if (authLoading) return;
+
+    if (!user) {
+      mergeStartedRef.current = false;
+      prevUserIdRef.current = null;
+      serverCartLoadedRef.current = false;
+      hydrateGuest();
+      return;
     }
-  }, [isHydrated, state.cart]);
+
+    const isFreshLogin = prevUserIdRef.current == null;
+    prevUserIdRef.current = user.id;
+
+    let cancelled = false;
+
+    const run = async () => {
+      if (isFreshLogin && !mergeStartedRef.current) {
+        mergeStartedRef.current = true;
+        const guestCart = readGuestCart();
+        if (guestCart.length > 0) {
+          try {
+            await mergeGuestCartFromBrowser(
+              guestCart.map((item) => ({ id: item.id, qty: item.qty }))
+            );
+            clearGuestCart();
+          } catch {
+            // Keep guest cart if merge fails; server cart still loads below.
+          }
+        }
+      }
+
+      if (cancelled) return;
+      await hydrateAuthenticated();
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user?.id, hydrateGuest, hydrateAuthenticated]);
 
   useEffect(() => {
-    // Placeholder for future phase: merge guest local cart into user cart on login.
-    // No server-side merge in this phase by decision.
-  }, []);
+    if (!isHydrated || user) return;
+    writeGuestCart(state.cart);
+  }, [isHydrated, user, state.cart]);
+
+  useEffect(() => {
+    if (!isHydrated || !user || authLoading) return;
+    if (!serverCartLoadedRef.current) return;
+
+    if (skipNextSyncRef.current) {
+      skipNextSyncRef.current = false;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      void syncUserCartFromBrowser(
+        state.cart.map((item) => ({ id: item.id, qty: item.qty }))
+      ).catch(() => {
+        // Keep local state; next change retries sync.
+      });
+    }, CART_SYNC_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [isHydrated, user, authLoading, cartSyncKey, state.cart]);
 
   useEffect(() => {
     if (cartIds.length === 0) return;
@@ -231,7 +340,10 @@ export default function CartProvider({ children }: PropsWithChildren) {
     return () => clearTimeout(timer);
   }, [state.warning]);
 
-  const contextValue = useMemo(() => ({ state, dispatch }), [state, dispatch]);
+  const contextValue = useMemo(
+    () => ({ state, dispatch, isHydrated }),
+    [state, dispatch, isHydrated]
+  );
 
   return <CartContext value={contextValue}>{children}</CartContext>;
 }

@@ -5,7 +5,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
-import { normalizeEan, normalizeMpn } from "lib/suppliers/normalizeProductIdentifiers";
+import { normalizeEan, normalizeMpn, mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
 import { aggregatePrices, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
 import { createSupabaseServiceClient } from "utils/supabase";
@@ -668,6 +668,7 @@ export async function importCategory(category: (typeof PCX_CATEGORIES)[number]):
         price_amount: priceAmount,
         currency: "HUF",
         mpn: resolvedMpn,
+        mpn_match_key: mpnMatchKeyFromMpn(resolvedMpn),
         ean: resolvedEan,
         is_active: true,
         enrichment_status: "complete" as const,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { aggregatePrices } from "lib/pricing";
 import { processProductImages } from "lib/suppliers/ipon/processProductImages";
+import { mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { syncMissingIdentifiersFromMaster } from "lib/suppliers/syncSupplierIdentifiers";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { guardAdminApi } from "lib/auth/admin-route";
@@ -336,6 +337,7 @@ export async function POST(
     const imageUrls = parseImageUrls(payload.imageUrls);
     const slug = await ensureUniqueSlug(supabase, slugify(payload.slug?.trim() || name));
     const fallbackMainImage = compactString(payload.mainImage);
+    const productMpn = compactString(payload.mpn);
     const productInsert = {
       name,
       slug,
@@ -343,7 +345,8 @@ export async function POST(
       description: compactString(payload.description),
       category_id: categoryId,
       main_image: fallbackMainImage,
-      mpn: compactString(payload.mpn),
+      mpn: productMpn,
+      mpn_match_key: mpnMatchKeyFromMpn(productMpn),
       ean: compactString(payload.ean),
       attributes,
       is_active: true
@@ -388,12 +391,14 @@ export async function POST(
       master: { mpn: product.mpn, ean: product.ean }
     });
 
+    const offerMpn = identifierSync.update.mpn ?? offer.mpn;
     const { error: linkError } = await supabase
       .from("supplier_products")
       .update({
         product_id: productId,
         master_match_status: "linked",
         ...identifierSync.update,
+        mpn_match_key: mpnMatchKeyFromMpn(offerMpn),
         updated_at: new Date().toISOString()
       })
       .eq("id", id);
@@ -484,12 +489,14 @@ export async function PATCH(
       master: { mpn: product.mpn, ean: product.ean }
     });
 
+    const offerMpn = identifierSync.update.mpn ?? offer.mpn;
     const { error: updateError } = await supabase
       .from("supplier_products")
       .update({
         product_id: product.id,
         master_match_status: "linked",
         ...identifierSync.update,
+        mpn_match_key: mpnMatchKeyFromMpn(offerMpn),
         updated_at: new Date().toISOString()
       })
       .eq("id", id);

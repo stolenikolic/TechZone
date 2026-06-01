@@ -11,6 +11,7 @@
 import { aggregatePrices } from "lib/pricing";
 import { logEvent, type JobRunHandle } from "lib/jobs/job-runner";
 import { mergeMatchAudit, resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
+import { mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
 import { createSupabaseServiceClient } from "utils/supabase";
 
@@ -190,15 +191,20 @@ export async function runAutoMatch(jobHandle?: JobRunHandle): Promise<AutoMatchR
         { mpn: row.mpn, ean: row.ean },
         { mpn: masterIdentifiers?.mpn ?? null, ean: masterIdentifiers?.ean ?? null }
       );
+      const linkPatch: Record<string, unknown> = {
+        product_id: match.productId,
+        master_match_status: "linked",
+        ...identifierSync.update,
+        raw_json: mergeMatchAudit(row.raw_json, match.audit),
+        updated_at: new Date().toISOString()
+      };
+      const syncedMpn = identifierSync.update.mpn ?? row.mpn;
+      if (syncedMpn) {
+        linkPatch.mpn_match_key = mpnMatchKeyFromMpn(syncedMpn);
+      }
       const { error: linkError } = await supabase
         .from("supplier_products")
-        .update({
-          product_id: match.productId,
-          master_match_status: "linked",
-          ...identifierSync.update,
-          raw_json: mergeMatchAudit(row.raw_json, match.audit),
-          updated_at: new Date().toISOString()
-        })
+        .update(linkPatch)
         .eq("id", row.id);
       if (linkError) {
         errorsCount += 1;

@@ -259,33 +259,6 @@ function shouldRunLinkedOfferMatch(tier1: MatchResolution): boolean {
   return reason !== "ambiguous_ean" && reason !== "ambiguous_mpn";
 }
 
-/**
- * PostgREST ilike on raw MPN; compact needles miss hyphenated values (e.g. GVR76… vs GV-R76…).
- * Final equality still uses {@link normalizeMpnForMatchCompare}.
- */
-export function buildMpnIlikePattern(mpn: string): string | null {
-  const compareKey = normalizeMpnForMatchCompare(mpn);
-  if (!compareKey) return null;
-
-  const longTokens = compareKey.split(" ").filter((t) => t.length >= 6);
-  if (longTokens.length > 0) {
-    const best = longTokens.reduce((a, b) => (a.length >= b.length ? a : b));
-    return `%${best}%`;
-  }
-
-  const parts = compareKey.split(" ").filter((t) => t.length >= 2);
-  if (parts.length >= 2) {
-    return `%${parts.join("%")}%`;
-  }
-
-  const compact = compareKey.replace(/[^a-z0-9]/g, "");
-  if (compact.length >= 4) {
-    return `%${compact.slice(0, Math.min(12, compact.length))}%`;
-  }
-
-  return `%${compareKey.replace(/[^a-z0-9]+/g, "%")}%`;
-}
-
 type LinkedOfferRow = {
   product_id: string;
   mpn: string | null;
@@ -316,31 +289,30 @@ async function loadLinkedOffersByEan(supabase: SupabaseClient, normalizedEan: st
 async function loadLinkedOffersByMpn(supabase: SupabaseClient, mpn: string) {
   const compareKey = normalizeMpnForMatchCompare(mpn);
   const eanCross = eanFromMpnField(mpn);
-  const pattern = buildMpnIlikePattern(mpn);
   if (!compareKey && !eanCross) return [];
 
-  const byPattern =
-    compareKey && pattern
-      ? await (async () => {
-          const { data, error } = await supabase
-            .from("supplier_products")
-            .select("product_id, mpn, ean")
-            .ilike("mpn", pattern)
-            .not("product_id", "is", null)
-            .limit(50);
-          if (error) throw new Error(`supplier_products MPN lookup failed: ${error.message}`);
-          return (data ?? []) as LinkedOfferRow[];
-        })()
-      : [];
+  const rows: LinkedOfferRow[] = [];
 
-  const byEan = eanCross ? await loadLinkedOffersByEan(supabase, eanCross) : [];
-  const byEanRows: LinkedOfferRow[] = byEan.map((row) => ({
-    product_id: row.id,
-    mpn: row.mpn,
-    ean: row.ean
-  }));
+  if (compareKey) {
+    const { data, error } = await supabase
+      .from("supplier_products")
+      .select("product_id, mpn, ean")
+      .eq("mpn_match_key", compareKey)
+      .not("product_id", "is", null)
+      .limit(25);
 
-  const filtered = [...byPattern, ...byEanRows].filter((row) =>
+    if (error) throw new Error(`supplier_products MPN lookup failed: ${error.message}`);
+    rows.push(...((data ?? []) as LinkedOfferRow[]));
+  }
+
+  if (eanCross) {
+    const byEan = await loadLinkedOffersByEan(supabase, eanCross);
+    for (const row of byEan) {
+      rows.push({ product_id: row.id, mpn: row.mpn, ean: row.ean });
+    }
+  }
+
+  const filtered = rows.filter((row) =>
     rowMatchesMpnStep(
       { id: row.product_id, mpn: row.mpn, ean: row.ean },
       compareKey ?? "",
@@ -364,24 +336,27 @@ async function loadProductsByEan(supabase: SupabaseClient, normalizedEan: string
 async function loadProductsByMpn(supabase: SupabaseClient, mpn: string) {
   const compareKey = normalizeMpnForMatchCompare(mpn);
   const eanCross = eanFromMpnField(mpn);
-  const pattern = buildMpnIlikePattern(mpn);
   if (!compareKey && !eanCross) return [];
 
-  const byPattern =
-    compareKey && pattern
-      ? await (async () => {
-          const { data, error } = await supabase
-            .from("products")
-            .select("id, ean, mpn, created_at")
-            .ilike("mpn", pattern)
-            .limit(50);
-          if (error) throw new Error(`products MPN lookup failed: ${error.message}`);
-          return (data ?? []) as ProductIdentifierRow[];
-        })()
-      : [];
+  const rows: ProductIdentifierRow[] = [];
 
-  const byEan = eanCross ? await loadProductsByEan(supabase, eanCross) : [];
-  return mergeCandidateRows([...byPattern, ...byEan]).filter((row) =>
+  if (compareKey) {
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, ean, mpn, created_at")
+      .eq("mpn_match_key", compareKey)
+      .limit(25);
+
+    if (error) throw new Error(`products MPN lookup failed: ${error.message}`);
+    rows.push(...((data ?? []) as ProductIdentifierRow[]));
+  }
+
+  if (eanCross) {
+    const byEan = await loadProductsByEan(supabase, eanCross);
+    rows.push(...byEan);
+  }
+
+  return mergeCandidateRows(rows).filter((row) =>
     rowMatchesMpnStep(row, compareKey ?? "", eanCross)
   );
 }

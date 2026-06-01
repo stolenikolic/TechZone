@@ -9,7 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { aggregatePrices, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
 import { mergeMatchAudit, resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
-import { normalizeEan, normalizeMpn } from "lib/suppliers/normalizeProductIdentifiers";
+import { normalizeEan, normalizeMpn, mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
 import { getSupplierCategories } from "lib/suppliers/registry";
 import { IPON_SUPPLIER_ID, IPON_CATEGORIES, getIponSupplierGroupId, type IponCategory } from "./categories";
@@ -320,6 +320,7 @@ async function upsertIponListItem(
             currency: "HUF",
             is_active: true,
             mpn: identifierSync.update.mpn ?? offerMpn,
+            mpn_match_key: mpnMatchKeyFromMpn(identifierSync.update.mpn ?? offerMpn),
             ean: identifierSync.update.ean ?? offerEan,
             raw_json: mergeMatchAudit(item as unknown as Record<string, unknown>, match.audit),
             enrichment_status: "pending",
@@ -378,6 +379,7 @@ async function upsertIponListItem(
         currency: "HUF",
         is_active: true,
         mpn: offerMpn,
+        mpn_match_key: mpnMatchKeyFromMpn(offerMpn),
         ean: offerEan,
         raw_json: mergeMatchAudit(item as unknown as Record<string, unknown>, match.audit),
         enrichment_status: "pending",

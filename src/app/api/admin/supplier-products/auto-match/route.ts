@@ -4,6 +4,9 @@ import { runAutoMatch, type AutoMatchResult } from "lib/auto-match/runAutoMatch"
 import { createSupabaseServiceClient } from "utils/supabase";
 import { guardAdminApi } from "lib/auth/admin-route";
 
+/** Full pending scan can take 1–2 min; default serverless timeout is too short. */
+export const maxDuration = 300;
+
 const EVENTS_LIMIT = 120;
 
 type MatchRunRow = {

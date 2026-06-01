@@ -24,6 +24,9 @@ export function normalizeMpnForMatchCompare(raw: string | null | undefined): str
     .toLowerCase();
 }
 
+/** Persisted on `products` / `supplier_products`; same rules as {@link normalizeMpnForMatchCompare}. */
+export const mpnMatchKeyFromMpn = normalizeMpnForMatchCompare;
+
 /**
  * Keep digits only for GTIN/EAN-13; empty → null.
  * Does not validate check digit (caller can add later).

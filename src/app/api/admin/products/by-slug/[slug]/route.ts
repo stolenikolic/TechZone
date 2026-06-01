@@ -11,6 +11,7 @@ import {
 } from "lib/pricing";
 import { guardAdminApi } from "lib/auth/admin-route";
 import { syncAdminProductImages } from "lib/images/sync-admin-product-images";
+import { mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type DbCategory = {
@@ -341,7 +342,11 @@ export async function PATCH(
       if ("name" in body.basic) patch.name = body.basic.name?.trim() || "";
       if ("brand" in body.basic) patch.brand = body.basic.brand?.trim() || null;
       if ("description" in body.basic) patch.description = body.basic.description?.trim() || null;
-      if ("mpn" in body.basic) patch.mpn = body.basic.mpn?.trim() || null;
+      if ("mpn" in body.basic) {
+        const mpn = body.basic.mpn?.trim() || null;
+        patch.mpn = mpn;
+        patch.mpn_match_key = mpnMatchKeyFromMpn(mpn);
+      }
       if ("ean" in body.basic) patch.ean = body.basic.ean?.trim() || null;
       if ("isActive" in body.basic) patch.publish_locked = !Boolean(body.basic.isActive);
       if ("customPrice" in body.basic) {

@@ -1,3 +1,4 @@
+import { mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type SupabaseClient = ReturnType<typeof createSupabaseServiceClient>;
@@ -20,6 +21,8 @@ export function getIdentifierSyncUpdate(
 
   if (!supplier.mpn && master.mpn) {
     update.mpn = master.mpn;
+    const matchKey = mpnMatchKeyFromMpn(master.mpn);
+    if (matchKey) update.mpn_match_key = matchKey;
     synced.push("mpn");
   } else if (supplier.mpn && master.mpn && normalized(supplier.mpn) !== normalized(master.mpn)) {
     conflicts.push("mpn");

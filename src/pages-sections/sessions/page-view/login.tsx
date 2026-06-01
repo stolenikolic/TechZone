@@ -11,6 +11,7 @@ import { TextField, FormProvider } from "components/form-hook";
 import Label from "../components/label";
 import EyeToggleButton from "../components/eye-toggle-button";
 import usePasswordVisible from "../use-password-visible";
+import { useAuth } from "contexts/AuthContext";
 import { signInWithEmail, resendSignupConfirmation } from "lib/auth/actions";
 
 const validationSchema = yup.object().shape({
@@ -20,6 +21,7 @@ const validationSchema = yup.object().shape({
 
 export default function LoginPageView() {
   const router = useRouter();
+  const { refresh: refreshAuth } = useAuth();
   const searchParams = useSearchParams();
   const next = searchParams.get("next");
   const { visiblePassword, togglePasswordVisible } = usePasswordVisible();
@@ -71,9 +73,10 @@ export default function LoginPageView() {
       return;
     }
 
+    await refreshAuth();
+
     const dest = next && next.startsWith("/") ? next : "/profile";
-    router.push(dest);
-    router.refresh();
+    router.replace(dest);
   });
 
   return (

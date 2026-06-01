@@ -1,19 +1,20 @@
 import assert from "node:assert/strict";
 import {
-  buildMpnIlikePattern,
   decideMatchFromCandidates,
   decideMatchFromLinkedOffers,
   mergeMatchAudit
 } from "../src/lib/suppliers/matchSupplierProduct";
 import {
   eanFromMpnField,
+  mpnMatchKeyFromMpn,
   normalizeMpnForMatchCompare
 } from "../src/lib/suppliers/normalizeProductIdentifiers";
 
 function run() {
   assert.equal(normalizeMpnForMatchCompare("GV-R76GAMING OC-8GD"), "gv r76gaming oc 8gd");
   assert.equal(normalizeMpnForMatchCompare("GV-R76GAMING-OC-8GD"), "gv r76gaming oc 8gd");
-  assert.equal(buildMpnIlikePattern("GV-R76GAMING OC-8GD"), "%r76gaming%");
+  assert.equal(mpnMatchKeyFromMpn("GV-R76GAMING OC-8GD"), "gv r76gaming oc 8gd");
+  assert.equal(mpnMatchKeyFromMpn("ROG STRIX B650E-E GAMING WIFI"), "rog strix b650e e gaming wifi");
   assert.equal(eanFromMpnField("4719331313425"), "4719331313425");
   assert.equal(eanFromMpnField("GV-R76GAMING OC-8GD"), null);
 

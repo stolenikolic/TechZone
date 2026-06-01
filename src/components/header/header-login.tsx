@@ -102,8 +102,7 @@ export function HeaderLogin() {
   const handleSignOut = async () => {
     handleClose();
     await signOut();
-    router.push("/");
-    router.refresh();
+    router.replace("/");
   };
 
   return (

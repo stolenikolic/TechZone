@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type PropsWithChildren } from "react";
+import type { PropsWithChildren } from "react";
 import { usePathname, useRouter } from "next/navigation";
 // MUI
 import Dialog from "@mui/material/Dialog";
@@ -11,12 +11,6 @@ export default function LoginModalPage({ children }: PropsWithChildren) {
   const router = useRouter();
   const pathname = usePathname();
   const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down("xs"));
-
-  useEffect(() => {
-    if (pathname !== "/login") {
-      router.replace(pathname);
-    }
-  }, [pathname, router]);
 
   if (pathname !== "/login") return null;
 
