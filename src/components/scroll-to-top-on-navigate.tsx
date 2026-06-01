@@ -55,14 +55,20 @@ export default function ScrollToTopOnNavigate() {
     const previous = previousRouteRef.current;
     const routeChanged = previous.pathname !== pathname || previous.search !== search;
 
-    if (previous.pathname && routeChanged) {
+    // Save scroll when leaving a real page (not when closing a modal overlay).
+    if (previous.pathname && routeChanged && !isModalPath(previous.pathname)) {
       saveScrollPosition(previous.pathname, previous.search);
     }
 
     if (routeChanged && !isModalPath(pathname)) {
+      const returnedFromModal = isModalPath(previous.pathname);
+
       if (consumePendingHistoryTraversal()) {
-        restoreScrollPosition(pathname, search);
-      } else if (previous.pathname) {
+        // Modals (cart, login, quick view) do not move the page behind — skip restore.
+        if (!returnedFromModal) {
+          restoreScrollPosition(pathname, search);
+        }
+      } else if (previous.pathname && !returnedFromModal) {
         forceScrollToTopWithRetries();
       }
     }

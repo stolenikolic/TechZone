@@ -26,9 +26,8 @@ function writeCache(cache: Record<string, number>) {
 
 export function saveScrollPosition(pathname: string, search: string) {
   if (typeof window === "undefined" || !pathname) return;
-  const y = window.scrollY;
-  if (y <= 0) return;
 
+  const y = Math.max(0, Math.floor(window.scrollY));
   const cache = readCache();
   cache[routeKey(pathname, search)] = y;
   writeCache(cache);
@@ -37,8 +36,11 @@ export function saveScrollPosition(pathname: string, search: string) {
 export function restoreScrollPosition(pathname: string, search: string) {
   if (typeof window === "undefined" || !pathname) return;
 
-  const y = readCache()[routeKey(pathname, search)];
-  if (typeof y !== "number" || y <= 0) return;
+  const key = routeKey(pathname, search);
+  const cached = readCache()[key];
+  if (typeof cached !== "number" || !Number.isFinite(cached) || cached < 0) return;
+
+  const y = Math.floor(cached);
 
   const apply = () => {
     window.scrollTo({ top: y, left: 0, behavior: "auto" });
