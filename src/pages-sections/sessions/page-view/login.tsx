@@ -19,6 +19,12 @@ const validationSchema = yup.object().shape({
   email: yup.string().email("Invalid Email Address").required("Email is required")
 });
 
+/** Safe internal path from ?next=, or null to close modal / stay on current page. */
+function resolvePostLoginPath(next: string | null): string | null {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) return null;
+  return next;
+}
+
 export default function LoginPageView() {
   const router = useRouter();
   const { refresh: refreshAuth } = useAuth();
@@ -75,8 +81,17 @@ export default function LoginPageView() {
 
     await refreshAuth();
 
-    const dest = next && next.startsWith("/") ? next : "/profile";
-    router.replace(dest);
+    const dest = resolvePostLoginPath(next);
+    if (dest) {
+      router.replace(dest);
+      return;
+    }
+
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.replace("/");
+    }
   });
 
   return (
