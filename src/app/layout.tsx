@@ -23,6 +23,7 @@ import SettingsProvider from "contexts/SettingContext";
 import RTL from "components/rtl";
 import ProgressBar from "components/progress";
 import LastNonCartRouteTracker from "components/last-non-cart-route-tracker";
+import ScrollToTopOnNavigate from "components/scroll-to-top-on-navigate";
 
 // IMPORT i18n SUPPORT FILE
 import "i18n";
@@ -44,7 +45,10 @@ export default function RootLayout({ children, modal }: RootLayoutProps) {
             <SettingsProvider>
               <ThemeProvider>
               <RTL>
-                <Suspense fallback={null}><LastNonCartRouteTracker /></Suspense>
+                <Suspense fallback={null}>
+                  <LastNonCartRouteTracker />
+                  <ScrollToTopOnNavigate />
+                </Suspense>
                 {modal}
                 {children}
               </RTL>

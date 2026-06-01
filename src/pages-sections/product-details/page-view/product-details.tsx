@@ -1,4 +1,5 @@
 import Container from "@mui/material/Container";
+import ProductDetailsScrollReset from "components/product-details/product-details-scroll-reset";
 // LOCAL CUSTOM COMPONENTS
 import ProductTabs from "../product-tabs";
 import ProductIntro from "../product-intro";
@@ -36,6 +37,7 @@ export default function ProductDetailsPageView(props: Props) {
 
   return (
     <Container className="mt-2 mb-2">
+      <ProductDetailsScrollReset slug={product.slug} />
       <SiteBreadcrumbs items={breadcrumbItems} />
 
       {/* PRODUCT DETAILS INFO AREA */}
