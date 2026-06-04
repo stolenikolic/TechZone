@@ -1,5 +1,6 @@
 export type CartLineInput = {
   productId: string;
+  supplierProductId: string;
   qty: number;
 };
 
@@ -16,6 +17,7 @@ export type DbCartProductRow = {
 
 export type DbCartItemRow = {
   product_id: string;
+  supplier_product_id: string;
   quantity: number;
   created_at: string;
 };

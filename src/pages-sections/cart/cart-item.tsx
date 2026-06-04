@@ -6,15 +6,20 @@ import Typography from "@mui/material/Typography";
 import Trash from "icons/Trash";
 import useCart from "hooks/useCart";
 import { formatPrice } from "lib";
+import CartLineMeta from "components/cart/cart-line-meta";
 import QuantityButtons from "./quantity-buttons";
 import { ContentWrapper, ImageWrapper, Wrapper } from "./styles";
 import { CartItem as CartModel } from "contexts/CartContext";
 
 // =========================================================
-type Props = { item: CartModel };
+type Props = {
+  item: CartModel;
+  offerLabel: string | null;
+  showLineDelivery: boolean;
+};
 // =========================================================
 
-export default function CartItem({ item }: Props) {
+export default function CartItem({ item, offerLabel, showLineDelivery }: Props) {
   const { id, title, price, thumbnail, slug, qty } = item;
 
   const { dispatch } = useCart();
@@ -22,14 +27,7 @@ export default function CartItem({ item }: Props) {
   const handleCartAmountChange = (amount: number) => () => {
     dispatch({
       type: "CHANGE_CART_AMOUNT",
-      payload: {
-        id,
-        title,
-        price,
-        thumbnail,
-        slug,
-        qty: amount
-      }
+      payload: { ...item, qty: amount }
     });
   };
 
@@ -46,6 +44,8 @@ export default function CartItem({ item }: Props) {
               {title}
             </Typography>
           </Link>
+
+          <CartLineMeta item={item} offerLabel={offerLabel} showLineDelivery={showLineDelivery} />
 
           <Typography noWrap variant="body1" fontWeight={600}>
             {formatPrice(price)}

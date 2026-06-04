@@ -3,29 +3,47 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@mui/material/Button";
-// GLOBAL CUSTOM HOOK
 import useCart from "hooks/useCart";
-// CUSTOM DATA MODEL
+import { buildCartItemPayload } from "lib/cart/cart-item-payload";
+import type { OfferChoiceKey, StorefrontProductOffer } from "lib/product-offers";
 import Product from "models/Product.model";
 
-// ================================================================
-type Props = { product: Product; qty?: number };
-// ================================================================
+type Props = {
+  product: Product;
+  qty?: number;
+  selectedOffer: StorefrontProductOffer | null;
+  offerChoice: OfferChoiceKey;
+};
 
-export default function AddToCart({ product, qty = 1 }: Props) {
-  const { id, price, title, slug, thumbnail } = product;
+export default function AddToCart({ product, qty = 1, selectedOffer, offerChoice }: Props) {
+  const offers = product.productOffers;
+  const offer =
+    selectedOffer ??
+    (offers?.cheapestOfferId
+      ? offers.offers.find((o) => o.id === offers.cheapestOfferId) ?? offers.offers[0] ?? null
+      : null);
 
   const router = useRouter();
   const [isLoading, setLoading] = useState(false);
   const { dispatch } = useCart();
 
   const handleAddToCart = () => {
+    if (!offer || offer.sellingPrice <= 0) return;
+
     setLoading(true);
     setTimeout(() => {
       dispatch({
         type: "CHANGE_CART_AMOUNT",
         addToExisting: true,
-        payload: { id, slug, price, title, thumbnail, qty }
+        payload: buildCartItemPayload({
+          productId: product.id,
+          title: product.title,
+          slug: product.slug,
+          thumbnail: product.thumbnail ?? "/assets/images/placeholder.png",
+          qty,
+          offer,
+          offerChoice
+        })
       });
 
       router.push("/mini-cart", { scroll: false });
@@ -33,11 +51,14 @@ export default function AddToCart({ product, qty = 1 }: Props) {
     }, 500);
   };
 
+  const disabled = !offer || offer.sellingPrice <= 0;
+
   return (
     <Button
       color="primary"
       variant="contained"
       loading={isLoading}
+      disabled={disabled}
       onClick={handleAddToCart}
       sx={{ px: "1.75rem", height: 40 }}
     >

@@ -5,9 +5,14 @@ interface Item {
   product_name: string;
   product_price: number;
   product_quantity: number;
+  /** @deprecated Prefer offer_label */
   variant?: string;
   product_id?: string;
+  supplier_product_id?: string;
   supplier_name?: string;
+  offer_choice?: "cheapest" | "fastest";
+  offer_label?: string;
+  delivery_label?: string;
 }
 
 export type OrderStatus = "Pending" | "Processing" | "Delivered" | "Cancelled";

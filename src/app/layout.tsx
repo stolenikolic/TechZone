@@ -47,6 +47,8 @@ export default function RootLayout({ children, modal }: RootLayoutProps) {
               <RTL>
                 <Suspense fallback={null}>
                   <LastNonCartRouteTracker />
+                </Suspense>
+                <Suspense fallback={null}>
                   <ScrollToTopOnNavigate />
                 </Suspense>
                 {modal}

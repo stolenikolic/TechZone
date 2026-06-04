@@ -10,6 +10,7 @@ import FavoriteBorder from "@mui/icons-material/FavoriteBorder";
 import AddShoppingCart from "@mui/icons-material/AddShoppingCart";
 // GLOBAL CUSTOM HOOK
 import useCart from "hooks/useCart";
+import { addProductToCart } from "lib/cart/add-product-to-cart";
 // STYLED COMPONENT
 import { HoverWrapper } from "./styles";
 // CUSTOM DATA MODEL
@@ -20,8 +21,7 @@ type Props = { product: Product };
 // ==============================================================
 
 export default function HoverActions({ product }: Props) {
-  const { id, title, price, thumbnail, slug } = product;
-
+  const { slug } = product;
   const { dispatch } = useCart();
   const [isFavorite, setFavorite] = useState(false);
 
@@ -29,13 +29,9 @@ export default function HoverActions({ product }: Props) {
     setFavorite((state) => !state);
   }, []);
 
-  const handleAddToCart = useCallback(() => {
-    dispatch({
-      type: "CHANGE_CART_AMOUNT",
-      addToExisting: true,
-      payload: { id, slug, price, title, thumbnail, qty: 1 }
-    });
-  }, [dispatch, id, price, slug, thumbnail, title]);
+  const handleAddToCart = useCallback(async () => {
+    await addProductToCart(dispatch, product, { navigateToMiniCart: false });
+  }, [dispatch, product]);
 
   return (
     <HoverWrapper className="controller">

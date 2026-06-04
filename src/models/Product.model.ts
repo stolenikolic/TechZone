@@ -1,5 +1,6 @@
 import Shop from "./Shop.model";
 import Review from "./Review.model";
+import type { ProductOffersSummary } from "lib/product-offers";
 
 export default interface Product {
   unit?: any;
@@ -48,4 +49,6 @@ export default interface Product {
   topPickLabel?: string;
   /** Wishlist: product no longer available on storefront. */
   isUnavailable?: boolean;
+  /** Active supplier offers + cheapest/fastest badges for PDP. */
+  productOffers?: ProductOffersSummary;
 }

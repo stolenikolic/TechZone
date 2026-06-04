@@ -17,13 +17,19 @@ import { FlexBetween, FlexBox } from "components/flex-box";
 import countryList from "data/countryList";
 // CUSTOM UTILS LIBRARY FUNCTION
 import { currency } from "lib";
+import CartDeliverySummaryBlock from "components/cart/cart-delivery-summary";
+import type { CartDeliverySummary } from "lib/cart/cart-display-meta";
 
 const STATE_LIST = [
   { value: "new-york", label: "New York" },
   { value: "chicago", label: "Chicago" }
 ];
 
-export default function CheckoutForm() {
+type Props = {
+  deliverySummary: CartDeliverySummary;
+};
+
+export default function CheckoutForm({ deliverySummary }: Props) {
   const { state } = useCart();
 
   const getTotalPrice = () => state.cart.reduce((acc, item) => acc + item.price * item.qty, 0);
@@ -38,6 +44,8 @@ export default function CheckoutForm() {
         backgroundColor: "grey.50"
       }}
     >
+      <CartDeliverySummaryBlock summary={deliverySummary} />
+
       <FlexBetween mb={2}>
         <Typography variant="body1" fontSize={16} fontWeight={600}>
           Total:

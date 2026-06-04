@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
+import { deliveryPolicyToJson, parseDeliveryPolicyJson } from "lib/suppliers/delivery-policy";
+import type { DeliveryPolicy } from "lib/product-offers";
 import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +11,7 @@ function isAllowedFormula(f: string | null | undefined): boolean {
   return f === "ipon_huf" || f === "hungary_huf_alza_tax" || f === "domestic_custom";
 }
 
-/** PATCH /api/admin/suppliers/:id — body: { pricing_formula?, cost_adjustment_multiplier?, enrichment_priority? } */
+/** PATCH /api/admin/suppliers/:id — body: { pricing_formula?, cost_adjustment_multiplier?, enrichment_priority?, delivery_policy? } */
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const denied = await guardAdminApi();
   if (denied) return denied;
@@ -19,6 +21,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       pricing_formula?: string | null;
       cost_adjustment_multiplier?: number;
       enrichment_priority?: number;
+      delivery_policy?: DeliveryPolicy | null;
     };
 
     const patch: Record<string, unknown> = {};
@@ -45,6 +48,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         return NextResponse.json({ error: "enrichment_priority must be a positive integer." }, { status: 400 });
       }
       patch.enrichment_priority = Math.round(p);
+    }
+
+    if ("delivery_policy" in body) {
+      if (body.delivery_policy == null) {
+        patch.delivery_policy = null;
+      } else {
+        const parsed = parseDeliveryPolicyJson(body.delivery_policy);
+        if (!parsed) {
+          return NextResponse.json({ error: "Invalid delivery_policy." }, { status: 400 });
+        }
+        patch.delivery_policy = deliveryPolicyToJson(parsed);
+      }
     }
 
     if (Object.keys(patch).length === 0) {

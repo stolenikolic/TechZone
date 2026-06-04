@@ -23,7 +23,13 @@ import {
 } from "./ipon-fetch";
 import { processProductImages } from "./processProductImages";
 import { withPostgrestTransientRetry } from "./transient-retry";
-import { slugify, toSupplierProductId, type IponProductItem } from "./transformProduct";
+import {
+  parseIponDeliveryDays,
+  parseIponWarrantyMonths,
+  slugify,
+  toSupplierProductId,
+  type IponProductItem
+} from "./transformProduct";
 
 function firstString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
@@ -258,6 +264,8 @@ async function upsertIponListItem(
             price_amount: item.grossPrice,
             currency: "HUF",
             is_active: true,
+            delivery_days: parseIponDeliveryDays(item),
+            warranty_months: parseIponWarrantyMonths(item),
             raw_json: item as unknown as Record<string, unknown>,
             updated_at: new Date().toISOString()
           })
@@ -319,6 +327,8 @@ async function upsertIponListItem(
             price_amount: item.grossPrice,
             currency: "HUF",
             is_active: true,
+            delivery_days: parseIponDeliveryDays(item),
+            warranty_months: parseIponWarrantyMonths(item),
             mpn: identifierSync.update.mpn ?? offerMpn,
             mpn_match_key: mpnMatchKeyFromMpn(identifierSync.update.mpn ?? offerMpn),
             ean: identifierSync.update.ean ?? offerEan,
@@ -378,6 +388,8 @@ async function upsertIponListItem(
         price_amount: item.grossPrice,
         currency: "HUF",
         is_active: true,
+        delivery_days: parseIponDeliveryDays(item),
+        warranty_months: parseIponWarrantyMonths(item),
         mpn: offerMpn,
         mpn_match_key: mpnMatchKeyFromMpn(offerMpn),
         ean: offerEan,

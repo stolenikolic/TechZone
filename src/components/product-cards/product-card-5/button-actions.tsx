@@ -2,45 +2,27 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-// MUI
 import Button from "@mui/material/Button";
-// MUI ICON COMPONENTS
 import Add from "@mui/icons-material/Add";
 import Favorite from "@mui/icons-material/Favorite";
 import FavoriteBorder from "@mui/icons-material/FavoriteBorder";
-// GLOBAL CUSTOM HOOKS
 import useCart from "hooks/useCart";
-// STYLED COMPONENT
+import { addProductToCart } from "lib/cart/add-product-to-cart";
 import { ButtonGroup } from "./styles";
-// CUSTOM DATA MODEL
 import Product from "models/Product.model";
 
-// ==============================================================
 type Props = { product: Product };
-// ==============================================================
 
 export default function ButtonActions({ product }: Props) {
-  const { id, title, price, thumbnail, slug } = product;
-
   const { dispatch } = useCart();
-
   const router = useRouter();
   const [isLoading, setLoading] = useState(false);
   const [isFavorite, setFavorite] = useState(false);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     setLoading(true);
-
-    setTimeout(() => {
-      dispatch({
-        type: "CHANGE_CART_AMOUNT",
-        addToExisting: true,
-        payload: { id, slug, price, title, thumbnail, qty: 1 }
-      });
-
-      router.push("/mini-cart", { scroll: false });
-      setLoading(false);
-    }, 500);
+    await addProductToCart(dispatch, product, { router });
+    setLoading(false);
   };
 
   return (

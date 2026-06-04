@@ -41,6 +41,8 @@ type Supplier = {
   createsMasterProducts: boolean;
   isActive: boolean;
   enrichmentPriority: number;
+  deliveryPolicy: { type: "weekly"; weekday: number } | null;
+  inboundLeadDaysDefault: number;
 };
 
 type CategoryOption = { id: string; name: string; slug: string };
@@ -203,7 +205,9 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
           defaultCurrency: supplier.defaultCurrency,
           createsMasterProducts: supplier.createsMasterProducts,
           isActive: supplier.isActive,
-          enrichmentPriority: supplier.enrichmentPriority
+          enrichmentPriority: supplier.enrichmentPriority,
+          deliveryPolicy: { type: "weekly" as const, weekday: 1 },
+          inboundLeadDaysDefault: supplier.inboundLeadDaysDefault
         })
       });
       const json = (await res.json()) as { item?: Supplier; error?: string };
@@ -754,6 +758,33 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
               onChange={(e) => setSupplier({ ...supplier, enrichmentPriority: Math.max(1, Number(e.target.value)) })}
               inputProps={{ min: 1, step: 1 }}
             />
+            <Typography variant="subtitle2" sx={{ pt: 1 }}>
+              Raspored isporuke kod nas
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Roba stiže kod vas <strong>svakog ponedjeljka</strong>, nakon lead vremena ispod.
+            </Typography>
+            {supplier.id === IPON_SUPPLIER_ID ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                <strong>iPon:</strong> lead po artiklu iz <code>delivery_days</code> (iPon API{" "}
+                <code>deliveryDays</code>). Ako je prazno → <strong>0</strong> (npr. nedjelja → sljedeći ponedjeljak).
+              </Typography>
+            ) : (
+              <TextField
+                size="small"
+                type="number"
+                label="Default lead (dani prije ponedeljka)"
+                helperText="Koristi se za sve ponude ovog dobavljača (NULL na artiklu = ova vrijednost). Preporuka: 7."
+                value={supplier.inboundLeadDaysDefault}
+                onChange={(e) =>
+                  setSupplier({
+                    ...supplier,
+                    inboundLeadDaysDefault: Math.max(0, Math.round(Number(e.target.value)) || 0)
+                  })
+                }
+                inputProps={{ min: 0, step: 1 }}
+              />
+            )}
             <Stack direction="row" spacing={1}>
               <Button variant="contained" onClick={() => void handleSaveSettings()} disabled={busy}>
                 Sačuvaj

@@ -3,34 +3,20 @@
 import Link from "next/link";
 import { useState } from "react";
 import useCart from "hooks/useCart";
+import { addProductToCart } from "lib/cart/add-product-to-cart";
 import Product from "models/Product.model";
-// STYLED COMPONENTS
 import { StyledButton } from "./styles";
 
-// ==============================================================
 type Props = { product: Product };
-// ==============================================================
 
 export default function AddToCart({ product }: Props) {
-  const { id, slug, title, thumbnail, price } = product;
-
   const [isLoading, setIsLoading] = useState(false);
   const { dispatch } = useCart();
 
-  const handleCart = () => {
+  const handleCart = async () => {
     setIsLoading(true);
-
-    const timer = setTimeout(() => {
-      dispatch({
-        type: "CHANGE_CART_AMOUNT",
-        addToExisting: true,
-        payload: { id, slug, price, title, thumbnail, qty: 1 }
-      });
-
-      setIsLoading(false);
-    }, 500);
-
-    return () => clearTimeout(timer);
+    await addProductToCart(dispatch, product, { navigateToMiniCart: false });
+    setIsLoading(false);
   };
 
   return (

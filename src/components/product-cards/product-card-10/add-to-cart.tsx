@@ -3,34 +3,21 @@
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import Button from "@mui/material/Button";
-// GLOBAL CUSTOM HOOKS
 import useCart from "hooks/useCart";
-// CUSTOM DATA MODEL
+import { addProductToCart } from "lib/cart/add-product-to-cart";
 import Product from "models/Product.model";
 
-// ==============================================================
 type Props = { product: Product };
-// ==============================================================
 
 export default function AddToCart({ product }: Props) {
-  const { slug, id, price, thumbnail, title } = product;
-
   const { dispatch } = useCart();
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleAddToCart = useCallback(() => {
+  const handleAddToCart = useCallback(async () => {
     setIsLoading(true);
-
-    setTimeout(() => {
-      dispatch({
-        type: "CHANGE_CART_AMOUNT",
-        addToExisting: true,
-        payload: { id, slug, price, title, thumbnail, qty: 1 }
-      });
-
-      setIsLoading(false);
-    }, 500);
-  }, [dispatch, slug, id, price, title, thumbnail]);
+    await addProductToCart(dispatch, product, { navigateToMiniCart: false });
+    setIsLoading(false);
+  }, [dispatch, product]);
 
   return (
     <Link scroll={false} href="/mini-cart" className="add-to-cart-btn">

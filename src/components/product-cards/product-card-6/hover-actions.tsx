@@ -12,6 +12,7 @@ import FavoriteBorder from "@mui/icons-material/FavoriteBorder";
 import AddShoppingCart from "@mui/icons-material/AddShoppingCart";
 // GLOBAL CUSTOM HOOKS
 import useCart from "hooks/useCart";
+import { addProductToCart } from "lib/cart/add-product-to-cart";
 // STYLED COMPONENT
 import { ItemController } from "./styles";
 // CUSTOM DATA MODEL
@@ -22,10 +23,8 @@ type Props = { product: Product };
 // ==============================================================
 
 export default function HoverActions({ product }: Props) {
-  const { id, title, price, thumbnail, slug } = product;
-
+  const { slug } = product;
   const { dispatch } = useCart();
-
   const router = useRouter();
   const [isFavorite, setFavorite] = useState(false);
 
@@ -33,14 +32,8 @@ export default function HoverActions({ product }: Props) {
     setFavorite((state) => !state);
   };
 
-  const handleAddToCart = () => {
-    dispatch({
-      type: "CHANGE_CART_AMOUNT",
-      addToExisting: true,
-      payload: { id, slug, price, title, thumbnail, qty: 1 }
-    });
-
-    router.push("/mini-cart", { scroll: false });
+  const handleAddToCart = async () => {
+    await addProductToCart(dispatch, product, { router });
   };
 
   return (

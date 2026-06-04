@@ -13,6 +13,7 @@ import Typography from "@mui/material/Typography";
 import useCart from "hooks/useCart";
 // ORDER HELPERS
 import { CHECKOUT_STORAGE_KEY } from "lib/orders/checkout-storage";
+import { offerChoiceLabel } from "lib/cart/cart-line-id";
 import type { CheckoutDetails } from "lib/orders/types";
 
 export default function PaymentForm() {
@@ -43,7 +44,19 @@ export default function PaymentForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           checkout,
-          items: state.cart.map((item) => ({ id: item.id, qty: item.qty }))
+          items: state.cart.map((item) => ({
+            lineId: item.id,
+            productId: item.productId,
+            supplierProductId: item.supplierProductId,
+            qty: item.qty,
+            unitPrice: item.price,
+            offerChoice: item.offerChoice,
+            offerLabel: offerChoiceLabel(item.offerChoice),
+            deliveryLabel: item.deliveryLabel,
+            title: item.title,
+            slug: item.slug,
+            thumbnail: item.thumbnail
+          }))
         })
       });
 

@@ -56,9 +56,9 @@ export default function OrderedProducts({ order }: Props) {
             </div>
           </FlexBox>
 
-          {item.variant && (
+          {(item.offer_label ?? item.variant) && (
             <Typography noWrap variant="body1" color="text.secondary">
-              Product properties: {item.variant}
+              Opcija kupovine: {item.offer_label ?? item.variant}
             </Typography>
           )}
 

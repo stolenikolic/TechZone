@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 // MUI
 import Box from "@mui/material/Box";
@@ -20,6 +21,11 @@ import { FlexBetween } from "components/flex-box";
 import OverlayScrollbar from "components/overlay-scrollbar";
 // CUSTOM UTILS LIBRARY FUNCTION
 import { currency } from "lib";
+import CartDeliverySummaryBlock from "components/cart/cart-delivery-summary";
+import {
+  computeCartDeliverySummary,
+  getOfferLabelForCartLine
+} from "lib/cart/cart-display-meta";
 // CUSTOM DATA MODEL
 import { CartItem } from "contexts/CartContext";
 
@@ -27,6 +33,7 @@ export default function MiniCart() {
   const router = useRouter();
   const { state, dispatch } = useCart();
   const CART_LENGTH = state.cart.length;
+  const deliverySummary = useMemo(() => computeCartDeliverySummary(state.cart), [state.cart]);
 
   const handleCartAmountChange = (amount: number, product: CartItem) => () => {
     dispatch({
@@ -55,7 +62,13 @@ export default function MiniCart() {
         {CART_LENGTH > 0 ? (
           <OverlayScrollbar>
             {state.cart.map((item) => (
-              <MiniCartItem item={item} key={item.id} onCart={handleCartAmountChange} />
+              <MiniCartItem
+                item={item}
+                key={item.id}
+                offerLabel={getOfferLabelForCartLine(item, state.cart)}
+                showLineDelivery={deliverySummary.showLineDeliveryById[item.id] ?? false}
+                onCart={handleCartAmountChange}
+              />
             ))}
           </OverlayScrollbar>
         ) : (
@@ -65,6 +78,7 @@ export default function MiniCart() {
 
       {CART_LENGTH > 0 && (
         <Box sx={{ p: 2.5, flexShrink: 0, borderTop: 1, borderColor: "divider" }}>
+          <CartDeliverySummaryBlock summary={deliverySummary} compact />
           <FlexBetween sx={{ mb: 2 }}>
             <Typography variant="body1" color="text.secondary">
               Total

@@ -2,38 +2,23 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-// MUI
 import AddShoppingCart from "@mui/icons-material/AddShoppingCart";
 import Button from "@mui/material/Button";
-// GLOBAL CUSTOM HOOKS
 import useCart from "hooks/useCart";
-// CUSTOM DATA MODEL
+import { addProductToCart } from "lib/cart/add-product-to-cart";
 import Product from "models/Product.model";
 
-// ==============================================================
 type Props = { product: Product };
-// ==============================================================
 
 export default function AddToCart({ product }: Props) {
-  const { slug, title, thumbnail, price, id } = product;
-
   const { dispatch } = useCart();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     setIsLoading(true);
-
-    setTimeout(() => {
-      dispatch({
-        type: "CHANGE_CART_AMOUNT",
-        addToExisting: true,
-        payload: { id, slug, price, title, thumbnail, qty: 1 }
-      });
-
-      router.push("/mini-cart", { scroll: false });
-      setIsLoading(false);
-    }, 1000);
+    await addProductToCart(dispatch, product, { router });
+    setIsLoading(false);
   };
 
   return (

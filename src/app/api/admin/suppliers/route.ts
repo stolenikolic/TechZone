@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { invalidateRegistryCaches } from "lib/suppliers/registry";
+import { deliveryPolicyToJson, parseDeliveryPolicyJson } from "lib/suppliers/delivery-policy";
+import type { DeliveryPolicy } from "lib/product-offers";
 import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +17,8 @@ type SupplierRow = {
   creates_master_products: boolean | null;
   is_active: boolean | null;
   enrichment_priority: number | null;
+  delivery_policy: unknown;
+  inbound_lead_days_default: number | null;
   created_at: string;
 };
 
@@ -28,6 +32,8 @@ export type AdminSupplier = {
   createsMasterProducts: boolean;
   isActive: boolean;
   enrichmentPriority: number;
+  deliveryPolicy: DeliveryPolicy | null;
+  inboundLeadDaysDefault: number;
   createdAt: string;
 };
 
@@ -42,6 +48,11 @@ function toAdminSupplier(row: SupplierRow): AdminSupplier {
     createsMasterProducts: Boolean(row.creates_master_products),
     isActive: Boolean(row.is_active),
     enrichmentPriority: row.enrichment_priority ?? 100,
+    deliveryPolicy: parseDeliveryPolicyJson(row.delivery_policy),
+    inboundLeadDaysDefault:
+      row.inbound_lead_days_default != null && Number.isFinite(Number(row.inbound_lead_days_default))
+        ? Math.max(0, Math.round(Number(row.inbound_lead_days_default)))
+        : 7,
     createdAt: row.created_at
   };
 }
@@ -53,7 +64,7 @@ export async function GET() {
     const supabase = createSupabaseServiceClient();
     const { data, error } = await supabase
       .from("suppliers")
-      .select("id, name, code, kind, base_url, default_currency, creates_master_products, is_active, enrichment_priority, created_at")
+      .select("id, name, code, kind, base_url, default_currency, creates_master_products, is_active, enrichment_priority, delivery_policy, inbound_lead_days_default, created_at")
       .order("name", { ascending: true });
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
@@ -77,6 +88,8 @@ export async function PATCH(request: Request) {
       createsMasterProducts?: boolean;
       isActive?: boolean;
       enrichmentPriority?: number;
+      deliveryPolicy?: DeliveryPolicy | null;
+      inboundLeadDaysDefault?: number;
     };
     if (!body.id) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
@@ -94,13 +107,31 @@ export async function PATCH(request: Request) {
       }
       update.enrichment_priority = Math.round(p);
     }
+    if (body.deliveryPolicy !== undefined) {
+      if (body.deliveryPolicy == null) {
+        update.delivery_policy = null;
+      } else {
+        const parsed = parseDeliveryPolicyJson(body.deliveryPolicy);
+        if (!parsed) {
+          return NextResponse.json({ error: "Invalid deliveryPolicy." }, { status: 400 });
+        }
+        update.delivery_policy = deliveryPolicyToJson(parsed);
+      }
+    }
+    if (body.inboundLeadDaysDefault !== undefined) {
+      const d = body.inboundLeadDaysDefault;
+      if (typeof d !== "number" || !Number.isFinite(d) || d < 0) {
+        return NextResponse.json({ error: "inboundLeadDaysDefault must be a non-negative integer." }, { status: 400 });
+      }
+      update.inbound_lead_days_default = Math.round(d);
+    }
 
     const supabase = createSupabaseServiceClient();
     const { data, error } = await supabase
       .from("suppliers")
       .update(update)
       .eq("id", body.id)
-      .select("id, name, code, kind, base_url, default_currency, creates_master_products, is_active, enrichment_priority, created_at")
+      .select("id, name, code, kind, base_url, default_currency, creates_master_products, is_active, enrichment_priority, delivery_policy, inbound_lead_days_default, created_at")
       .maybeSingle();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     if (!data) return NextResponse.json({ error: "Supplier not found" }, { status: 404 });

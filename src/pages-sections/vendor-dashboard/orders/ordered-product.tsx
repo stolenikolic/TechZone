@@ -1,26 +1,31 @@
 import Image from "next/image";
-// MUI
 import Box from "@mui/material/Box";
 import Avatar from "@mui/material/Avatar";
 import TextField from "@mui/material/TextField";
 import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
-// MUI ICON COMPONENT
 import Delete from "@mui/icons-material/Delete";
-// GLOBAL CUSTOM COMPONENTS
 import { FlexBetween, FlexBox } from "components/flex-box";
-// CUSTOM UTILS LIBRARY FUNCTION
+import { formatCartDeliverySubtitle } from "lib/cart/cart-line-id";
 import { currency } from "lib";
-// CUSTOM DATA MODEL
 import Order from "models/Order.model";
 
-// ==============================================================
 type Props = { product: Order["items"][0] };
-// ==============================================================
 
 export default function OrderedProduct({ product }: Props) {
-  const { product_img, product_name, product_price, product_quantity, supplier_name } = product || {};
+  const {
+    product_img,
+    product_name,
+    product_price,
+    product_quantity,
+    supplier_name,
+    offer_label,
+    delivery_label
+  } = product || {};
+
   const supplierDisplay = supplier_name?.trim() ? supplier_name.trim() : "–";
+  const offerDisplay = offer_label?.trim() ? offer_label.trim() : "–";
+  const deliveryDisplay = formatCartDeliverySubtitle(delivery_label ?? undefined);
 
   return (
     <Box my={2} gap={2} display="grid" gridTemplateColumns={{ md: "1fr 1fr", xs: "1fr" }}>
@@ -49,8 +54,13 @@ export default function OrderedProduct({ product }: Props) {
       <FlexBetween flexShrink={0} alignItems="flex-start" columnGap={2}>
         <div>
           <Typography variant="body1" sx={{ color: "grey.600", display: "block" }}>
-            Product properties: Najjeftinija
+            Opcija kupovine: {offerDisplay}
           </Typography>
+          {deliveryDisplay ? (
+            <Typography variant="body2" sx={{ color: "grey.600", mt: 0.5 }}>
+              Rok isporuke: {deliveryDisplay}
+            </Typography>
+          ) : null}
           <Typography variant="body2" sx={{ color: "grey.600", mt: 0.5 }}>
             Dobavljač: {supplierDisplay}
           </Typography>

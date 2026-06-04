@@ -103,6 +103,42 @@ type AutoMatchStatusResponse = {
   error?: string;
 };
 
+type CategoryOption = {
+  id: string;
+  name: string;
+};
+
+type IponKeywordMatchRow = {
+  supplierProductId: string;
+  rawProductName: string | null;
+  iponProductName: string;
+  matchedMasterName: string;
+  matchedMasterSlug: string;
+};
+
+type IponKeywordMatchResponse = {
+  success?: boolean;
+  runId?: string;
+  scanned?: number;
+  linked?: number;
+  skippedNoMpn?: number;
+  skippedNoResult?: number;
+  skippedAmbiguous?: number;
+  skippedNoMasterBySlug?: number;
+  skippedCategoryMismatch?: number;
+  errors?: number;
+  matches?: IponKeywordMatchRow[];
+  error?: string;
+};
+
+const IPON_KEYWORD_REPORT_STORAGE_KEY = "tz_ipon_keyword_match_last_report_v1";
+
+type StoredIponKeywordReport = {
+  rows: IponKeywordMatchRow[];
+  message: string;
+  severity: "success" | "error";
+};
+
 function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -187,6 +223,10 @@ export default function SupplierOffersPageView({ offers }: Props) {
   const [autoMatchEvents, setAutoMatchEvents] = useState<AutoMatchEvent[]>([]);
   const [autoMatchLoading, setAutoMatchLoading] = useState(false);
   const [expandedOfferId, setExpandedOfferId] = useState<string | null>(null);
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [manualCategoryId, setManualCategoryId] = useState("all");
+  const [keywordMatchLoading, setKeywordMatchLoading] = useState(false);
+  const [keywordMatchRows, setKeywordMatchRows] = useState<IponKeywordMatchRow[]>([]);
 
   const counters = useMemo(
     () => ({
@@ -440,6 +480,71 @@ export default function SupplierOffersPageView({ offers }: Props) {
     }
   }
 
+  async function loadCategoryOptions() {
+    try {
+      const response = await fetch("/api/admin/categories");
+      const data = (await response.json()) as Array<{ id?: string; name?: string }>;
+      if (!response.ok || !Array.isArray(data)) return;
+      const list = data
+        .filter((row): row is { id: string; name: string } => typeof row?.id === "string" && typeof row?.name === "string")
+        .map((row) => ({ id: row.id, name: row.name }));
+      setCategories(list);
+    } catch {
+      setCategories([]);
+    }
+  }
+
+  async function handleIponKeywordMatchStart() {
+    setKeywordMatchLoading(true);
+    setPriceRefresh(null);
+    setKeywordMatchRows([]);
+    try {
+      const response = await fetch("/api/admin/supplier-products/ipon-keyword-match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          categoryId: manualCategoryId === "all" ? null : manualCategoryId
+        })
+      });
+      const result = (await response.json()) as IponKeywordMatchResponse;
+      if (!response.ok || result.error) {
+        setPriceRefresh({ severity: "error", message: result.error ?? "IPON keyword match failed." });
+        return;
+      }
+      if (result.runId) {
+        setAutoMatchRunId(result.runId);
+      }
+
+      setKeywordMatchRows(result.matches ?? []);
+      const severity: "success" | "error" = (result.errors ?? 0) > 0 ? "error" : "success";
+      const message =
+        `IPON keyword match finished. scanned=${result.scanned ?? 0}, linked=${result.linked ?? 0}, ` +
+        `noResult=${result.skippedNoResult ?? 0}, ambiguous=${result.skippedAmbiguous ?? 0}, ` +
+        `noMasterBySlug=${result.skippedNoMasterBySlug ?? 0}, categoryMismatch=${result.skippedCategoryMismatch ?? 0}, ` +
+        `errors=${result.errors ?? 0}.`;
+      setPriceRefresh({ severity, message });
+
+      const report: StoredIponKeywordReport = {
+        rows: result.matches ?? [],
+        message,
+        severity
+      };
+      try {
+        sessionStorage.setItem(IPON_KEYWORD_REPORT_STORAGE_KEY, JSON.stringify(report));
+      } catch {
+        // Ignore browser storage errors.
+      }
+      router.refresh();
+    } catch (err) {
+      setPriceRefresh({
+        severity: "error",
+        message: err instanceof Error ? err.message : "IPON keyword match failed."
+      });
+    } finally {
+      setKeywordMatchLoading(false);
+    }
+  }
+
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -463,6 +568,30 @@ export default function SupplierOffersPageView({ offers }: Props) {
     };
   }, [autoMatchRunId]);
 
+  useEffect(() => {
+    void loadCategoryOptions();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(IPON_KEYWORD_REPORT_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as Partial<StoredIponKeywordReport>;
+      if (Array.isArray(parsed.rows)) {
+        setKeywordMatchRows(parsed.rows as IponKeywordMatchRow[]);
+      }
+      if (
+        (parsed.severity === "success" || parsed.severity === "error") &&
+        typeof parsed.message === "string" &&
+        parsed.message.trim().length > 0
+      ) {
+        setPriceRefresh({ severity: parsed.severity, message: parsed.message });
+      }
+    } catch {
+      // Ignore malformed report state.
+    }
+  }, []);
+
   return (
     <PageWrapper title="Supplier Offers">
       <Stack direction={{ md: "row", xs: "column" }} justifyContent="space-between" gap={2} mb={2}>
@@ -471,6 +600,29 @@ export default function SupplierOffersPageView({ offers }: Props) {
         </Typography>
 
         <Stack direction="row" spacing={1}>
+          <TextField
+            select
+            size="small"
+            label="Category"
+            value={manualCategoryId}
+            onChange={(e) => setManualCategoryId(e.target.value)}
+            sx={{ minWidth: 210 }}
+          >
+            <MenuItem value="all">All categories</MenuItem>
+            {categories.map((category) => (
+              <MenuItem key={category.id} value={category.id}>
+                {category.name}
+              </MenuItem>
+            ))}
+          </TextField>
+          <Button
+            color="warning"
+            variant="outlined"
+            disabled={keywordMatchLoading}
+            onClick={handleIponKeywordMatchStart}
+          >
+            {keywordMatchLoading ? "Running..." : "IPON Keyword Match"}
+          </Button>
           <Button color="secondary" variant="outlined" disabled={autoMatchLoading} onClick={handleAutoMatchStart}>
             {autoMatchLoading ? "Running..." : "Auto-Match Pending"}
           </Button>
@@ -500,7 +652,7 @@ export default function SupplierOffersPageView({ offers }: Props) {
           sx={{
             m: 0,
             p: 1.5,
-            maxHeight: 220,
+            maxHeight: 420,
             overflow: "auto",
             fontSize: 12,
             borderRadius: 1,
@@ -524,6 +676,35 @@ export default function SupplierOffersPageView({ offers }: Props) {
           })()}
         </Box>
       </Card>
+
+      {keywordMatchRows.length > 0 || priceRefresh?.message.includes("IPON keyword match finished.") ? (
+        <Card sx={{ p: 2, mb: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            IPON Keyword Match Results
+          </Typography>
+          <Box
+            component="pre"
+            sx={{
+              m: 0,
+              p: 1.5,
+              maxHeight: 220,
+              overflow: "auto",
+              fontSize: 12,
+              borderRadius: 1,
+              bgcolor: "grey.100"
+            }}
+          >
+            {keywordMatchRows.length > 0
+              ? keywordMatchRows
+                  .map(
+                    (row) =>
+                      `${row.supplierProductId} | RAW(product_name): ${row.rawProductName ?? "-"} | MASTER: ${row.matchedMasterName} (${row.matchedMasterSlug}) | IPON: ${row.iponProductName}`
+                  )
+                  .join("\n")
+              : "No linked rows in this run (linked=0)."}
+          </Box>
+        </Card>
+      ) : null}
 
       <Grid container spacing={2} sx={{ mb: 2 }}>
         {quickFilters.map((item) => (

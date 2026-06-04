@@ -3,11 +3,13 @@ import {
   resolvePricingSettingsRow,
   type PricingSettingsRow
 } from "lib/pricing";
+import { offerChoiceLabel, parseCartLineId } from "lib/cart/cart-line-id";
+import type { OfferChoiceKey } from "lib/product-offers";
 import Order, { OrderStatus } from "models/Order.model";
 import { applyStorefrontProductVisibility } from "lib/storefront-product-visibility";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { STANDARD_SHIPPING_FEE_KM } from "./constants";
-import type { CheckoutDetails, CreateOrderPayload, OrderCartItem } from "./types";
+import type { CheckoutDetails, CreateOrderPayload, OrderCartLineInput, ValidatedOrderLine } from "./types";
 
 const ORDER_STATUSES: OrderStatus[] = ["Pending", "Processing", "Delivered", "Cancelled"];
 
@@ -20,6 +22,11 @@ type DbOrderItem = {
   quantity: number;
   unit_price: number | string;
   line_total: number | string;
+  supplier_product_id?: string | null;
+  offer_choice?: string | null;
+  offer_label?: string | null;
+  supplier_name?: string | null;
+  delivery_label?: string | null;
 };
 
 type DbOrder = {
@@ -58,6 +65,10 @@ function asNumber(value: number | string | null | undefined) {
   return value == null ? 0 : Number(value);
 }
 
+function isOfferChoice(value: unknown): value is OfferChoiceKey {
+  return value === "cheapest" || value === "fastest";
+}
+
 function formatShippingAddress(order: DbOrder) {
   return [
     order.shipping_address1,
@@ -70,9 +81,7 @@ function formatShippingAddress(order: DbOrder) {
     .join(", ");
 }
 
-/**
- * Suppliers behind the lowest converted KM price per product (same rules as storefront aggregation).
- */
+/** Legacy fallback for order_items rows created before offer snapshot migration. */
 async function fetchCheapestSupplierNamesByProductIds(
   supabase: ReturnType<typeof createSupabaseServiceClient>,
   productIds: string[]
@@ -82,7 +91,9 @@ async function fetchCheapestSupplierNamesByProductIds(
 
   const { data: rows, error } = await supabase
     .from("supplier_products")
-    .select("product_id, price_amount, currency, supplier_id, suppliers(id, name, pricing_formula, cost_adjustment_multiplier)")
+    .select(
+      "product_id, price_amount, currency, supplier_id, suppliers(id, name, pricing_formula, cost_adjustment_multiplier)"
+    )
     .in("product_id", ids)
     .eq("is_active", true);
 
@@ -138,7 +149,35 @@ async function fetchCheapestSupplierNamesByProductIds(
   );
 }
 
-export function mapDbOrderToOrder(order: DbOrder, supplierByProductId?: Map<string, string>): Order {
+async function fetchSupplierNamesByOfferIds(
+  supabase: ReturnType<typeof createSupabaseServiceClient>,
+  supplierProductIds: string[]
+): Promise<Map<string, string>> {
+  const ids = Array.from(new Set(supplierProductIds.filter(Boolean)));
+  if (!ids.length) return new Map();
+
+  const { data, error } = await supabase
+    .from("supplier_products")
+    .select("id, suppliers(name)")
+    .in("id", ids);
+
+  if (error || !data?.length) return new Map();
+
+  const map = new Map<string, string>();
+  for (const row of data) {
+    const raw = row as {
+      id: string;
+      suppliers: { name: string | null } | { name: string | null }[] | null;
+    };
+    const s = raw.suppliers;
+    const supplier = s == null ? null : Array.isArray(s) ? s[0] ?? null : s;
+    const name = supplier?.name?.trim();
+    if (name) map.set(String(raw.id), name);
+  }
+  return map;
+}
+
+export function mapDbOrderToOrder(order: DbOrder, legacySupplierByProductId?: Map<string, string>): Order {
   return {
     id: order.id,
     status: order.status,
@@ -163,8 +202,13 @@ export function mapDbOrderToOrder(order: DbOrder, supplierByProductId?: Map<stri
     },
     items: (order.order_items ?? []).map((item) => {
       const productId = item.product_id ?? undefined;
+      const offerChoice = isOfferChoice(item.offer_choice) ? item.offer_choice : undefined;
+      const offerLabel =
+        item.offer_label?.trim() ||
+        (offerChoice ? offerChoiceLabel(offerChoice) : undefined);
       const supplierName =
-        productId != null ? supplierByProductId?.get(productId) ?? "" : "";
+        item.supplier_name?.trim() ||
+        (productId != null ? legacySupplierByProductId?.get(productId) ?? "" : "");
 
       return {
         product_img: item.product_image ?? "/assets/images/placeholder.png",
@@ -172,10 +216,27 @@ export function mapDbOrderToOrder(order: DbOrder, supplierByProductId?: Map<stri
         product_price: asNumber(item.unit_price),
         product_quantity: item.quantity,
         ...(productId != null ? { product_id: productId } : {}),
+        ...(item.supplier_product_id ? { supplier_product_id: item.supplier_product_id } : {}),
+        ...(offerChoice ? { offer_choice: offerChoice } : {}),
+        ...(offerLabel ? { offer_label: offerLabel, variant: offerLabel } : {}),
+        ...(item.delivery_label?.trim() ? { delivery_label: item.delivery_label.trim() } : {}),
         supplier_name: supplierName
       };
     })
   };
+}
+
+async function resolveLegacySupplierMap(
+  supabase: ReturnType<typeof createSupabaseServiceClient>,
+  orderRow: DbOrder
+): Promise<Map<string, string> | undefined> {
+  const items = orderRow.order_items ?? [];
+  const productIds = items
+    .filter((item) => item.product_id && !item.supplier_name?.trim())
+    .map((item) => String(item.product_id));
+
+  if (!productIds.length) return undefined;
+  return fetchCheapestSupplierNamesByProductIds(supabase, productIds);
 }
 
 function normalizeCheckout(checkout: CheckoutDetails) {
@@ -190,6 +251,46 @@ function normalizeCheckout(checkout: CheckoutDetails) {
     shipping_address2: checkout.shipping_address2?.trim(),
     shipping_company: checkout.shipping_company?.trim(),
     delivery_notes: checkout.delivery_notes?.trim()
+  };
+}
+
+function parseOrderLineInput(raw: OrderCartLineInput): ValidatedOrderLine | null {
+  const lineKey = typeof raw.lineId === "string" ? raw.lineId.trim() : typeof raw.id === "string" ? raw.id.trim() : "";
+  if (!lineKey) return null;
+
+  const parsed = parseCartLineId(lineKey);
+  const productId = (typeof raw.productId === "string" ? raw.productId.trim() : "") || parsed.productId;
+  const supplierProductId =
+    (typeof raw.supplierProductId === "string" ? raw.supplierProductId.trim() : "") ||
+    parsed.supplierProductId ||
+    null;
+
+  const qtyRaw = Number(raw.qty);
+  if (!productId || !Number.isFinite(qtyRaw) || qtyRaw < 1) return null;
+
+  const qty = Math.floor(qtyRaw);
+  const unitPriceRaw = raw.unitPrice != null ? Number(raw.unitPrice) : NaN;
+  const offerChoice = isOfferChoice(raw.offerChoice) ? raw.offerChoice : null;
+  const offerLabel =
+    typeof raw.offerLabel === "string" && raw.offerLabel.trim()
+      ? raw.offerLabel.trim()
+      : offerChoice
+        ? offerChoiceLabel(offerChoice)
+        : null;
+
+  return {
+    lineId: supplierProductId ? `${productId}:${supplierProductId}` : productId,
+    productId,
+    supplierProductId,
+    qty,
+    unitPrice: Number.isFinite(unitPriceRaw) && unitPriceRaw > 0 ? unitPriceRaw : NaN,
+    offerChoice,
+    offerLabel,
+    deliveryLabel:
+      typeof raw.deliveryLabel === "string" && raw.deliveryLabel.trim() ? raw.deliveryLabel.trim() : null,
+    title: typeof raw.title === "string" && raw.title.trim() ? raw.title.trim() : null,
+    slug: typeof raw.slug === "string" && raw.slug.trim() ? raw.slug.trim() : null,
+    thumbnail: typeof raw.thumbnail === "string" && raw.thumbnail.trim() ? raw.thumbnail.trim() : null
   };
 }
 
@@ -214,8 +315,8 @@ function validatePayload(payload: CreateOrderPayload) {
   }
 
   const items = payload.items
-    .map((item) => ({ id: item.id, qty: Number(item.qty) }))
-    .filter((item): item is OrderCartItem => Boolean(item.id) && Number.isInteger(item.qty) && item.qty > 0);
+    .map((item) => parseOrderLineInput(item))
+    .filter((item): item is ValidatedOrderLine => item != null);
 
   if (!items.length) {
     throw new Error("Cart is empty.");
@@ -226,7 +327,7 @@ function validatePayload(payload: CreateOrderPayload) {
 
 export async function createOrder(payload: CreateOrderPayload, userId?: string | null) {
   const { checkout, items } = validatePayload(payload);
-  const productIds = Array.from(new Set(items.map((item) => item.id)));
+  const productIds = Array.from(new Set(items.map((item) => item.productId)));
   const supabase = createSupabaseServiceClient();
 
   const { data: productRows, error: productsError } = await applyStorefrontProductVisibility(
@@ -241,22 +342,43 @@ export async function createOrder(payload: CreateOrderPayload, userId?: string |
     throw new Error("Some cart products are no longer available.");
   }
 
-  const orderItems = items.map((item) => {
-    const product = productsById.get(item.id);
-    const unitPrice = asNumber(product?.price);
+  const supplierIds = items
+    .map((item) => item.supplierProductId)
+    .filter((id): id is string => Boolean(id));
+  const supplierNameByOfferId = await fetchSupplierNamesByOfferIds(supabase, supplierIds);
 
-    if (!product || unitPrice <= 0) {
+  const orderItems = items.map((item) => {
+    const product = productsById.get(item.productId);
+    if (!product) {
+      throw new Error("A cart product is no longer available.");
+    }
+
+    const unitPrice =
+      Number.isFinite(item.unitPrice) && item.unitPrice > 0
+        ? item.unitPrice
+        : asNumber(product.price);
+
+    if (unitPrice <= 0) {
       throw new Error("A cart product has no valid price.");
     }
 
+    const lineTotal = Math.round(unitPrice * item.qty * 100) / 100;
+    const supplierName =
+      (item.supplierProductId ? supplierNameByOfferId.get(item.supplierProductId) : "") || "";
+
     return {
       product_id: product.id,
-      product_name: product.name,
-      product_slug: product.slug,
-      product_image: product.main_image,
+      product_name: item.title ?? product.name,
+      product_slug: item.slug ?? product.slug,
+      product_image: item.thumbnail ?? product.main_image,
       quantity: item.qty,
       unit_price: unitPrice,
-      line_total: unitPrice * item.qty
+      line_total: lineTotal,
+      supplier_product_id: item.supplierProductId,
+      offer_choice: item.offerChoice,
+      offer_label: item.offerLabel,
+      supplier_name: supplierName || null,
+      delivery_label: item.deliveryLabel
     };
   });
 
@@ -326,13 +448,13 @@ export async function getOrders() {
   if (error) throw new Error(error.message);
 
   const orders = (data ?? []) as DbOrder[];
-  const productIds = orders.flatMap((orderRow) =>
-    (orderRow.order_items ?? []).map((item) => item.product_id).filter(Boolean)
-  ) as string[];
 
-  const supplierByProductId = await fetchCheapestSupplierNamesByProductIds(supabase, productIds);
-
-  return orders.map((orderRow) => mapDbOrderToOrder(orderRow, supplierByProductId));
+  return Promise.all(
+    orders.map(async (orderRow) => {
+      const legacyMap = await resolveLegacySupplierMap(supabase, orderRow);
+      return mapDbOrderToOrder(orderRow, legacyMap);
+    })
+  );
 }
 
 export async function getOrder(id: string) {
@@ -347,10 +469,8 @@ export async function getOrder(id: string) {
   if (!data) return null;
 
   const orderRow = data as DbOrder;
-  const productIds = (orderRow.order_items ?? []).map((item) => item.product_id).filter(Boolean) as string[];
-  const supplierByProductId = await fetchCheapestSupplierNamesByProductIds(supabase, productIds);
-
-  return mapDbOrderToOrder(orderRow, supplierByProductId);
+  const legacyMap = await resolveLegacySupplierMap(supabase, orderRow);
+  return mapDbOrderToOrder(orderRow, legacyMap);
 }
 
 export async function updateOrderStatus(id: string, status: OrderStatus) {
@@ -369,8 +489,6 @@ export async function updateOrderStatus(id: string, status: OrderStatus) {
   if (error) throw new Error(error.message);
 
   const orderRow = data as DbOrder;
-  const productIds = (orderRow.order_items ?? []).map((item) => item.product_id).filter(Boolean) as string[];
-  const supplierByProductId = await fetchCheapestSupplierNamesByProductIds(supabase, productIds);
-
-  return mapDbOrderToOrder(orderRow, supplierByProductId);
+  const legacyMap = await resolveLegacySupplierMap(supabase, orderRow);
+  return mapDbOrderToOrder(orderRow, legacyMap);
 }

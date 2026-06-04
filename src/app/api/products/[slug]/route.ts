@@ -3,6 +3,7 @@ import type Product from "models/Product.model";
 import { mapProductSpecifications } from "lib/shop/map-product-specifications";
 import { getEffectivePrice, getOriginalPriceForDisplay } from "lib/effective-price";
 import { applyStorefrontProductVisibility } from "lib/storefront-product-visibility";
+import { resolveProductOffersForStorefront } from "lib/product-offers";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 type DbCategory = { id: string; name: string; slug: string; parent_id: string | null };
@@ -126,6 +127,12 @@ export async function GET(
       const applicable = mapProductSpecifications(specRows, categoryAttributeRows);
       if (applicable.length) product.specifications = applicable;
     }
+
+    product.productOffers = await resolveProductOffersForStorefront(
+      supabase,
+      row.id,
+      product.price ?? 0
+    );
 
     return NextResponse.json(product);
   } catch (err) {

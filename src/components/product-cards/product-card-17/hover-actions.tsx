@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useState } from "react";
 import Button from "@mui/material/Button";
 import useCart from "hooks/useCart";
+import { addProductToCart } from "lib/cart/add-product-to-cart";
 import useWishlist from "hooks/useWishlist";
 import { HoverWrapper } from "./styles";
 import Product from "models/Product.model";
@@ -15,7 +16,7 @@ type Props = {
 };
 
 export default function HoverActions({ product, showRemoveFromWishlist = false, disableAddToCart = false }: Props) {
-  const { id, slug, title, price, thumbnail } = product;
+  const { id, slug } = product;
 
   const { dispatch } = useCart();
   const { removeFromWishlist } = useWishlist();
@@ -23,20 +24,12 @@ export default function HoverActions({ product, showRemoveFromWishlist = false, 
   const [isQuickViewLoading, setQuickViewLoading] = useState(false);
   const [isRemoveLoading, setRemoveLoading] = useState(false);
 
-  const handleAddToCart = useCallback(() => {
+  const handleAddToCart = useCallback(async () => {
     if (disableAddToCart) return;
     setCartLoading(true);
-
-    setTimeout(() => {
-      dispatch({
-        type: "CHANGE_CART_AMOUNT",
-        addToExisting: true,
-        payload: { id, slug, price, title, thumbnail, qty: 1 }
-      });
-
-      setCartLoading(false);
-    }, 500);
-  }, [disableAddToCart, dispatch, slug, id, price, title, thumbnail]);
+    await addProductToCart(dispatch, product, { navigateToMiniCart: false });
+    setCartLoading(false);
+  }, [disableAddToCart, dispatch, product]);
 
   const handleQuickView = useCallback(() => {
     setQuickViewLoading(true);

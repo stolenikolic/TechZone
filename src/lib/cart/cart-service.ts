@@ -14,14 +14,24 @@ export async function getCartForUser(userId: string) {
 
 export async function replaceCartForUser(
   userId: string,
-  items: { id?: string; productId?: string; qty?: unknown }[]
+  items: {
+    id?: string;
+    productId?: string;
+    supplierProductId?: string;
+    qty?: unknown;
+  }[]
 ) {
   return replaceCartRepo(createSupabaseServiceClient(), userId, items);
 }
 
 export async function mergeGuestCart(
   userId: string,
-  guestItems: { id?: string; productId?: string; qty?: unknown }[]
+  guestItems: {
+    id?: string;
+    productId?: string;
+    supplierProductId?: string;
+    qty?: unknown;
+  }[]
 ) {
   return mergeGuestRepo(createSupabaseServiceClient(), userId, guestItems);
 }

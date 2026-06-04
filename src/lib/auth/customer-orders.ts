@@ -41,7 +41,12 @@ export async function getOrdersForUser(userId: string, page = 1) {
         product_image,
         quantity,
         unit_price,
-        line_total
+        line_total,
+        supplier_product_id,
+        offer_choice,
+        offer_label,
+        supplier_name,
+        delivery_label
       )
     `,
       { count: "exact" }
@@ -94,7 +99,12 @@ export async function getOrderForUser(userId: string, orderId: string) {
         product_image,
         quantity,
         unit_price,
-        line_total
+        line_total,
+        supplier_product_id,
+        offer_choice,
+        offer_label,
+        supplier_name,
+        delivery_label
       )
     `
     )

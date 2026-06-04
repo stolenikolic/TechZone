@@ -6,6 +6,7 @@ import Button from "@mui/material/Button";
 import SvgIcon from "@mui/material/SvgIcon";
 // GLOBAL CUSTOM HOOK
 import useCart from "hooks/useCart";
+import { addProductToCart } from "lib/cart/add-product-to-cart";
 // STYLED COMPONENTS
 import { HoverButtonsWrapper } from "./styles";
 // CUSTOM DATA MODEL
@@ -18,24 +19,15 @@ interface Props {
 // ========================================================
 
 export default function HoverActions({ product }: Props) {
-  const { id, slug, title, price, thumbnail } = product;
-
+  const { slug } = product;
   const [isLoading, setLoading] = useState(false);
   const { dispatch } = useCart();
 
-  const handleAddToCart = useCallback(() => {
+  const handleAddToCart = useCallback(async () => {
     setLoading(true);
-
-    setTimeout(() => {
-      dispatch({
-        type: "CHANGE_CART_AMOUNT",
-        addToExisting: true,
-        payload: { id, slug, price, title, thumbnail, qty: 1 }
-      });
-
-      setLoading(false);
-    }, 500);
-  }, [dispatch, slug, id, price, title, thumbnail]);
+    await addProductToCart(dispatch, product, { navigateToMiniCart: false });
+    setLoading(false);
+  }, [dispatch, product]);
 
   return (
     <HoverButtonsWrapper className="hover-buttons">

@@ -1,31 +1,49 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CartItem } from "contexts/CartContext";
+import { getEffectivePrice } from "lib/effective-price";
+import { buildCartLineId, parseCartLineId } from "./cart-line-id";
+import { enrichCartItemsDelivery, hydrateCartItemsFromOffers } from "./offer-pricing";
 import { applyStorefrontProductVisibility, isStorefrontVisibleProduct } from "lib/storefront-product-visibility";
-import { mapProductToCartItem } from "./map-cart-item";
 import type { CartLineInput, DbCartItemRow, DbCartProductRow } from "./types";
 
 const PRODUCT_SELECT = "id, name, slug, main_image, price, custom_price, is_active, publish_locked";
 
-export function normalizeLineInputs(items: { id?: string; productId?: string; qty?: unknown }[]): CartLineInput[] {
-  const byProduct = new Map<string, number>();
+export function normalizeLineInputs(
+  items: {
+    id?: string;
+    productId?: string;
+    supplierProductId?: string;
+    qty?: unknown;
+  }[]
+): CartLineInput[] {
+  const byKey = new Map<string, CartLineInput>();
 
   for (const item of items) {
-    const productId =
-      typeof item.productId === "string"
-        ? item.productId.trim()
-        : typeof item.id === "string"
-          ? item.id.trim()
-          : "";
-    if (!productId) continue;
+    let productId = typeof item.productId === "string" ? item.productId.trim() : "";
+    let supplierProductId =
+      typeof item.supplierProductId === "string" ? item.supplierProductId.trim() : "";
+
+    if ((!productId || !supplierProductId) && typeof item.id === "string") {
+      const parsed = parseCartLineId(item.id);
+      productId = productId || parsed.productId;
+      supplierProductId = supplierProductId || parsed.supplierProductId || "";
+    }
+
+    if (!productId || !supplierProductId) continue;
 
     const qtyRaw = typeof item.qty === "number" ? item.qty : Number(item.qty);
     if (!Number.isFinite(qtyRaw)) continue;
 
     const qty = Math.max(1, Math.floor(qtyRaw));
-    byProduct.set(productId, (byProduct.get(productId) ?? 0) + qty);
+    const key = `${productId}:${supplierProductId}`;
+    byKey.set(key, {
+      productId,
+      supplierProductId,
+      qty: (byKey.get(key)?.qty ?? 0) + qty
+    });
   }
 
-  return Array.from(byProduct.entries()).map(([productId, qty]) => ({ productId, qty }));
+  return Array.from(byKey.values());
 }
 
 async function fetchProductsByIds(
@@ -66,10 +84,32 @@ async function fetchVisibleProducts(
   return map;
 }
 
+function buildMinimalCartItemFromDb(
+  product: DbCartProductRow,
+  supplierProductId: string,
+  qty: number
+): CartItem | null {
+  const productId = String(product.id);
+  const price = getEffectivePrice(product.custom_price, product.price);
+  if (price <= 0) return null;
+
+  return {
+    id: buildCartLineId(productId, supplierProductId),
+    productId,
+    supplierProductId,
+    offerChoice: "cheapest",
+    slug: product.slug?.trim() || productId,
+    title: product.name?.trim() || "Product",
+    thumbnail: product.main_image ?? "/assets/images/placeholder.png",
+    price,
+    qty: Math.max(1, Math.floor(qty))
+  };
+}
+
 export async function getCartForUser(supabase: SupabaseClient, userId: string): Promise<CartItem[]> {
   const { data: cartRows, error: cartError } = await supabase
     .from("cart_items")
-    .select("product_id, quantity, created_at")
+    .select("product_id, supplier_product_id, quantity, created_at")
     .eq("user_id", userId)
     .order("created_at", { ascending: true });
 
@@ -81,26 +121,65 @@ export async function getCartForUser(supabase: SupabaseClient, userId: string): 
   const productIds = rows.map((row) => String(row.product_id));
   const productsById = await fetchProductsByIds(supabase, productIds);
 
-  return rows
+  const hydrateInputs = rows
     .map((row) => {
       const product = productsById.get(String(row.product_id));
       if (!product) return null;
-      return mapProductToCartItem(product, row.quantity);
+      return {
+        product: {
+          id: String(product.id),
+          name: product.name,
+          slug: product.slug,
+          main_image: product.main_image,
+          price: product.price,
+          custom_price: product.custom_price
+        },
+        supplierProductId: String(row.supplier_product_id),
+        qty: row.quantity
+      };
     })
-    .filter((item): item is CartItem => item != null);
+    .filter((row): row is NonNullable<typeof row> => row != null);
+
+  if (hydrateInputs.length === 0) return [];
+
+  const hydrated = await hydrateCartItemsFromOffers(supabase, hydrateInputs);
+  if (hydrated.length >= hydrateInputs.length) return hydrated;
+
+  const hydratedIds = new Set(hydrated.map((item) => item.id));
+  const fallbackItems: CartItem[] = [];
+
+  for (const input of hydrateInputs) {
+    const lineId = buildCartLineId(input.product.id, input.supplierProductId);
+    if (hydratedIds.has(lineId)) continue;
+
+    const product = productsById.get(input.product.id);
+    if (!product) continue;
+
+    const minimal = buildMinimalCartItemFromDb(product, input.supplierProductId, input.qty);
+    if (minimal) fallbackItems.push(minimal);
+  }
+
+  return enrichCartItemsDelivery(supabase, [...hydrated, ...fallbackItems]);
 }
 
 export async function replaceCartForUser(
   supabase: SupabaseClient,
   userId: string,
-  items: { id?: string; productId?: string; qty?: unknown }[]
+  items: {
+    id?: string;
+    productId?: string;
+    supplierProductId?: string;
+    qty?: unknown;
+  }[]
 ): Promise<void> {
   const normalized = normalizeLineInputs(items);
 
+  if (normalized.length === 0) {
+    return;
+  }
+
   const { error: deleteError } = await supabase.from("cart_items").delete().eq("user_id", userId);
   if (deleteError) throw new Error(deleteError.message);
-
-  if (normalized.length === 0) return;
 
   const productIds = normalized.map((line) => line.productId);
   const productsById = await fetchVisibleProducts(supabase, productIds);
@@ -112,6 +191,7 @@ export async function replaceCartForUser(
   const insertRows = validLines.map((line) => ({
     user_id: userId,
     product_id: line.productId,
+    supplier_product_id: line.supplierProductId,
     quantity: line.qty,
     updated_at: now
   }));
@@ -123,34 +203,46 @@ export async function replaceCartForUser(
 export async function mergeGuestCart(
   supabase: SupabaseClient,
   userId: string,
-  guestItems: { id?: string; productId?: string; qty?: unknown }[]
+  guestItems: {
+    id?: string;
+    productId?: string;
+    supplierProductId?: string;
+    qty?: unknown;
+  }[]
 ): Promise<void> {
   const guestLines = normalizeLineInputs(guestItems);
   if (guestLines.length === 0) return;
 
   const { data: allServerRows, error: allError } = await supabase
     .from("cart_items")
-    .select("product_id, quantity")
+    .select("product_id, supplier_product_id, quantity")
     .eq("user_id", userId);
 
   if (allError) throw new Error(allError.message);
 
-  const mergedByProduct = new Map<string, number>();
+  const mergedByKey = new Map<string, CartLineInput>();
 
   for (const row of allServerRows ?? []) {
-    mergedByProduct.set(String(row.product_id), Math.max(1, Math.floor(Number(row.quantity))));
+    const productId = String(row.product_id);
+    const supplierProductId = String(row.supplier_product_id);
+    const key = `${productId}:${supplierProductId}`;
+    mergedByKey.set(key, {
+      productId,
+      supplierProductId,
+      qty: Math.max(1, Math.floor(Number(row.quantity)))
+    });
   }
 
   for (const line of guestLines) {
-    mergedByProduct.set(line.productId, (mergedByProduct.get(line.productId) ?? 0) + line.qty);
+    const key = `${line.productId}:${line.supplierProductId}`;
+    const existing = mergedByKey.get(key);
+    mergedByKey.set(key, {
+      ...line,
+      qty: (existing?.qty ?? 0) + line.qty
+    });
   }
 
-  const mergedItems = Array.from(mergedByProduct.entries()).map(([productId, qty]) => ({
-    productId,
-    qty
-  }));
-
-  await replaceCartForUser(supabase, userId, mergedItems);
+  await replaceCartForUser(supabase, userId, Array.from(mergedByKey.values()));
 }
 
 export async function clearCartForUser(supabase: SupabaseClient, userId: string): Promise<void> {

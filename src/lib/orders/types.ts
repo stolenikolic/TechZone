@@ -1,3 +1,5 @@
+import type { OfferChoiceKey } from "lib/product-offers";
+
 export type CheckoutCountry = {
   label: string;
   value: string;
@@ -24,6 +26,38 @@ export type CheckoutDetails = {
   billing_address2?: string;
 };
 
+/** Cart line sent from checkout (snapshot fields). */
+export type OrderCartLineInput = {
+  /** Composite line id or legacy product id */
+  id?: string;
+  lineId?: string;
+  productId?: string;
+  supplierProductId?: string;
+  qty: number;
+  unitPrice?: number;
+  offerChoice?: OfferChoiceKey;
+  offerLabel?: string;
+  deliveryLabel?: string;
+  title?: string;
+  slug?: string;
+  thumbnail?: string;
+};
+
+export type ValidatedOrderLine = {
+  lineId: string;
+  productId: string;
+  supplierProductId: string | null;
+  qty: number;
+  unitPrice: number;
+  offerChoice: OfferChoiceKey | null;
+  offerLabel: string | null;
+  deliveryLabel: string | null;
+  title: string | null;
+  slug: string | null;
+  thumbnail: string | null;
+};
+
+/** @deprecated Use OrderCartLineInput */
 export type OrderCartItem = {
   id: string;
   qty: number;
@@ -31,5 +65,5 @@ export type OrderCartItem = {
 
 export type CreateOrderPayload = {
   checkout: CheckoutDetails;
-  items: OrderCartItem[];
+  items: OrderCartLineInput[];
 };

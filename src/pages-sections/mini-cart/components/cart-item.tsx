@@ -13,6 +13,7 @@ import Trash from "icons/Trash";
 import FlexBox from "components/flex-box/flex-box";
 // CUSTOM UTILS LIBRARY FUNCTION
 import { formatPrice } from "lib";
+import CartLineMeta from "components/cart/cart-line-meta";
 // CUSTOM DATA MODEL
 import { CartItem } from "contexts/CartContext";
 
@@ -59,11 +60,13 @@ const QuantityWrapper = styled("div")(({ theme }) => ({
 // ==============================================================
 interface Props {
   item: CartItem;
+  offerLabel: string | null;
+  showLineDelivery: boolean;
   onCart: (amount: number, product: CartItem) => () => void;
 }
 // ==============================================================
 
-export default function MiniCartItem({ item, onCart }: Props) {
+export default function MiniCartItem({ item, offerLabel, showLineDelivery, onCart }: Props) {
   return (
     <StyledRoot>
       <Link href={`/products/${item.slug}`}>
@@ -76,6 +79,8 @@ export default function MiniCartItem({ item, onCart }: Props) {
         <Typography noWrap variant="body1">
           {item.title}
         </Typography>
+
+        <CartLineMeta item={item} offerLabel={offerLabel} showLineDelivery={showLineDelivery} />
 
         <Typography variant="body1" fontWeight={500} sx={{ mt: 0.25, mb: 1.5 }}>
           {formatPrice(item.price * item.qty)}

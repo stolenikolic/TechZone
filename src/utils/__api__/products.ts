@@ -4,6 +4,7 @@ import { mapProductSpecifications } from "lib/shop/map-product-specifications";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { getEffectivePrice, getOriginalPriceForDisplay } from "lib/effective-price";
 import { applyStorefrontProductVisibility } from "lib/storefront-product-visibility";
+import { resolveProductOffersForStorefront } from "lib/product-offers";
 // CUSTOM DATA MODEL
 import { SlugParams } from "models/Common";
 import Product from "models/Product.model";
@@ -119,6 +120,12 @@ const getProduct = cache(async (slug: string): Promise<Product | null> => {
       const applicable = mapProductSpecifications(specRows, categoryAttributeRows);
       if (applicable.length) product.specifications = applicable;
     }
+
+    product.productOffers = await resolveProductOffersForStorefront(
+      supabase,
+      row.id,
+      product.price ?? 0
+    );
 
     return product;
   } catch (err) {

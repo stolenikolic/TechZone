@@ -25,6 +25,7 @@ import type { IponProductItem } from "./transformProduct";
 import { getIponProductDetailUrl } from "./transformProduct";
 import { getRandomReferer, randomDelay } from "./scrape-config";
 import { withPostgrestTransientRetry } from "./transient-retry";
+import { extractWarrantyMonthsFromHtml, extractWarrantyMonthsFromSpecRows } from "./warranty-from-specs";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -399,7 +400,8 @@ function splitIntegratedVga(props: SpecRow[]): { vga: string | null; chip: strin
 async function saveSpecSnapshot(
   supabase: SupabaseClient,
   supplierProductId: string,
-  parsed: ParsedIponJsonLd
+  parsed: ParsedIponJsonLd,
+  htmlForWarranty?: string
 ): Promise<void> {
   try {
     // Enhance specRows with integrated_vga split
@@ -420,18 +422,25 @@ async function saveSpecSnapshot(
       ]
     };
 
+    const warrantyMonths =
+      extractWarrantyMonthsFromSpecRows(snapshot.specs) ??
+      (htmlForWarranty ? extractWarrantyMonthsFromHtml(htmlForWarranty) : null);
+
     const now = new Date().toISOString();
+    const patch: Record<string, unknown> = {
+      spec_snapshot: snapshot,
+      specs_fetched_at: now,
+      enrichment_status: "complete",
+      updated_at: now
+    };
+    if (warrantyMonths != null) patch.warranty_months = warrantyMonths;
+
     const { error } = await withPostgrestTransientRetry(
       "supplier_products.spec-snapshot-save",
       async () =>
         await supabase
           .from("supplier_products")
-          .update({
-            spec_snapshot: snapshot,
-            specs_fetched_at: now,
-            enrichment_status: "complete",
-            updated_at: now
-          })
+          .update(patch)
           .eq("supplier_id", IPON_SUPPLIER_ID)
           .eq("supplier_product_id", supplierProductId)
     );
@@ -799,7 +808,7 @@ export async function runIponScrapeDetails(
       const _nameToSlug = buildAttributeSlugResolver(supplierAttributeMappings, r.category_id, mapSpecNameToSlug);
       void _nameToSlug;
 
-      await saveSpecSnapshot(supabase, sp.supplier_product_id, parsed);
+      await saveSpecSnapshot(supabase, sp.supplier_product_id, parsed, res.html);
       processed += 1;
 
       await sleep(productDelayMs(r.category_id));

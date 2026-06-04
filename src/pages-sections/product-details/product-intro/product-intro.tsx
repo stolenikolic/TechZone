@@ -1,13 +1,10 @@
 // MUI
-import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid";
 import Rating from "@mui/material/Rating";
 import Typography from "@mui/material/Typography";
 // LOCAL CUSTOM COMPONENTS
 import ProductGallery from "./product-gallery";
-import ProductPurchaseBlock from "./product-purchase-block";
-// CUSTOM UTILS LIBRARY FUNCTION
-import { formatPrice } from "lib";
+import ProductIntroSidebar from "./product-intro-sidebar";
 // STYLED COMPONENTS
 import { StyledRoot } from "./styles";
 // CUSTOM DATA MODEL
@@ -19,7 +16,6 @@ type Props = { product: Product };
 
 export default function ProductIntro({ product }: Props) {
   const images = product.images?.length ? product.images : [product.thumbnail || "/assets/images/placeholder.png"];
-  const showPricePlaceholder = product.price == null || product.price === 0;
 
   return (
     <StyledRoot>
@@ -44,43 +40,7 @@ export default function ProductIntro({ product }: Props) {
             <Typography variant="h6">({(product.rating ?? 0).toFixed(1)})</Typography>
           </div>
 
-          <div className="price">
-            {showPricePlaceholder ? (
-              <Typography variant="h2" sx={{ color: "price.main", mb: 0.5, lineHeight: 1 }}>
-                Price on request
-              </Typography>
-            ) : product.originalPrice != null && product.originalPrice > product.price ? (
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  flexWrap: "wrap",
-                  gap: 1.5
-                }}
-              >
-                <Typography variant="h2" sx={{ color: "price.main", fontWeight: 700, lineHeight: 1 }}>
-                  {formatPrice(product.price)}
-                </Typography>
-                <Typography
-                  component="span"
-                  sx={{
-                    fontSize: 16,
-                    fontWeight: 500,
-                    color: "primary.main",
-                    textDecoration: "line-through"
-                  }}
-                >
-                  {formatPrice(product.originalPrice)}
-                </Typography>
-              </Box>
-            ) : (
-              <Typography variant="h2" sx={{ color: "price.main", fontWeight: 700, mb: 0.5, lineHeight: 1 }}>
-                {formatPrice(product.price)}
-              </Typography>
-            )}
-          </div>
-
-          <ProductPurchaseBlock product={product} />
+          <ProductIntroSidebar product={product} />
         </Grid>
       </Grid>
     </StyledRoot>
