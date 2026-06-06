@@ -78,9 +78,63 @@ jobs:
       - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
       - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-firstshop-import-products.ts
 
+  pcland_import:
+    name: "1d · PCLand import"
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      JOB_TRIGGERED_BY: cron
+      JOB_TYPE: pcland_import
+      PCLAND_MAX_PRODUCTS_PER_RUN: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-pcland-import-products.ts
+
+  oazis_import:
+    name: "1e · Oázis import"
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      JOB_TRIGGERED_BY: cron
+      JOB_TYPE: oazis_import
+      OAZIS_MAX_PRODUCTS_PER_RUN: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-oazis-import-products.ts
+
+  konzolvilag_import:
+    name: "1f · Konzolvilág import"
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      JOB_TRIGGERED_BY: cron
+      JOB_TYPE: konzolvilag_import
+      KONZOLVILAG_MAX_PRODUCTS_PER_RUN: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-konzolvilag-import-products.ts
+
   auto_match:
     name: "2 · Auto match"
-    needs: [ipon_import, pcx_import, firstshop_import]
+    needs: [ipon_import, pcx_import, firstshop_import, pcland_import, oazis_import, konzolvilag_import]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

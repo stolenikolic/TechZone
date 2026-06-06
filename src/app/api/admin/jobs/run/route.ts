@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { withJobRun, type JobType } from "lib/jobs/job-runner";
 import { IPON_SUPPLIER_ID } from "lib/suppliers/ipon/categories";
-import { FIRSTSHOP_SUPPLIER_ID, PCX_SUPPLIER_ID } from "lib/suppliers/registry";
+import {
+  FIRSTSHOP_SUPPLIER_ID,
+  KONZOLVILAG_SUPPLIER_ID,
+  OAZIS_SUPPLIER_ID,
+  PCLAND_SUPPLIER_ID,
+  PCX_SUPPLIER_ID
+} from "lib/suppliers/registry";
 import { guardAdminApi } from "lib/auth/admin-route";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +19,9 @@ const ALLOWED: JobType[] = [
   "ipon_scrape_details",
   "pcx_import",
   "firstshop_import",
+  "pcland_import",
+  "oazis_import",
+  "konzolvilag_import",
   "aggregate_prices",
   "auto_match",
   "enrichment",
@@ -29,6 +38,12 @@ function supplierIdForDashboardJob(jobType: JobType): string | null {
       return PCX_SUPPLIER_ID;
     case "firstshop_import":
       return FIRSTSHOP_SUPPLIER_ID;
+    case "pcland_import":
+      return PCLAND_SUPPLIER_ID;
+    case "oazis_import":
+      return OAZIS_SUPPLIER_ID;
+    case "konzolvilag_import":
+      return KONZOLVILAG_SUPPLIER_ID;
     default:
       return null;
   }
@@ -75,6 +90,18 @@ async function runJob(
   if (jobType === "firstshop_import") {
     const { runFirstshopImportProducts } = await import("lib/suppliers/firstshop/importProducts");
     return runFirstshopImportProducts();
+  }
+  if (jobType === "pcland_import") {
+    const { runPclandImportProducts } = await import("lib/suppliers/pcland/importProducts");
+    return runPclandImportProducts();
+  }
+  if (jobType === "oazis_import") {
+    const { runOazisImportProducts } = await import("lib/suppliers/oazis/importProducts");
+    return runOazisImportProducts();
+  }
+  if (jobType === "konzolvilag_import") {
+    const { runKonzolvilagImportProducts } = await import("lib/suppliers/konzolvilag/importProducts");
+    return runKonzolvilagImportProducts();
   }
   if (jobType === "aggregate_prices") {
     const { aggregatePrices, wrapAggregatePricesJobResult } = await import("lib/pricing");

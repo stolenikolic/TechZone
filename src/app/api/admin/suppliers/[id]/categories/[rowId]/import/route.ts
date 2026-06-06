@@ -10,6 +10,12 @@ import {
 } from "lib/suppliers/pcx/importProducts";
 import { runFirstshopImportForSupplierCategory } from "lib/suppliers/firstshop/importProducts";
 import { FIRSTSHOP_SUPPLIER_ID } from "lib/suppliers/firstshop/constants";
+import { runPclandImportForSupplierCategory } from "lib/suppliers/pcland/importProducts";
+import { PCLAND_SUPPLIER_ID } from "lib/suppliers/pcland/constants";
+import { runOazisImportForSupplierCategory } from "lib/suppliers/oazis/importProducts";
+import { OAZIS_SUPPLIER_ID } from "lib/suppliers/oazis/constants";
+import { runKonzolvilagImportForSupplierCategory } from "lib/suppliers/konzolvilag/importProducts";
+import { KONZOLVILAG_SUPPLIER_ID } from "lib/suppliers/konzolvilag/constants";
 import { guardAdminApi } from "lib/auth/admin-route";
 import { createSupabaseServiceClient } from "utils/supabase";
 
@@ -28,10 +34,13 @@ export async function POST(
     if (
       supplierId !== IPON_SUPPLIER_ID &&
       supplierId !== PCX_SUPPLIER_ID &&
-      supplierId !== FIRSTSHOP_SUPPLIER_ID
+      supplierId !== FIRSTSHOP_SUPPLIER_ID &&
+      supplierId !== PCLAND_SUPPLIER_ID &&
+      supplierId !== OAZIS_SUPPLIER_ID &&
+      supplierId !== KONZOLVILAG_SUPPLIER_ID
     ) {
       return NextResponse.json(
-        { error: "Ručni import po kategoriji je podržan samo za iPon, PCX i FirstShop." },
+        { error: "Ručni import po kategoriji je podržan samo za iPon, PCX, FirstShop, PCLand, Oázis i Konzolvilág." },
         { status: 400 }
       );
     }
@@ -66,12 +75,25 @@ export async function POST(
 
     const isPcx = supplierId === PCX_SUPPLIER_ID;
     const isFirstshop = supplierId === FIRSTSHOP_SUPPLIER_ID;
+    const isPcland = supplierId === PCLAND_SUPPLIER_ID;
+    const isOazis = supplierId === OAZIS_SUPPLIER_ID;
+    const isKonzolvilag = supplierId === KONZOLVILAG_SUPPLIER_ID;
     const categoryKey =
       row.supplier_category_key?.trim() || categoryMeta?.slug || categoryName;
 
     const { runId, value } = await withJobRun(
       {
-        jobType: isFirstshop ? "firstshop_import" : isPcx ? "pcx_import" : "ipon_import",
+        jobType: isKonzolvilag
+          ? "konzolvilag_import"
+          : isOazis
+            ? "oazis_import"
+            : isPcland
+            ? "pcland_import"
+            : isFirstshop
+              ? "firstshop_import"
+              : isPcx
+                ? "pcx_import"
+                : "ipon_import",
         supplierId,
         triggeredBy: "manual",
         initialSummary: {
@@ -82,6 +104,27 @@ export async function POST(
         }
       },
       async () => {
+        if (isKonzolvilag) {
+          return runKonzolvilagImportForSupplierCategory({
+            listingUrl,
+            categoryKey,
+            name: categoryName
+          });
+        }
+        if (isOazis) {
+          return runOazisImportForSupplierCategory({
+            listingUrl,
+            categoryKey,
+            name: categoryName
+          });
+        }
+        if (isPcland) {
+          return runPclandImportForSupplierCategory({
+            listingUrl,
+            categoryKey,
+            name: categoryName
+          });
+        }
         if (isFirstshop) {
           return runFirstshopImportForSupplierCategory({
             listingUrl,

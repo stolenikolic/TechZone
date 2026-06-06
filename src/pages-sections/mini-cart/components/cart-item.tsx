@@ -76,9 +76,21 @@ export default function MiniCartItem({ item, offerLabel, showLineDelivery, onCar
       </Link>
 
       <ContentWrapper>
-        <Typography noWrap variant="body1">
-          {item.title}
-        </Typography>
+        <Link
+          href={`/products/${item.slug}`}
+          style={{ color: "inherit", textDecoration: "none" }}
+        >
+          <Typography
+            noWrap
+            variant="body1"
+            sx={{
+              display: "block",
+              "&:hover": { color: "primary.main", textDecoration: "underline" }
+            }}
+          >
+            {item.title}
+          </Typography>
+        </Link>
 
         <CartLineMeta item={item} offerLabel={offerLabel} showLineDelivery={showLineDelivery} />
 

@@ -28,7 +28,13 @@ import Typography from "@mui/material/Typography";
 import Edit from "@mui/icons-material/Edit";
 import Delete from "@mui/icons-material/Delete";
 import { IPON_SUPPLIER_ID } from "lib/suppliers/ipon/constants";
-import { FIRSTSHOP_SUPPLIER_ID, PCX_SUPPLIER_ID } from "lib/suppliers/registry";
+import {
+  FIRSTSHOP_SUPPLIER_ID,
+  KONZOLVILAG_SUPPLIER_ID,
+  OAZIS_SUPPLIER_ID,
+  PCLAND_SUPPLIER_ID,
+  PCX_SUPPLIER_ID
+} from "lib/suppliers/registry";
 import { StyledIconButton } from "../styles";
 
 type Supplier = {
@@ -115,7 +121,16 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
   const isIponSupplier = supplierId === IPON_SUPPLIER_ID;
   const isPcxSupplier = supplierId === PCX_SUPPLIER_ID;
   const isFirstshopSupplier = supplierId === FIRSTSHOP_SUPPLIER_ID;
-  const supportsCategoryImport = isIponSupplier || isPcxSupplier || isFirstshopSupplier;
+  const isPclandSupplier = supplierId === PCLAND_SUPPLIER_ID;
+  const isOazisSupplier = supplierId === OAZIS_SUPPLIER_ID;
+  const isKonzolvilagSupplier = supplierId === KONZOLVILAG_SUPPLIER_ID;
+  const supportsCategoryImport =
+    isIponSupplier ||
+    isPcxSupplier ||
+    isFirstshopSupplier ||
+    isPclandSupplier ||
+    isOazisSupplier ||
+    isKonzolvilagSupplier;
 
   const [openCatModal, setOpenCatModal] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);

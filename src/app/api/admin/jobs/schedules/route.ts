@@ -9,6 +9,9 @@ const ALLOWED_JOB_TYPES = [
   "ipon_scrape_details",
   "pcx_import",
   "firstshop_import",
+  "pcland_import",
+  "oazis_import",
+  "konzolvilag_import",
   "aggregate_prices",
   "auto_match"
 ] as const;

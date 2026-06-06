@@ -39,8 +39,16 @@ export default function CartItem({ item, offerLabel, showLineDelivery }: Props) 
 
       <ContentWrapper>
         <Stack spacing={0.5} overflow="hidden">
-          <Link href={`/products/${slug}`}>
-            <Typography noWrap variant="body1" fontSize={16}>
+          <Link href={`/products/${slug}`} style={{ color: "inherit", textDecoration: "none" }}>
+            <Typography
+              noWrap
+              variant="body1"
+              fontSize={16}
+              sx={{
+                display: "block",
+                "&:hover": { color: "primary.main", textDecoration: "underline" }
+              }}
+            >
               {title}
             </Typography>
           </Link>
