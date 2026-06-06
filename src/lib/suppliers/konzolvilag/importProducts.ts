@@ -87,7 +87,7 @@ function getCookieHeader(): string | undefined {
 function ingestSetCookies(res: Response): void {
   type ResponseWithGetSetCookie = Response & { headers: Headers & { getSetCookie?: () => string[] } };
   const headers = (res as ResponseWithGetSetCookie).headers;
-  const raw = typeof headers.getGetCookie === "function" ? headers.getSetCookie() : [];
+  const raw = typeof headers.getSetCookie === "function" ? headers.getSetCookie() : [];
   for (const cookie of raw) {
     const firstSemi = cookie.indexOf(";");
     const pair = firstSemi >= 0 ? cookie.slice(0, firstSemi) : cookie;
