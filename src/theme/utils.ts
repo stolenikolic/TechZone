@@ -1,6 +1,17 @@
 import type { Theme } from "@mui/material/styles";
+import { alpha } from "@mui/material/styles";
 
 const TOUCH_SAFE_INPUT_FONT_PX = 16;
+
+/** Frosted bar below the notch — keep the fixed wrapper itself transparent for Safari tinting. */
+export function mobileFrostedChrome(theme: Theme) {
+  return {
+    backgroundColor: alpha(theme.palette.background.paper, 0.72),
+    backdropFilter: "blur(20px) saturate(180%)",
+    WebkitBackdropFilter: "blur(20px) saturate(180%)",
+    borderBottom: `1px solid ${alpha(theme.palette.divider, 0.55)}`
+  };
+}
 const DESKTOP_INPUT_FONT_PX = 14;
 
 /** Prevents iOS/Android auto-zoom on input focus while keeping pinch-to-zoom. */

@@ -10,7 +10,10 @@ export const StyledRoot = styled("div", {
   fontSize: 12,
   paddingBlock: 10,
   color: theme.palette.secondary.contrastText,
-  background: bgColor ?? theme.palette.topbar?.main ?? theme.palette.grey[800]
+  background: bgColor ?? theme.palette.topbar?.main ?? theme.palette.grey[800],
+  [theme.breakpoints.down("lg")]: {
+    paddingTop: `calc(10px + env(safe-area-inset-top, 0px))`
+  }
 }));
 
 export const StyledContainer = styled(Container)(() => ({

@@ -4,6 +4,7 @@ import Container from "@mui/material/Container";
 import { styled } from "@mui/material/styles";
 // CONSTANT VARIABLES
 import { layoutConstant } from "utils/constants";
+import { mobileFrostedChrome } from "theme/utils";
 
 export const HeaderWrapper = styled("div")(({ theme }) => ({
   zIndex: 3,
@@ -11,8 +12,15 @@ export const HeaderWrapper = styled("div")(({ theme }) => ({
   height: layoutConstant.headerHeight,
   transition: "height 250ms ease-in-out",
   background: theme.palette.background.paper,
+  [theme.breakpoints.down("lg")]: {
+    // Safari 26+ samples background-color of fixed top elements for the URL bar tint.
+    // Opaque white here paints a solid white strip behind the notch — keep transparent.
+    background: "transparent",
+    height: `calc(${layoutConstant.mobileHeaderHeight}px + env(safe-area-inset-top, 0px))`,
+    paddingTop: "env(safe-area-inset-top, 0px)"
+  },
   [theme.breakpoints.down("sm")]: {
-    height: layoutConstant.mobileHeaderHeight
+    height: `calc(${layoutConstant.mobileHeaderHeight}px + env(safe-area-inset-top, 0px))`
   }
 }));
 
@@ -29,5 +37,8 @@ export const StyledContainer = styled(Container)(({ theme }) => ({
   [theme.breakpoints.down(1150)]: {
     "& .mobile-header": { display: "flex" },
     "& .main-header": { display: "none" }
+  },
+  [theme.breakpoints.down("lg")]: {
+    ...mobileFrostedChrome(theme)
   }
 }));

@@ -24,10 +24,11 @@ export const components: ThemeComponents = {
     styleOverrides: (theme) => ({
       html: {
         scrollBehavior: "smooth",
-        backgroundColor: theme.palette.topbar?.main ?? theme.palette.grey[800]
+        backgroundColor: theme.palette.background.default
       },
       body: {
-        backgroundColor: theme.palette.background.default
+        backgroundColor: theme.palette.background.default,
+        minHeight: "100dvh"
       },
       "*": {
         margin: 0,

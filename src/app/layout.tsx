@@ -10,7 +10,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#1F2937"
+  themeColor: "#ffffff00"
 };
 
 import "overlayscrollbars/overlayscrollbars.css";

@@ -32,6 +32,9 @@ export const StyledRoot = styled("div", {
     top: `${fixedOn}px`,
     boxShadow: theme.shadows[5],
     [theme.breakpoints.down("lg")]: {
+      top: 0,
+      background: "transparent",
+      boxShadow: "none",
       willChange: "transform",
       transition: chromeHidden ? "transform 180ms ease-in" : "none",
       transform: chromeHidden ? "translateY(-100%)" : "translateY(0)"
