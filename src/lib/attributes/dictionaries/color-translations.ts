@@ -1,7 +1,16 @@
 /**
  * Basic color names (EN + HU) → Serbian (feminine, as used for "boja").
- * Only exact token matches are translated; unknown tokens (e.g. "Space white") pass through.
+ * Modifiers (dark/light) are handled separately — joined with a space, not " - ".
  */
+export const COLOR_MODIFIER_PREFIXES: Readonly<Record<string, string>> = {
+  dark: "Tamno",
+  light: "Svijetlo",
+  világos: "Svijetlo",
+  vilagos: "Svijetlo",
+  sötét: "Tamno",
+  sotet: "Tamno"
+};
+
 export const COLOR_TRANSLATIONS: Readonly<Record<string, string>> = {
   // English
   black: "Crna",
@@ -24,6 +33,13 @@ export const COLOR_TRANSLATIONS: Readonly<Record<string, string>> = {
   cyan: "Cijan",
   magenta: "Magenta",
   turquoise: "Tirkizna",
+  turcoise: "Tirkizna",
+  anthracite: "Antracit",
+  antracit: "Antracit",
+  mint: "Menta",
+  menta: "Menta",
+  matcha: "Matcha",
+  patterned: "Uzorkasta",
   maroon: "Bordo",
   olive: "Maslinasta",
   coral: "Koral",
@@ -86,5 +102,7 @@ export const COLOR_TRANSLATIONS: Readonly<Record<string, string>> = {
   tengerészkék: "Teget",
   tengereszkek: "Teget",
   sokszínű: "Višebojna",
-  sokszinu: "Višebojna"
+  sokszinu: "Višebojna",
+  világosbarna: "Svijetlo Braon",
+  vilagosbarna: "Svijetlo Braon"
 };

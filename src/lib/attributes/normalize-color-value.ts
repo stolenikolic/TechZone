@@ -1,4 +1,7 @@
-import { COLOR_TRANSLATIONS } from "lib/attributes/dictionaries/color-translations";
+import {
+  COLOR_MODIFIER_PREFIXES,
+  COLOR_TRANSLATIONS
+} from "lib/attributes/dictionaries/color-translations";
 
 /** Attribute slugs that receive global color translation during enrichment. */
 const COLOR_ATTRIBUTE_SLUGS = new Set([
@@ -10,13 +13,38 @@ const COLOR_ATTRIBUTE_SLUGS = new Set([
   "primary_color"
 ]);
 
-const COLOR_TOKEN_SPLIT = /\s+-\s+|\s*\/\s*|\s*,\s*|\s+&\s+|\s+and\s+/i;
+/** Split combined colors; hyphen works with or without spaces (White-Brown, Black - Brown). */
+const COLOR_TOKEN_SPLIT = /\s*-\s*|\s*\/\s*|\s*,\s*|\s+&\s+|\s+and\s+/i;
 const OUTPUT_SEPARATOR = " - ";
 
-function lookupColorTranslation(token: string): string | null {
-  const key = token.trim().toLowerCase();
-  if (!key) return null;
-  return COLOR_TRANSLATIONS[key] ?? null;
+const MODIFIER_PREFIX_PATTERN =
+  /^(dark|light|világos|vilagos|sötét|sotet)\s+(.+)$/i;
+
+function lookupBaseColor(key: string): string | null {
+  const normalized = key.trim().toLowerCase();
+  if (!normalized) return null;
+  return COLOR_TRANSLATIONS[normalized] ?? null;
+}
+
+function translateColorToken(token: string): { value: string; translated: boolean } {
+  const trimmed = token.trim();
+  if (!trimmed) return { value: trimmed, translated: false };
+
+  const direct = lookupBaseColor(trimmed);
+  if (direct) return { value: direct, translated: true };
+
+  const modifierMatch = trimmed.match(MODIFIER_PREFIX_PATTERN);
+  if (modifierMatch) {
+    const modifierKey = modifierMatch[1].toLowerCase();
+    const baseKey = modifierMatch[2].trim().toLowerCase();
+    const modifier = COLOR_MODIFIER_PREFIXES[modifierKey];
+    const base = lookupBaseColor(baseKey);
+    if (modifier && base) {
+      return { value: `${modifier} ${base}`, translated: true };
+    }
+  }
+
+  return { value: trimmed, translated: false };
 }
 
 export function isColorAttributeSlug(slug: string | null | undefined): boolean {
@@ -27,9 +55,9 @@ export function isColorAttributeSlug(slug: string | null | undefined): boolean {
 }
 
 /**
- * Splits combinations (Black - Brown, Fekete/Barna), translates only known basic tokens.
- * Unknown tokens (e.g. "Space white") stay unchanged. Output always uses " - ".
- * Returns null when no token was translated (caller keeps raw value).
+ * Splits combinations (Black - Brown, White-Brown), translates tokens.
+ * Modifiers: dark green → Tamno zelena (space, no extra "-").
+ * Unknown tokens (e.g. "Space white") stay unchanged.
  */
 export function normalizeColorValue(rawValue: string): string | null {
   const trimmed = rawValue.trim();
@@ -45,13 +73,9 @@ export function normalizeColorValue(rawValue: string): string | null {
   const out: string[] = [];
 
   for (const token of tokens) {
-    const translated = lookupColorTranslation(token);
-    if (translated) {
-      anyTranslated = true;
-      out.push(translated);
-    } else {
-      out.push(token);
-    }
+    const { value, translated } = translateColorToken(token);
+    if (translated) anyTranslated = true;
+    out.push(value);
   }
 
   if (!anyTranslated) return null;
