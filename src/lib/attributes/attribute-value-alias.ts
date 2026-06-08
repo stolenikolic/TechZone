@@ -54,18 +54,11 @@ function aliasMatches(raw: string, alias: string, mode: AttributeValueAliasRow["
   }
 }
 
-/**
- * If a manual alias matches, returns canonical_label; otherwise returns trimmed raw unchanged.
- */
-export function applyAttributeValueAlias(
-  rawValue: string,
+function sortedActiveAliases(
   aliasRows: AttributeValueAliasRow[],
   supplierId?: string | null
-): string | null {
-  const trimmed = rawValue.trim();
-  if (!trimmed) return null;
-
-  const active = aliasRows
+): AttributeValueAliasRow[] {
+  return aliasRows
     .filter((row) => row.isActive)
     .sort((a, b) => {
       const aSpecific = a.supplierId ? 0 : 1;
@@ -78,11 +71,38 @@ export function applyAttributeValueAlias(
       }
       return a.priority - b.priority;
     });
+}
 
-  for (const row of active) {
+/** Returns the first matching manual alias row, if any. */
+export function findMatchingAttributeValueAlias(
+  rawValue: string,
+  aliasRows: AttributeValueAliasRow[],
+  supplierId?: string | null
+): AttributeValueAliasRow | null {
+  const trimmed = rawValue.trim();
+  if (!trimmed) return null;
+
+  for (const row of sortedActiveAliases(aliasRows, supplierId)) {
     if (row.supplierId && supplierId && row.supplierId !== supplierId) continue;
-    if (aliasMatches(trimmed, row.alias, row.matchMode)) return row.canonicalLabel.trim();
+    if (aliasMatches(trimmed, row.alias, row.matchMode)) return row;
   }
+
+  return null;
+}
+
+/**
+ * If a manual alias matches, returns canonical_label; otherwise returns trimmed raw unchanged.
+ */
+export function applyAttributeValueAlias(
+  rawValue: string,
+  aliasRows: AttributeValueAliasRow[],
+  supplierId?: string | null
+): string | null {
+  const trimmed = rawValue.trim();
+  if (!trimmed) return null;
+
+  const matched = findMatchingAttributeValueAlias(trimmed, aliasRows, supplierId);
+  if (matched) return matched.canonicalLabel.trim();
 
   return trimmed;
 }

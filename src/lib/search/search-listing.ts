@@ -93,7 +93,7 @@ async function fetchAllSearchProductRows(
       query = query.or(buildTokenFilter(token));
     }
 
-    const { data, error } = await query.range(offset, offset + ROW_PAGE_SIZE - 1);
+    const { data, error } = await query.order("id", { ascending: true }).range(offset, offset + ROW_PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
 
     const batch = (data ?? []) as SearchProductRow[];

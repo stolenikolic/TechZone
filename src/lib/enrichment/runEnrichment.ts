@@ -19,8 +19,9 @@ import {
   buildAttributeSlugResolver,
   loadCategoryAttributeSlugs
 } from "lib/suppliers/registry";
-import { applyAttributeValueAlias } from "lib/attributes/attribute-value-alias";
 import { loadAttributeValueAliases } from "lib/attributes/load-attribute-value-aliases";
+import type { AttributeFilterMeta } from "lib/attributes/normalize-range-unit-value";
+import { resolveEnrichedAttributeValue } from "lib/attributes/resolve-enriched-attribute-value";
 import {
   isConnectionSATA,
   NOT_APPLICABLE_ATTRIBUTE_VALUE
@@ -232,6 +233,28 @@ async function loadSlugToAttributeId(
   return map;
 }
 
+async function loadAttributeFilterMetaByIds(
+  supabase: SupabaseClient,
+  attributeIds: string[]
+): Promise<Map<string, AttributeFilterMeta>> {
+  if (attributeIds.length === 0) return new Map();
+  const { data, error } = await supabase
+    .from("attributes")
+    .select("id, filter_display_type, filter_unit")
+    .in("id", attributeIds);
+  if (error) throw new Error(`loadAttributeFilterMetaByIds: ${error.message}`);
+
+  const map = new Map<string, AttributeFilterMeta>();
+  for (const row of data ?? []) {
+    if (!row.id) continue;
+    map.set(row.id as string, {
+      filterDisplayType: (row.filter_display_type as string | null) ?? null,
+      filterUnit: (row.filter_unit as string | null) ?? null
+    });
+  }
+  return map;
+}
+
 // ---------------------------------------------------------------------------
 // Resolution logic
 // ---------------------------------------------------------------------------
@@ -407,6 +430,7 @@ export async function runEnrichment(options?: RunEnrichmentOptions): Promise<Enr
           .map((slug) => slugToId.get(slug))
           .filter((id): id is string => Boolean(id));
         const aliasesByAttributeId = await loadAttributeValueAliases(supabase, attributeIds);
+        const filterMetaByAttributeId = await loadAttributeFilterMetaByIds(supabase, attributeIds);
         const existingIds = overwrite ? new Set<string>() : await loadExistingAttributeIds(supabase, product.productId);
         const existingBySlug = overwrite
           ? new Map<string, string>()
@@ -456,7 +480,13 @@ export async function runEnrichment(options?: RunEnrichmentOptions): Promise<Enr
           if (resolved) {
             const aliasRows = aliasesByAttributeId.get(attributeId) ?? [];
             const value =
-              applyAttributeValueAlias(resolved.value, aliasRows, resolved.supplierId) ?? resolved.value;
+              resolveEnrichedAttributeValue(
+                resolved.value,
+                aliasRows,
+                resolved.supplierId,
+                filterMetaByAttributeId.get(attributeId) ?? null,
+                slug
+              ) ?? resolved.value;
             await writeProductAttribute(supabase, product.productId, attributeId, value);
             patch[slug] = value;
             existingBySlug.set(slug, value);

@@ -35,7 +35,7 @@ export async function fetchSearchCategoryFacets(
       query = query.or(buildTokenFilter(token));
     }
 
-    const { data, error } = await query.range(offset, offset + FACET_PAGE_SIZE - 1);
+    const { data, error } = await query.order("id", { ascending: true }).range(offset, offset + FACET_PAGE_SIZE - 1);
 
     if (error) {
       throw new Error(error.message);

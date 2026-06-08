@@ -1,10 +1,11 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
+import CircularProgress from "@mui/material/CircularProgress";
 import Collapse from "@mui/material/Collapse";
 import Grid from "@mui/material/Grid";
 import MenuItem from "@mui/material/MenuItem";
@@ -18,19 +19,18 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Chip from "@mui/material/Chip";
 import Typography from "@mui/material/Typography";
-// GLOBAL CUSTOM COMPONENTS
 import OverlayScrollbar from "components/overlay-scrollbar";
 import { TableHeader, TablePagination } from "components/data-table";
-// GLOBAL CUSTOM HOOK
-import useMuiTable from "hooks/useMuiTable";
-//  LOCAL CUSTOM COMPONENT
+import useMuiTable, { getComparator, stableSort } from "hooks/useMuiTable";
+import { useDebouncedValue } from "hooks/useDebouncedValue";
 import ProductRow from "../product-row";
 import PageWrapper from "../../page-wrapper";
-// CUSTOM DATA MODEL
 import Product from "models/Product.model";
 import { currency } from "lib";
+import type { PaginatedResult } from "lib/admin/pagination";
+import type { ProductsFilterOptions, ProductsStats } from "lib/admin/products-list";
+import { ADMIN_LIST_DEFAULT_LIMIT } from "lib/admin/pagination";
 
-// TABLE HEADING DATA LIST
 const tableHeading = [
   { id: "name", label: "Name", align: "left" },
   { id: "category", label: "Category", align: "left" },
@@ -44,7 +44,6 @@ const tableHeading = [
   { id: "action", label: "Action", align: "center" }
 ];
 
-// =============================================================================
 type AdminProduct = Product & {
   basePrice?: number | null;
   customPrice?: number | null;
@@ -52,14 +51,38 @@ type AdminProduct = Product & {
   effectivePriceSource?: string | null;
   linkedSuppliers?: { code: string; name: string }[];
 };
-type Props = { products: Product[] };
+
 type MasterStatusValue = NonNullable<Product["masterStatus"]>["value"];
 type QuickFilter = "all" | MasterStatusValue;
-// =============================================================================
 
-export default function ProductsPageView({ products }: Props) {
-  const adminProducts = products as AdminProduct[];
+type TableRowProduct = {
+  id: string;
+  slug: string;
+  name: string;
+  brand: string;
+  effectivePrice: number;
+  effectivePriceSource: string | null;
+  basePrice: number | null;
+  customPrice: number | null;
+  price: number;
+  image: string;
+  published: boolean;
+  category: string;
+  masterStatus: Product["masterStatus"];
+  masterStatusSort: string;
+};
+
+const EMPTY_STATS: ProductsStats = {
+  all: 0,
+  ready: 0,
+  unlinked: 0,
+  linked: 0,
+  needs_attributes: 0
+};
+
+export default function ProductsPageView() {
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query);
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [parentCategoryFilter, setParentCategoryFilter] = useState("all");
   const [childCategoryFilter, setChildCategoryFilter] = useState("all");
@@ -67,6 +90,21 @@ export default function ProductsPageView({ products }: Props) {
   const [publishedFilter, setPublishedFilter] = useState("all");
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
+  const [page, setPage] = useState(1);
+
+  const [items, setItems] = useState<AdminProduct[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
+
+  const [stats, setStats] = useState<ProductsStats>(EMPTY_STATS);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [filterOptions, setFilterOptions] = useState<ProductsFilterOptions>({
+    categoryTree: {},
+    priceSources: [{ value: "manual", label: "manual" }]
+  });
+
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const [offersByProduct, setOffersByProduct] = useState<
     Record<
@@ -109,22 +147,15 @@ export default function ProductsPageView({ products }: Props) {
     />
   );
 
-  const loadOffers = async (product: {
-    id: string;
-    name: string;
-  }) => {
+  const loadOffers = async (product: { id: string; name: string }) => {
     setOffersByProduct((prev) => ({
       ...prev,
       [product.id]: { loading: true, error: null, rows: prev[product.id]?.rows ?? [] }
     }));
     try {
-      const response = await fetch(`/api/admin/products/${product.id}/offers`, {
-        cache: "no-store"
-      });
+      const response = await fetch(`/api/admin/products/${product.id}/offers`, { cache: "no-store" });
       const data = (await response.json()) as
-        | {
-            error?: string;
-          }
+        | { error?: string }
         | {
             id: string;
             supplierProductId: string;
@@ -165,67 +196,120 @@ export default function ProductsPageView({ products }: Props) {
     }
   };
 
-  const counters = useMemo(() => {
-    const needsAttributesProducts = adminProducts.filter(
-      (item) => item.masterStatus?.value === "needs_attributes"
-    );
-    return {
-      all: adminProducts.length,
-      ready: adminProducts.filter((item) => item.masterStatus?.value === "ready").length,
-      unlinked: adminProducts.filter((item) => item.masterStatus?.value === "unlinked").length,
-      linked: adminProducts.filter((item) => item.masterStatus?.value === "linked").length,
-      /** Number of master products that miss ≥1 required category attribute (not a sum of missing fields). */
-      needs_attributes: needsAttributesProducts.length
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setStatsLoading(true);
+      try {
+        const [statsRes, optionsRes] = await Promise.all([
+          fetch("/api/admin/products/stats", { cache: "no-store" }),
+          fetch("/api/admin/products/filter-options", { cache: "no-store" })
+        ]);
+        if (!statsRes.ok || !optionsRes.ok) throw new Error("Failed to load product stats.");
+        const statsJson = (await statsRes.json()) as ProductsStats;
+        const optionsJson = (await optionsRes.json()) as ProductsFilterOptions;
+        if (!cancelled) {
+          setStats(statsJson);
+          setFilterOptions(optionsJson);
+        }
+      } catch {
+        if (!cancelled) setStats(EMPTY_STATS);
+      } finally {
+        if (!cancelled) setStatsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
     };
-  }, [adminProducts]);
+  }, []);
+
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    setListError(null);
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(ADMIN_LIST_DEFAULT_LIMIT),
+        quickFilter,
+        parentCategory: parentCategoryFilter,
+        childCategory: childCategoryFilter,
+        priceSource: supplierFilter,
+        published: publishedFilter
+      });
+      if (debouncedQuery.trim()) params.set("q", debouncedQuery.trim());
+      if (priceMin.trim()) params.set("priceMin", priceMin.trim());
+      if (priceMax.trim()) params.set("priceMax", priceMax.trim());
+
+      const response = await fetch(`/api/admin/products?${params.toString()}`, { cache: "no-store" });
+      const data = (await response.json()) as PaginatedResult<AdminProduct> & { error?: string };
+      if (!response.ok || data.error) {
+        throw new Error(data.error ?? "Failed to load products.");
+      }
+      setItems(data.items ?? []);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
+    } catch (err) {
+      setItems([]);
+      setTotal(0);
+      setTotalPages(1);
+      setListError(err instanceof Error ? err.message : "Failed to load products.");
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    page,
+    debouncedQuery,
+    quickFilter,
+    parentCategoryFilter,
+    childCategoryFilter,
+    supplierFilter,
+    publishedFilter,
+    priceMin,
+    priceMax
+  ]);
+
+  useEffect(() => {
+    void fetchProducts();
+  }, [fetchProducts]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [
+    debouncedQuery,
+    quickFilter,
+    parentCategoryFilter,
+    childCategoryFilter,
+    supplierFilter,
+    publishedFilter,
+    priceMin,
+    priceMax
+  ]);
 
   const quickFilters: { value: QuickFilter; label: string; count: number; countHint?: string }[] = [
-    { value: "all", label: "All", count: counters.all },
-    { value: "ready", label: "Ready", count: counters.ready },
-    { value: "unlinked", label: "Unlinked", count: counters.unlinked },
-    { value: "linked", label: "Linked", count: counters.linked },
+    { value: "all", label: "All", count: stats.all },
+    { value: "ready", label: "Ready", count: stats.ready },
+    { value: "unlinked", label: "Unlinked", count: stats.unlinked },
+    { value: "linked", label: "Linked", count: stats.linked },
     {
       value: "needs_attributes",
       label: "Needs attributes",
-      count: counters.needs_attributes,
+      count: stats.needs_attributes,
       countHint: "products"
     }
   ];
 
-  const categoryTree = useMemo(() => {
-    const tree = new Map<string, { name: string; children: { slug: string; name: string }[] }>();
-    for (const item of adminProducts) {
-      const childSlug = item.category?.slug;
-      const childName = item.category?.name ?? item.categories[0] ?? "-";
-      const parentSlug = item.parentCategory?.slug ?? childSlug ?? "";
-      const parentName = item.parentCategory?.name ?? childName;
-      if (!parentSlug) continue;
-      const parent: { name: string; children: { slug: string; name: string }[] } =
-        tree.get(parentSlug) ?? { name: parentName, children: [] };
-      if (
-        childSlug &&
-        childSlug !== parentSlug &&
-        !parent.children.some((c) => c.slug === childSlug)
-      ) {
-        parent.children.push({ slug: childSlug, name: childName });
-      }
-      tree.set(parentSlug, parent);
-    }
-    return tree;
-  }, [adminProducts]);
-
   const parentCategoryOptions = useMemo(() => {
     return [
       { value: "all", label: "all" },
-      ...Array.from(categoryTree.entries())
+      ...Object.entries(filterOptions.categoryTree)
         .sort((a, b) => a[1].name.localeCompare(b[1].name))
         .map(([slug, value]) => ({ value: slug, label: value.name }))
     ];
-  }, [categoryTree]);
+  }, [filterOptions.categoryTree]);
 
   const childCategoryOptions = useMemo(() => {
     if (parentCategoryFilter === "all") return [{ value: "all", label: "all" }];
-    const parent = categoryTree.get(parentCategoryFilter);
+    const parent = filterOptions.categoryTree[parentCategoryFilter];
     if (!parent) return [{ value: "all", label: "all" }];
     return [
       { value: "all", label: "all" },
@@ -233,94 +317,42 @@ export default function ProductsPageView({ products }: Props) {
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((c) => ({ value: c.slug, label: c.name }))
     ];
-  }, [parentCategoryFilter, categoryTree]);
+  }, [parentCategoryFilter, filterOptions.categoryTree]);
 
   const supplierOptions = useMemo(() => {
-    const priceSources = new Set<string>();
-    for (const item of adminProducts) {
-      const source = item.effectivePriceSource;
-      if (source && source !== "manual") priceSources.add(source);
-    }
-    return [
-      { value: "all", label: "all" },
-      { value: "manual", label: "manual" },
-      ...Array.from(priceSources)
-        .sort((a, b) => a.localeCompare(b))
-        .map((name) => ({ value: name, label: name }))
-    ];
-  }, [adminProducts]);
+    return [{ value: "all", label: "all" }, ...filterOptions.priceSources];
+  }, [filterOptions.priceSources]);
 
-  // RESHAPE THE PRODUCT LIST BASED TABLE HEAD CELL ID
-  const reshapedProducts = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return adminProducts
-      .filter((item) => {
-        const status = item.masterStatus?.value ?? "linked";
-        if (quickFilter !== "all" && status !== quickFilter) return false;
-        if (parentCategoryFilter !== "all") {
-          const parentSlug = item.parentCategory?.slug ?? item.category?.slug ?? "";
-          if (parentSlug !== parentCategoryFilter) return false;
-        }
-        if (childCategoryFilter !== "all") {
-          const childSlug = item.category?.slug ?? "";
-          if (childSlug !== childCategoryFilter) return false;
-        }
-        if (supplierFilter !== "all" && item.effectivePriceSource !== supplierFilter) {
-          return false;
-        }
-        if (publishedFilter !== "all") {
-          const shouldBePublished = publishedFilter === "published";
-          if ((item.published ?? false) !== shouldBePublished) return false;
-        }
-        const effectivePrice = Number(item.effectivePrice ?? item.price ?? 0);
-        if (priceMin.trim() !== "") {
-          const min = Number(priceMin);
-          if (Number.isFinite(min) && effectivePrice < min) return false;
-        }
-        if (priceMax.trim() !== "") {
-          const max = Number(priceMax);
-          if (Number.isFinite(max) && effectivePrice > max) return false;
-        }
-        if (!q) return true;
+  const reshapedProducts = useMemo((): TableRowProduct[] => {
+    return items.map((item) => {
+      const effectivePrice = Number(item.effectivePrice ?? item.price ?? 0);
+      return {
+        id: item.id,
+        slug: item.slug,
+        name: item.title,
+        brand: item.brand ?? "",
+        effectivePrice,
+        effectivePriceSource: item.effectivePriceSource ?? null,
+        basePrice: item.basePrice ?? null,
+        customPrice: item.customPrice ?? null,
+        price: effectivePrice,
+        image: item.thumbnail,
+        published: item.published!,
+        category:
+          item.parentCategory && item.category
+            ? `${item.parentCategory.name} / ${item.category.name}`
+            : item.categories[0] ?? "-",
+        masterStatus: item.masterStatus,
+        masterStatusSort: item.masterStatus?.label ?? ""
+      };
+    });
+  }, [items]);
 
-        const haystack = [
-          item.title,
-          item.brand ?? "",
-          item.categories[0] ?? "",
-          item.masterStatus?.label ?? "",
-          item.masterStatus?.tooltip ?? ""
-        ]
-          .join(" ")
-          .toLowerCase();
-
-        return haystack.includes(q);
-      })
-      .map((item) => {
-        const effectivePrice = Number(item.effectivePrice ?? item.price ?? 0);
-        return {
-          id: item.id,
-          slug: item.slug,
-          name: item.title,
-          brand: item.brand ?? "",
-          effectivePrice,
-          effectivePriceSource: item.effectivePriceSource ?? null,
-          basePrice: item.basePrice ?? null,
-          customPrice: item.customPrice ?? null,
-          price: effectivePrice,
-          image: item.thumbnail,
-          published: item.published!,
-          category:
-            item.parentCategory && item.category
-              ? `${item.parentCategory.name} / ${item.category.name}`
-              : item.categories[0] ?? "-",
-          masterStatus: item.masterStatus,
-          masterStatusSort: item.masterStatus?.label ?? ""
-        };
-      });
-  }, [adminProducts, query, quickFilter, parentCategoryFilter, childCategoryFilter, supplierFilter, publishedFilter, priceMin, priceMax]);
-
-  const { order, orderBy, rowsPerPage, filteredList, handleChangePage, handleRequestSort } =
-    useMuiTable({ listData: reshapedProducts });
+  const { order, orderBy, handleRequestSort } = useMuiTable({ listData: reshapedProducts });
+  const sortedProducts = useMemo(
+    () => stableSort(reshapedProducts, getComparator(order, orderBy)),
+    [reshapedProducts, order, orderBy]
+  );
 
   return (
     <PageWrapper title="Product List">
@@ -346,7 +378,9 @@ export default function ProductsPageView({ products }: Props) {
               <Typography variant="caption" color="text.secondary">
                 {item.label}
               </Typography>
-              <Typography variant="h4">{item.count}</Typography>
+              <Typography variant="h4">
+                {statsLoading ? <CircularProgress size={22} /> : item.count}
+              </Typography>
               {item.countHint ? (
                 <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
                   {item.countHint} — each row counts once
@@ -399,7 +433,7 @@ export default function ProductsPageView({ products }: Props) {
           >
             {parentCategoryOptions.map((option) => (
               <MenuItem key={option.value} value={option.value}>
-                  {option.label}
+                {option.label}
               </MenuItem>
             ))}
           </TextField>
@@ -465,8 +499,13 @@ export default function ProductsPageView({ products }: Props) {
           </Button>
         </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-          {reshapedProducts.length} rezultata
+          {loading ? "Učitavanje…" : `${total} rezultata`}
         </Typography>
+        {listError ? (
+          <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
+            {listError}
+          </Typography>
+        ) : null}
       </Card>
 
       <Card>
@@ -481,87 +520,101 @@ export default function ProductsPageView({ products }: Props) {
               />
 
               <TableBody>
-                {filteredList.map((product, index) => (
-                  <Fragment key={index}>
-                    <ProductRow product={product} onToggleExpand={(p) => void toggleExpand({ id: p.id, name: p.name })} />
-                    <TableRow>
-                      <TableCell colSpan={tableHeading.length} sx={{ py: 0 }}>
-                        <Collapse in={expandedProductId === product.id} timeout="auto" unmountOnExit>
-                          <Box sx={{ p: 2 }}>
-                            <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                              Linked supplier offers
-                            </Typography>
-                            {offersByProduct[product.id]?.loading ? (
-                              <Typography>Loading offers...</Typography>
-                            ) : offersByProduct[product.id]?.error ? (
-                              <Typography color="error">{offersByProduct[product.id]?.error}</Typography>
-                            ) : (offersByProduct[product.id]?.rows ?? []).length === 0 ? (
-                              <Typography>No linked offers for this product.</Typography>
-                            ) : (
-                              <Table size="small">
-                                <TableHead>
-                                  <TableRow>
-                                    <TableCell>Supplier</TableCell>
-                                    <TableCell>Status</TableCell>
-                                    <TableCell>Supplier Product ID</TableCell>
-                                    <TableCell align="right">Price (HUF)</TableCell>
-                                    <TableCell align="right">Nabavna (KM)</TableCell>
-                                    <TableCell align="right">Prodajna (KM)</TableCell>
-                                    <TableCell align="right">Updated</TableCell>
-                                  </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                  {(offersByProduct[product.id]?.rows ?? []).map((row) => (
-                                    <TableRow
-                                      key={row.id}
-                                      sx={
-                                        row.isActive
-                                          ? undefined
-                                          : {
-                                              opacity: 0.62,
-                                              filter: "blur(0.35px)"
-                                            }
-                                      }
-                                    >
-                                      <TableCell>
-                                        {row.supplierName}
-                                        <Typography variant="caption" display="block" color="text.secondary">
-                                          {row.supplierCode}
-                                        </Typography>
-                                      </TableCell>
-                                      <TableCell>
-                                        <OfferActiveChip isActive={row.isActive} />
-                                      </TableCell>
-                                      <TableCell
-                                        sx={{
-                                          maxWidth: 220,
-                                          overflow: "hidden",
-                                          textOverflow: "ellipsis",
-                                          whiteSpace: "nowrap"
-                                        }}
-                                        title={row.supplierProductId}
-                                      >
-                                        {row.supplierProductId}
-                                      </TableCell>
-                                      <TableCell align="right">{huf(row.priceAmountHuf)}</TableCell>
-                                      <TableCell align="right">
-                                        {row.acquisitionKm != null ? currency(row.acquisitionKm) : "-"}
-                                      </TableCell>
-                                      <TableCell align="right">
-                                        {row.sellingKm != null ? currency(row.sellingKm) : "-"}
-                                      </TableCell>
-                                      <TableCell align="right">{formatDate(row.updatedAt)}</TableCell>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={tableHeading.length} align="center" sx={{ py: 6 }}>
+                      <CircularProgress size={28} />
+                    </TableCell>
+                  </TableRow>
+                ) : sortedProducts.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={tableHeading.length} align="center" sx={{ py: 4 }}>
+                      Nema rezultata za odabrane filtere.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  sortedProducts.map((product, index) => (
+                    <Fragment key={index}>
+                      <ProductRow
+                        product={product}
+                        onToggleExpand={(p) => void toggleExpand({ id: p.id, name: p.name })}
+                      />
+                      <TableRow>
+                        <TableCell colSpan={tableHeading.length} sx={{ py: 0 }}>
+                          <Collapse in={expandedProductId === product.id} timeout="auto" unmountOnExit>
+                            <Box sx={{ p: 2 }}>
+                              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                                Linked supplier offers
+                              </Typography>
+                              {offersByProduct[product.id]?.loading ? (
+                                <Typography>Loading offers...</Typography>
+                              ) : offersByProduct[product.id]?.error ? (
+                                <Typography color="error">{offersByProduct[product.id]?.error}</Typography>
+                              ) : (offersByProduct[product.id]?.rows ?? []).length === 0 ? (
+                                <Typography>No linked offers for this product.</Typography>
+                              ) : (
+                                <Table size="small">
+                                  <TableHead>
+                                    <TableRow>
+                                      <TableCell>Supplier</TableCell>
+                                      <TableCell>Status</TableCell>
+                                      <TableCell>Supplier Product ID</TableCell>
+                                      <TableCell align="right">Price (HUF)</TableCell>
+                                      <TableCell align="right">Nabavna (KM)</TableCell>
+                                      <TableCell align="right">Prodajna (KM)</TableCell>
+                                      <TableCell align="right">Updated</TableCell>
                                     </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            )}
-                          </Box>
-                        </Collapse>
-                      </TableCell>
-                    </TableRow>
-                  </Fragment>
-                ))}
+                                  </TableHead>
+                                  <TableBody>
+                                    {(offersByProduct[product.id]?.rows ?? []).map((row) => (
+                                      <TableRow
+                                        key={row.id}
+                                        sx={
+                                          row.isActive
+                                            ? undefined
+                                            : { opacity: 0.62, filter: "blur(0.35px)" }
+                                        }
+                                      >
+                                        <TableCell>
+                                          {row.supplierName}
+                                          <Typography variant="caption" display="block" color="text.secondary">
+                                            {row.supplierCode}
+                                          </Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                          <OfferActiveChip isActive={row.isActive} />
+                                        </TableCell>
+                                        <TableCell
+                                          sx={{
+                                            maxWidth: 220,
+                                            overflow: "hidden",
+                                            textOverflow: "ellipsis",
+                                            whiteSpace: "nowrap"
+                                          }}
+                                          title={row.supplierProductId}
+                                        >
+                                          {row.supplierProductId}
+                                        </TableCell>
+                                        <TableCell align="right">{huf(row.priceAmountHuf)}</TableCell>
+                                        <TableCell align="right">
+                                          {row.acquisitionKm != null ? currency(row.acquisitionKm) : "-"}
+                                        </TableCell>
+                                        <TableCell align="right">
+                                          {row.sellingKm != null ? currency(row.sellingKm) : "-"}
+                                        </TableCell>
+                                        <TableCell align="right">{formatDate(row.updatedAt)}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              )}
+                            </Box>
+                          </Collapse>
+                        </TableCell>
+                      </TableRow>
+                    </Fragment>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
@@ -569,8 +622,10 @@ export default function ProductsPageView({ products }: Props) {
 
         <Stack alignItems="center" my={4}>
           <TablePagination
-            onChange={handleChangePage}
-            count={Math.max(1, Math.ceil(reshapedProducts.length / rowsPerPage))}
+            page={page}
+            onChange={(_, newPage) => setPage(newPage)}
+            count={totalPages}
+            disabled={loading}
           />
         </Stack>
       </Card>

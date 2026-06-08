@@ -1,14 +1,14 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import Alert from "@mui/material/Alert";
 import Collapse from "@mui/material/Collapse";
 import Card from "@mui/material/Card";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
@@ -29,10 +29,14 @@ import KeyboardArrowDown from "@mui/icons-material/KeyboardArrowDown";
 import KeyboardArrowUp from "@mui/icons-material/KeyboardArrowUp";
 import OverlayScrollbar from "components/overlay-scrollbar";
 import { TableHeader, TablePagination } from "components/data-table";
-import useMuiTable from "hooks/useMuiTable";
+import useMuiTable, { getComparator, stableSort } from "hooks/useMuiTable";
 import { currency } from "lib";
 import type { AdminProductSearchResult } from "app/api/admin/products/search/route";
-import type { SupplierOfferRow } from "app/api/admin/supplier-products/route";
+import type { SupplierOfferRow } from "lib/admin/supplier-products-list";
+import type { SupplierOffersStats } from "lib/admin/supplier-products-list";
+import type { PaginatedResult } from "lib/admin/pagination";
+import { ADMIN_LIST_DEFAULT_LIMIT } from "lib/admin/pagination";
+import { useDebouncedValue } from "hooks/useDebouncedValue";
 import PageWrapper from "../../page-wrapper";
 import { StyledTableCell, StyledTableRow } from "../../styles";
 
@@ -51,9 +55,18 @@ const tableHeading = [
   { id: "actions", label: "Actions", align: "center" }
 ];
 
-type Props = { offers: SupplierOfferRow[] };
-
 type OfferTableRow = SupplierOfferRow & { priceSort: number; masterProductName: string };
+
+type OfferWithRaw = SupplierOfferRow & { rawJson?: unknown };
+
+const EMPTY_STATS: SupplierOffersStats = {
+  all: 0,
+  linked: 0,
+  unlinked: 0,
+  pending_review: 0,
+  failed_enrichment: 0,
+  missing_identifiers: 0
+};
 
 function getRawOfferPreview(rawJson: unknown): { productName: string | null; imageUrl: string | null } {
   if (!rawJson || typeof rawJson !== "object" || Array.isArray(rawJson)) {
@@ -201,14 +214,31 @@ function linkedMethodLabel(offer: SupplierOfferRow) {
   return "manual";
 }
 
-export default function SupplierOffersPageView({ offers }: Props) {
-  const router = useRouter();
+export default function SupplierOffersPageView() {
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query);
   const [supplierCode, setSupplierCode] = useState("all");
   const [matchStatus, setMatchStatus] = useState("all");
   const [enrichmentStatus, setEnrichmentStatus] = useState("all");
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
-  const [rawOffer, setRawOffer] = useState<SupplierOfferRow | null>(null);
+  const [page, setPage] = useState(1);
+  const [offers, setOffers] = useState<SupplierOfferRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
+  const [stats, setStats] = useState<SupplierOffersStats>(EMPTY_STATS);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [filterOptions, setFilterOptions] = useState({
+    supplierCodes: [] as string[],
+    matchStatuses: [] as string[],
+    enrichmentStatuses: [] as string[]
+  });
+  const [rawOffer, setRawOffer] = useState<OfferWithRaw | null>(null);
+  const [rawOfferLoading, setRawOfferLoading] = useState(false);
+  const [linkOfferPreview, setLinkOfferPreview] = useState<{ productName: string | null; imageUrl: string | null } | null>(
+    null
+  );
   const [refreshingPrices, setRefreshingPrices] = useState(false);
   const [priceRefresh, setPriceRefresh] = useState<PriceRefreshState>(null);
   const [linkOffer, setLinkOffer] = useState<SupplierOfferRow | null>(null);
@@ -228,87 +258,126 @@ export default function SupplierOffersPageView({ offers }: Props) {
   const [keywordMatchLoading, setKeywordMatchLoading] = useState(false);
   const [keywordMatchRows, setKeywordMatchRows] = useState<IponKeywordMatchRow[]>([]);
 
-  const counters = useMemo(
-    () => ({
-      all: offers.length,
-      linked: offers.filter((offer) => Boolean(offer.productId)).length,
-      unlinked: offers.filter((offer) => !offer.productId).length,
-      pending_review: offers.filter((offer) => offer.masterMatchStatus === "pending_review").length,
-      failed_enrichment: offers.filter((offer) => offer.enrichmentStatus === "failed").length,
-      missing_identifiers: offers.filter((offer) => !offer.mpn || !offer.ean).length
-    }),
-    [offers]
-  );
-
   const quickFilters: { value: QuickFilter; label: string; count: number }[] = [
-    { value: "all", label: "All", count: counters.all },
-    { value: "linked", label: "Linked", count: counters.linked },
-    { value: "unlinked", label: "Unlinked", count: counters.unlinked },
-    { value: "pending_review", label: "Pending Review", count: counters.pending_review },
-    { value: "failed_enrichment", label: "Failed Enrichment", count: counters.failed_enrichment },
-    { value: "missing_identifiers", label: "Missing MPN/EAN", count: counters.missing_identifiers }
+    { value: "all", label: "All", count: stats.all },
+    { value: "linked", label: "Linked", count: stats.linked },
+    { value: "unlinked", label: "Unlinked", count: stats.unlinked },
+    { value: "pending_review", label: "Pending Review", count: stats.pending_review },
+    { value: "failed_enrichment", label: "Failed Enrichment", count: stats.failed_enrichment },
+    { value: "missing_identifiers", label: "Missing MPN/EAN", count: stats.missing_identifiers }
   ];
 
   const supplierOptions = useMemo(
-    () => ["all", ...Array.from(new Set(offers.map((offer) => offer.supplierCode).filter(Boolean))).sort()],
-    [offers]
+    () => ["all", ...filterOptions.supplierCodes],
+    [filterOptions.supplierCodes]
   );
   const matchOptions = useMemo(
-    () => ["all", ...Array.from(new Set(offers.map((offer) => offer.masterMatchStatus))).sort()],
-    [offers]
+    () => ["all", ...filterOptions.matchStatuses],
+    [filterOptions.matchStatuses]
   );
   const enrichmentOptions = useMemo(
-    () => ["all", ...Array.from(new Set(offers.map((offer) => offer.enrichmentStatus))).sort()],
-    [offers]
+    () => ["all", ...filterOptions.enrichmentStatuses],
+    [filterOptions.enrichmentStatuses]
   );
-
-  const filteredOffers = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return offers.filter((offer) => {
-      const quickOk =
-        quickFilter === "all" ||
-        (quickFilter === "linked" && Boolean(offer.productId)) ||
-        (quickFilter === "unlinked" && !offer.productId) ||
-        (quickFilter === "pending_review" && offer.masterMatchStatus === "pending_review") ||
-        (quickFilter === "failed_enrichment" && offer.enrichmentStatus === "failed") ||
-        (quickFilter === "missing_identifiers" && (!offer.mpn || !offer.ean));
-      const supplierOk = supplierCode === "all" || offer.supplierCode === supplierCode;
-      const matchOk = matchStatus === "all" || offer.masterMatchStatus === matchStatus;
-      const enrichmentOk = enrichmentStatus === "all" || offer.enrichmentStatus === enrichmentStatus;
-      if (!quickOk || !supplierOk || !matchOk || !enrichmentOk) return false;
-      if (!q) return true;
-
-      const haystack = [
-        offer.supplier,
-        offer.supplierCode,
-        offer.supplierProductId,
-        offer.productId ?? "",
-        offer.masterProduct?.name ?? "",
-        offer.masterProduct?.slug ?? "",
-        offer.mpn ?? "",
-        offer.ean ?? ""
-      ]
-        .join(" ")
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }, [offers, query, quickFilter, supplierCode, matchStatus, enrichmentStatus]);
 
   const rows: OfferTableRow[] = useMemo(
     () =>
-      filteredOffers.map((offer) => ({
+      offers.map((offer) => ({
         ...offer,
         priceSort: offer.priceAmount ?? -1,
         masterProductName: offer.masterProduct?.name ?? ""
       })),
-    [filteredOffers]
+    [offers]
   );
 
-  const { order, orderBy, rowsPerPage, filteredList, handleChangePage, handleRequestSort } = useMuiTable({
+  const { order, orderBy, handleRequestSort } = useMuiTable({
     listData: rows,
     defaultSort: "updatedAt",
     defaultOrder: "desc"
   });
+
+  const sortedRows = useMemo(
+    () => stableSort(rows, getComparator(order, orderBy)),
+    [rows, order, orderBy]
+  );
+
+  const loadStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const response = await fetch("/api/admin/supplier-products/stats", { cache: "no-store" });
+      if (!response.ok) throw new Error("Failed to load stats.");
+      const data = (await response.json()) as SupplierOffersStats;
+      setStats(data);
+    } catch {
+      setStats(EMPTY_STATS);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, []);
+
+  const loadFilterOptions = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/supplier-products/filter-options", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = (await response.json()) as {
+        supplierCodes: string[];
+        matchStatuses: string[];
+        enrichmentStatuses: string[];
+      };
+      setFilterOptions(data);
+    } catch {
+      setFilterOptions({ supplierCodes: [], matchStatuses: [], enrichmentStatuses: [] });
+    }
+  }, []);
+
+  const fetchOffers = useCallback(async () => {
+    setLoading(true);
+    setListError(null);
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(ADMIN_LIST_DEFAULT_LIMIT),
+        supplier: supplierCode,
+        matchStatus,
+        enrichmentStatus,
+        quickFilter
+      });
+      if (debouncedQuery.trim()) params.set("q", debouncedQuery.trim());
+
+      const response = await fetch(`/api/admin/supplier-products?${params.toString()}`, { cache: "no-store" });
+      const data = (await response.json()) as PaginatedResult<SupplierOfferRow> & { error?: string };
+      if (!response.ok || data.error) {
+        throw new Error(data.error ?? "Failed to load supplier offers.");
+      }
+      setOffers(data.items ?? []);
+      setTotal(data.total ?? 0);
+      setTotalPages(data.totalPages ?? 1);
+    } catch (err) {
+      setOffers([]);
+      setTotal(0);
+      setTotalPages(1);
+      setListError(err instanceof Error ? err.message : "Failed to load supplier offers.");
+    } finally {
+      setLoading(false);
+    }
+  }, [page, debouncedQuery, supplierCode, matchStatus, enrichmentStatus, quickFilter]);
+
+  const refreshListData = useCallback(async () => {
+    await Promise.all([fetchOffers(), loadStats()]);
+  }, [fetchOffers, loadStats]);
+
+  useEffect(() => {
+    void loadStats();
+    void loadFilterOptions();
+  }, [loadStats, loadFilterOptions]);
+
+  useEffect(() => {
+    void fetchOffers();
+  }, [fetchOffers]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedQuery, supplierCode, matchStatus, enrichmentStatus, quickFilter]);
 
   async function handleRefreshPrices() {
     setRefreshingPrices(true);
@@ -340,13 +409,42 @@ export default function SupplierOffersPageView({ offers }: Props) {
     }
   }
 
-  function openLinkDialog(offer: SupplierOfferRow) {
+  async function openLinkDialog(offer: SupplierOfferRow) {
     setLinkOffer(offer);
-    const rawProductName = getRawOfferPreview(offer.rawJson).productName;
-    setProductSearch(offer.masterProduct?.name ?? rawProductName ?? offer.mpn ?? offer.ean ?? "");
+    setLinkOfferPreview(null);
+    setProductSearch(offer.masterProduct?.name ?? offer.mpn ?? offer.ean ?? "");
     setProductResults([]);
     setSelectedProduct(null);
     setPriceRefresh(null);
+    try {
+      const response = await fetch(`/api/admin/supplier-products/${offer.id}`, { cache: "no-store" });
+      const data = (await response.json()) as { offer?: { rawJson?: unknown } };
+      if (response.ok) {
+        const preview = getRawOfferPreview(data.offer?.rawJson);
+        setLinkOfferPreview(preview);
+        if (!offer.masterProduct?.name && preview.productName) {
+          setProductSearch(preview.productName);
+        }
+      }
+    } catch {
+      setLinkOfferPreview(null);
+    }
+  }
+
+  async function handleViewRaw(offer: SupplierOfferRow) {
+    setRawOffer(offer);
+    setRawOfferLoading(true);
+    try {
+      const response = await fetch(`/api/admin/supplier-products/${offer.id}`, { cache: "no-store" });
+      const data = (await response.json()) as { offer?: { rawJson?: unknown } };
+      if (response.ok) {
+        setRawOffer({ ...offer, rawJson: data.offer?.rawJson ?? {} });
+      }
+    } catch {
+      setRawOffer({ ...offer, rawJson: {} });
+    } finally {
+      setRawOfferLoading(false);
+    }
   }
 
   async function handleProductSearch() {
@@ -393,7 +491,7 @@ export default function SupplierOffersPageView({ offers }: Props) {
       setLinkOffer(null);
       setSelectedProduct(null);
       setProductResults([]);
-      router.refresh();
+      await refreshListData();
     } catch (err) {
       setPriceRefresh({
         severity: "error",
@@ -426,7 +524,7 @@ export default function SupplierOffersPageView({ offers }: Props) {
         message: priceRefreshMessage("Supplier offer unlinked", result)
       });
       setUnlinkOffer(null);
-      router.refresh();
+      await refreshListData();
     } catch (err) {
       setPriceRefresh({
         severity: "error",
@@ -472,7 +570,7 @@ export default function SupplierOffersPageView({ offers }: Props) {
         severity: result.errorsCount ? "error" : "success",
         message: `Auto-match finished. scanned=${result.scanned ?? 0}, linked=${result.linked ?? 0}, skipped=${result.skipped ?? 0}, errors=${result.errorsCount ?? 0}.`
       });
-      router.refresh();
+      await refreshListData();
     } catch (err) {
       setPriceRefresh({ severity: "error", message: err instanceof Error ? err.message : "Auto-match failed." });
     } finally {
@@ -534,7 +632,7 @@ export default function SupplierOffersPageView({ offers }: Props) {
       } catch {
         // Ignore browser storage errors.
       }
-      router.refresh();
+      await refreshListData();
     } catch (err) {
       setPriceRefresh({
         severity: "error",
@@ -722,7 +820,9 @@ export default function SupplierOffersPageView({ offers }: Props) {
               <Typography variant="caption" color="text.secondary">
                 {item.label}
               </Typography>
-              <Typography variant="h4">{item.count}</Typography>
+              <Typography variant="h4">
+                {statsLoading ? <CircularProgress size={22} /> : item.count}
+              </Typography>
             </Card>
           </Grid>
         ))}
@@ -793,8 +893,13 @@ export default function SupplierOffersPageView({ offers }: Props) {
           </Grid>
         </Grid>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-          {filteredOffers.length} rezultata
+          {loading ? "Učitavanje…" : `${total} rezultata`}
         </Typography>
+        {listError ? (
+          <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
+            {listError}
+          </Typography>
+        ) : null}
       </Card>
 
       <Card>
@@ -809,7 +914,20 @@ export default function SupplierOffersPageView({ offers }: Props) {
               />
 
               <TableBody>
-                {filteredList.map((offer) => (
+                {loading ? (
+                  <StyledTableRow>
+                    <StyledTableCell colSpan={tableHeading.length} align="center" sx={{ py: 6 }}>
+                      <CircularProgress size={28} />
+                    </StyledTableCell>
+                  </StyledTableRow>
+                ) : sortedRows.length === 0 ? (
+                  <StyledTableRow>
+                    <StyledTableCell colSpan={tableHeading.length} align="center" sx={{ py: 4 }}>
+                      Nema rezultata za odabrane filtere.
+                    </StyledTableCell>
+                  </StyledTableRow>
+                ) : (
+                  sortedRows.map((offer) => (
                   <Fragment key={offer.id}>
                     <StyledTableRow>
                     <StyledTableCell align="left">
@@ -905,7 +1023,7 @@ export default function SupplierOffersPageView({ offers }: Props) {
                     <StyledTableCell align="left">{formatDate(offer.updatedAt)}</StyledTableCell>
                     <StyledTableCell align="center">
                       <Stack direction="row" justifyContent="center" spacing={1}>
-                        <Button size="small" variant="outlined" onClick={() => setRawOffer(offer)}>
+                        <Button size="small" variant="outlined" onClick={() => void handleViewRaw(offer)}>
                           View Raw
                         </Button>
 
@@ -984,7 +1102,8 @@ export default function SupplierOffersPageView({ offers }: Props) {
                       </StyledTableCell>
                     </StyledTableRow>
                   </Fragment>
-                ))}
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>
@@ -992,8 +1111,10 @@ export default function SupplierOffersPageView({ offers }: Props) {
 
         <Stack alignItems="center" my={4}>
           <TablePagination
-            onChange={handleChangePage}
-            count={Math.max(1, Math.ceil(filteredOffers.length / rowsPerPage))}
+            page={page}
+            onChange={(_, newPage) => setPage(newPage)}
+            count={totalPages}
+            disabled={loading}
           />
         </Stack>
       </Card>
@@ -1016,8 +1137,8 @@ export default function SupplierOffersPageView({ offers }: Props) {
               </Box>
 
               {(() => {
-                const preview = getRawOfferPreview(linkOffer.rawJson);
-                if (!preview.productName && !preview.imageUrl) return null;
+                const preview = linkOfferPreview;
+                if (!preview?.productName && !preview?.imageUrl) return null;
                 return (
                   <Paper variant="outlined" sx={{ p: 1.5 }}>
                     <Stack direction="row" spacing={1.5} alignItems="center">
@@ -1188,7 +1309,9 @@ export default function SupplierOffersPageView({ offers }: Props) {
               bgcolor: "grey.100"
             }}
           >
-            {JSON.stringify(rawOffer?.rawJson ?? {}, null, 2)}
+            {rawOfferLoading
+              ? "Loading raw JSON..."
+              : JSON.stringify(rawOffer?.rawJson ?? {}, null, 2)}
           </Box>
         </DialogContent>
         <DialogActions>

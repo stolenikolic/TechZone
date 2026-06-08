@@ -18,6 +18,9 @@ export function isShopVisibleProduct(row: ShopProductRow): boolean {
   return Number.isFinite(effective) && effective > 0;
 }
 
+/** PostgREST default row cap — paginate to load full category pools. */
+const CATEGORY_PRODUCT_PAGE_SIZE = 1000;
+
 /**
  * Aktivni master proizvodi u kategoriji koji se smiju prikazati u shop listi / filterima.
  */
@@ -25,15 +28,31 @@ export async function fetchShopVisibleProductsForCategory(
   supabase: SupabaseClient,
   categoryId: string
 ): Promise<ShopProductRow[]> {
-  const { data, error } = await applyStorefrontProductVisibility(
-    supabase
-      .from("products")
-      .select("id, brand, price, custom_price, is_active, publish_locked")
-      .eq("category_id", categoryId)
-  );
+  const rows: ShopProductRow[] = [];
+  let offset = 0;
 
-  if (error) throw new Error(error.message);
-  return ((data ?? []) as ShopProductRow[]).filter(isShopVisibleProduct);
+  while (true) {
+    const { data, error } = await applyStorefrontProductVisibility(
+      supabase
+        .from("products")
+        .select("id, brand, price, custom_price, is_active, publish_locked")
+        .eq("category_id", categoryId)
+        .order("id", { ascending: true })
+        .range(offset, offset + CATEGORY_PRODUCT_PAGE_SIZE - 1)
+    );
+
+    if (error) throw new Error(error.message);
+
+    const batch = (data ?? []) as ShopProductRow[];
+    if (batch.length === 0) break;
+
+    rows.push(...batch.filter(isShopVisibleProduct));
+
+    if (batch.length < CATEGORY_PRODUCT_PAGE_SIZE) break;
+    offset += CATEGORY_PRODUCT_PAGE_SIZE;
+  }
+
+  return rows;
 }
 
 export function shopVisibleProductIds(rows: ShopProductRow[]): string[] {

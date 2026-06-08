@@ -15,6 +15,8 @@ import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Stack from "@mui/material/Stack";
 import MenuItem from "@mui/material/MenuItem";
 import Table from "@mui/material/Table";
@@ -193,6 +195,8 @@ export default function CategoryForm({ mode }: Props) {
   const [mappingBusy, setMappingBusy] = useState(false);
   const [attributesSectionSaving, setAttributesSectionSaving] = useState(false);
   const [enrichmentRunBusy, setEnrichmentRunBusy] = useState(false);
+  const [enrichmentDialogOpen, setEnrichmentDialogOpen] = useState(false);
+  const [enrichmentOverwrite, setEnrichmentOverwrite] = useState(false);
 
   const [valueAliasDialog, setValueAliasDialog] = useState<ValueAliasDialogState>({
     open: false,
@@ -634,7 +638,7 @@ export default function CategoryForm({ mode }: Props) {
     setNewValueAlias({ alias: value, canonicalLabel: canonicalLabel || value });
   };
 
-  const runCategoryEnrichment = async () => {
+  const runCategoryEnrichment = async (overwrite: boolean) => {
     if (!categoryId) return;
     setEnrichmentRunBusy(true);
     setError(null);
@@ -644,7 +648,8 @@ export default function CategoryForm({ mode }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           jobType: "enrichment",
-          enrichmentCategoryId: categoryId
+          enrichmentCategoryId: categoryId,
+          enrichmentOverwrite: overwrite
         })
       });
       const data = (await res.json()) as {
@@ -654,13 +659,15 @@ export default function CategoryForm({ mode }: Props) {
       };
       if (!res.ok || data.error) throw new Error(data.error ?? "Enrichment job nije uspio.");
       const r = data.result;
+      const modeLabel = overwrite ? "prepis postojećih" : "samo prazna polja";
       if (r && typeof r.productsProcessed === "number") {
         setNotice(
-          `Enrichment završen: ${r.productsProcessed} proizvoda, ${r.attributesWritten ?? 0} vrijednosti upisano, greške: ${r.errors ?? 0}.`
+          `Enrichment završen (${modeLabel}): ${r.productsProcessed} proizvoda, ${r.attributesWritten ?? 0} vrijednosti upisano, greške: ${r.errors ?? 0}.`
         );
       } else {
-        setNotice("Enrichment job je završen.");
+        setNotice(`Enrichment job je završen (${modeLabel}).`);
       }
+      setEnrichmentDialogOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Enrichment nije uspio.");
     } finally {
@@ -1095,8 +1102,10 @@ export default function CategoryForm({ mode }: Props) {
               </TableBody>
             </Table>
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
-              Ručne mape vrijednosti (npr. SATA III → SATA 3): dugme Vrijednosti. Bez mape, vrijednost ostaje
-              kakva dolazi s dobavljača.
+              Ručne mape vrijednosti (npr. SATA III → SATA 3): dugme Vrijednosti — imaju prioritet nad automatskom
+              normalizacijom. Za range atribute s Unit poljem, enrichment pri zapisu pretvara npr.{" "}
+              <code>5pcs</code> u <code>5 kom</code> (izvlači broj + tvoj Unit). Unit se i dalje koristi na shop
+              filter slajderu.
             </Typography>
             {categoryAttributes.length > 0 ? (
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }} sx={{ mt: 2 }}>
@@ -1156,7 +1165,10 @@ export default function CategoryForm({ mode }: Props) {
               color="secondary"
               size="small"
               disabled={enrichmentRunBusy}
-              onClick={() => void runCategoryEnrichment()}
+              onClick={() => {
+                setEnrichmentOverwrite(false);
+                setEnrichmentDialogOpen(true);
+              }}
             >
               {enrichmentRunBusy ? <CircularProgress size={16} color="inherit" /> : "Pokreni enrichment (ova kategorija)"}
             </Button>
@@ -1494,6 +1506,49 @@ export default function CategoryForm({ mode }: Props) {
             onClick={() => void handleApplyValueAliases()}
           >
             {valueAliasApplyBusy ? <CircularProgress size={16} /> : "Primijeni mape na postojeće"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={enrichmentDialogOpen}
+        onClose={() => !enrichmentRunBusy && setEnrichmentDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Pokreni enrichment</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Enrichment puni atribute iz već sačuvanih snapshotova dobavljača (bez novog skrejpa) za proizvode u ovoj
+            kategoriji.
+          </Typography>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={enrichmentOverwrite}
+                onChange={(e) => setEnrichmentOverwrite(e.target.checked)}
+                disabled={enrichmentRunBusy}
+              />
+            }
+            label="Prepiši postojeće atribute"
+          />
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4, mt: -0.5 }}>
+            Standardno: popunjava samo atribute koji još nemaju vrijednost. S ovom opcijom ponovo čita spec i primjenjuje
+            alias + unit normalizaciju (npr. 5pcs → 5 kom). Ručne vrijednosti u products.attributes JSON i dalje se ne
+            diraju.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={enrichmentRunBusy} onClick={() => setEnrichmentDialogOpen(false)}>
+            Otkaži
+          </Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            disabled={enrichmentRunBusy}
+            onClick={() => void runCategoryEnrichment(enrichmentOverwrite)}
+          >
+            {enrichmentRunBusy ? <CircularProgress size={16} color="inherit" /> : "Pokreni"}
           </Button>
         </DialogActions>
       </Dialog>
