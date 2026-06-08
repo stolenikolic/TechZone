@@ -180,6 +180,9 @@ export default function ProductSearchPageView({
               <MobileFilterButton filters={filters} />
 
               <FlexBox alignItems="center">
+                <Typography variant="body1" sx={{ color: "grey.600", mr: 0.5 }}>
+                  Prikaz:
+                </Typography>
                 <IconButton onClick={() => handleViewChange("grid")} aria-label="Grid view">
                   <Apps fontSize="small" color={view === "grid" ? "primary" : "inherit"} />
                 </IconButton>

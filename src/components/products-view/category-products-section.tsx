@@ -124,7 +124,7 @@ export default function CategoryProductsSection({
 
             <FlexBox alignItems="center" my="0.25rem">
               <Typography variant="body1" sx={{ color: "grey.600", mr: 1 }}>
-                View:
+                Prikaz:
               </Typography>
               <IconButton onClick={() => handleViewChange("grid")} aria-label="Grid view">
                 <Apps fontSize="small" color={view === "grid" ? "primary" : "inherit"} />
@@ -167,6 +167,9 @@ export default function CategoryProductsSection({
             <MobileFilterButton filters={filters} />
 
             <FlexBox alignItems="center">
+              <Typography variant="body1" sx={{ color: "grey.600", mr: 0.5 }}>
+                Prikaz:
+              </Typography>
               <IconButton onClick={() => handleViewChange("grid")} aria-label="Grid view">
                 <Apps fontSize="small" color={view === "grid" ? "primary" : "inherit"} />
               </IconButton>

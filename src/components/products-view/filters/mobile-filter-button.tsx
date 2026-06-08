@@ -16,10 +16,23 @@ export default function MobileFilterButton({ filters }: Props) {
     <Sidenav
       handler={(toggle) => (
         <Button
-          variant="outlined"
+          variant="text"
           size="small"
           startIcon={<Tune fontSize="small" />}
           onClick={toggle}
+          sx={{
+            bgcolor: "grey.50",
+            color: "text.primary",
+            fontWeight: 500,
+            borderRadius: 2,
+            px: 2,
+            py: 0.75,
+            boxShadow: "none",
+            "&:hover": {
+              bgcolor: "grey.100",
+              boxShadow: "none"
+            }
+          }}
         >
           Filtriraj
         </Button>
