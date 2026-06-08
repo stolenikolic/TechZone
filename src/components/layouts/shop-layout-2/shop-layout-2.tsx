@@ -6,7 +6,7 @@ import { SearchInput2 } from "components/search-box";
 import { CategoryList } from "components/categories";
 import { MobileMenu } from "components/mobile-navbar";
 import { Topbar, TopbarLanguageSelector, TopbarSocialLinks } from "components/topbar";
-import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, HeaderSearch } from "components/header";
+import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, MobileHeaderActions } from "components/header";
 // CUSTOM DATA MODEL
 import LayoutModel from "models/Layout.model";
 
@@ -28,13 +28,7 @@ export default function ShopLayout2({ children, data }: LayoutProps) {
       <MobileHeader.Logo logoUrl={mobileNavigation.logo} />
 
       <MobileHeader.Right>
-        <HeaderSearch>
-          <SearchInput2 />
-        </HeaderSearch>
-
-        <HeaderLogin />
-        <HeaderWishlist />
-        <HeaderCart />
+        <MobileHeaderActions />
       </MobileHeader.Right>
     </MobileHeader>
   );

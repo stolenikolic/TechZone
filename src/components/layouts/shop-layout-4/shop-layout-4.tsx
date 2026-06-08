@@ -10,10 +10,9 @@ import { NavigationList } from "components/navbar";
 import { CategoryList } from "components/categories";
 import { MobileMenu } from "components/mobile-navbar/mobile-menu";
 import { MobileNavigationBar } from "components/mobile-navigation";
-import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, HeaderSearch } from "components/header";
+import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, MobileHeaderActions } from "components/header";
 import { ScrollChromeProvider } from "contexts/ScrollChromeContext";
 import { Topbar, TopbarLanguageSelector, TopbarSocialLinks } from "components/topbar";
-import { SearchInput2 } from "components/search-box";
 // LOCAL CUSTOM COMPONENTS
 import Footer from "./footer";
 // CUSTOM DATA MODEL
@@ -58,13 +57,7 @@ export default function ShopLayout4({ children, navigation, data }: Props) {
       <MobileHeader.Logo logoUrl={mobileNavigation.logo} />
 
       <MobileHeader.Right>
-        <HeaderSearch>
-          <SearchInput2 />
-        </HeaderSearch>
-
-        <HeaderLogin />
-        <HeaderWishlist />
-        <HeaderCart />
+        <MobileHeaderActions />
       </MobileHeader.Right>
     </MobileHeader>
   );

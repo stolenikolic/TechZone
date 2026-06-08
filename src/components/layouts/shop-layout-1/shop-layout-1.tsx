@@ -20,9 +20,9 @@ import { CategoryList } from "components/categories";
 import { MobileMenu } from "components/mobile-navbar";
 import { SecondaryHeader } from "components/secondary-header";
 import { MobileNavigationBar } from "components/mobile-navigation";
-import { SearchInput1, SearchInput2 } from "components/search-box";
+import { SearchInput1 } from "components/search-box";
 import { Topbar, TopbarLanguageSelector, TopbarSocialLinks } from "components/topbar";
-import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, HeaderSearch } from "components/header";
+import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, MobileHeaderActions } from "components/header";
 // CUSTOM DATA MODEL
 import LayoutModel from "models/Layout.model";
 
@@ -44,13 +44,7 @@ export default function ShopLayout1({ children, data }: Props) {
       <MobileHeader.Logo logoUrl={mobileNavigation.logo} />
 
       <MobileHeader.Right>
-        <HeaderSearch>
-          <SearchInput2 />
-        </HeaderSearch>
-
-        <HeaderLogin />
-        <HeaderWishlist />
-        <HeaderCart />
+        <MobileHeaderActions />
       </MobileHeader.Right>
     </MobileHeader>
   );

@@ -11,11 +11,10 @@ import IconButton from "@mui/material/IconButton";
 import Typography from "@mui/material/Typography";
 import Apps from "@mui/icons-material/Apps";
 import ViewList from "@mui/icons-material/ViewList";
-import FilterList from "@mui/icons-material/FilterList";
 import SiteBreadcrumbs from "components/site-breadcrumbs/site-breadcrumbs";
-import Sidenav from "components/side-nav";
 import { FlexBetween, FlexBox } from "components/flex-box";
 import ProductFilters from "components/products-view/filters";
+import MobileFilterButton from "components/products-view/filters/mobile-filter-button";
 import SearchActiveFilterChips from "components/products-view/filters/search-active-filter-chips";
 import ProductPagination from "components/shop/product-pagination";
 import { isSearchPageFilters } from "models/Filters";
@@ -109,9 +108,55 @@ export default function ProductSearchPageView({
             <div />
           )}
 
-          <FlexBox alignItems="center" columnGap={4} flexWrap="wrap">
-            <FlexBox alignItems="center" gap={1} flex="1 1 0">
-              <Typography variant="body1" sx={{ color: "grey.600", whiteSpace: "pre" }}>
+          <Box display={{ xs: "none", md: "block" }}>
+            <FlexBox alignItems="center" columnGap={4} flexWrap="wrap">
+              <FlexBox alignItems="center" gap={1} flex="1 1 0">
+                <Typography variant="body1" sx={{ color: "grey.600", whiteSpace: "pre" }}>
+                  Sortiraj:
+                </Typography>
+
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  value={sort}
+                  variant="outlined"
+                  onChange={(e) => handleSortChange(e.target.value)}
+                  sx={{ flex: "1 1 0", minWidth: "150px" }}
+                >
+                  {SORT_OPTIONS.map((item) => (
+                    <MenuItem value={item.value} key={item.value}>
+                      {item.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </FlexBox>
+
+              <FlexBox alignItems="center" my="0.25rem">
+                <Typography variant="body1" sx={{ color: "grey.600", mr: 1 }}>
+                  Prikaz:
+                </Typography>
+
+                <IconButton onClick={() => handleViewChange("grid")} aria-label="Grid view">
+                  <Apps fontSize="small" color={view === "grid" ? "primary" : "inherit"} />
+                </IconButton>
+
+                <IconButton onClick={() => handleViewChange("list")} aria-label="List view">
+                  <ViewList fontSize="small" color={view === "list" ? "primary" : "inherit"} />
+                </IconButton>
+              </FlexBox>
+            </FlexBox>
+          </Box>
+
+          <Box
+            display={{ xs: "flex", md: "none" }}
+            flexDirection="column"
+            gap={1.5}
+            width="100%"
+            maxWidth="100%"
+          >
+            <FlexBox alignItems="center" gap={1} width="100%">
+              <Typography variant="body1" sx={{ color: "grey.600", whiteSpace: "nowrap" }}>
                 Sortiraj:
               </Typography>
 
@@ -122,7 +167,6 @@ export default function ProductSearchPageView({
                 value={sort}
                 variant="outlined"
                 onChange={(e) => handleSortChange(e.target.value)}
-                sx={{ flex: "1 1 0", minWidth: "150px" }}
               >
                 {SORT_OPTIONS.map((item) => (
                   <MenuItem value={item.value} key={item.value}>
@@ -132,34 +176,20 @@ export default function ProductSearchPageView({
               </TextField>
             </FlexBox>
 
-            <FlexBox alignItems="center" my="0.25rem">
-              <Typography variant="body1" sx={{ color: "grey.600", mr: 1 }}>
-                Prikaz:
-              </Typography>
+            <FlexBetween alignItems="center" gap={1}>
+              <MobileFilterButton filters={filters} />
 
-              <IconButton onClick={() => handleViewChange("grid")} aria-label="Grid view">
-                <Apps fontSize="small" color={view === "grid" ? "primary" : "inherit"} />
-              </IconButton>
+              <FlexBox alignItems="center">
+                <IconButton onClick={() => handleViewChange("grid")} aria-label="Grid view">
+                  <Apps fontSize="small" color={view === "grid" ? "primary" : "inherit"} />
+                </IconButton>
 
-              <IconButton onClick={() => handleViewChange("list")} aria-label="List view">
-                <ViewList fontSize="small" color={view === "list" ? "primary" : "inherit"} />
-              </IconButton>
-
-              <Box display={{ md: "none", xs: "block" }}>
-                <Sidenav
-                  handler={(close) => (
-                    <IconButton onClick={close}>
-                      <FilterList fontSize="small" />
-                    </IconButton>
-                  )}
-                >
-                  <Box px={3} py={2}>
-                    <ProductFilters filters={filters} />
-                  </Box>
-                </Sidenav>
-              </Box>
-            </FlexBox>
-          </FlexBox>
+                <IconButton onClick={() => handleViewChange("list")} aria-label="List view">
+                  <ViewList fontSize="small" color={view === "list" ? "primary" : "inherit"} />
+                </IconButton>
+              </FlexBox>
+            </FlexBetween>
+          </Box>
         </FlexBetween>
 
         <Grid container spacing={4}>

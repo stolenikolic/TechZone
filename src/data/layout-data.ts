@@ -19,10 +19,10 @@ export const languageOptions = {
 
 // MOBILE NAVIGATION LIST
 export const mobileNavigation = [
-  { title: "Home", icon: "Home", href: "/", badge: false },
-  { title: "Category", icon: "CategoryOutlined", href: "/categories", badge: false },
-  { title: "Cart", icon: "ShoppingBagOutlined", href: "/cart", badge: true },
-  { title: "Account", icon: "User2", href: "/profile", badge: false }
+  { title: "Početna", icon: "Home", href: "/", badge: false },
+  { title: "Kategorije", icon: "CategoryOutlined", href: "/categories", badge: false },
+  { title: "Lista želja", icon: "HeartLine", href: "/wish-list", badge: false },
+  { title: "Profil", icon: "User2", href: "/profile", badge: false }
 ];
 
 // MOBILE NAVIGATION LIST

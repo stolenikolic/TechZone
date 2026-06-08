@@ -14,12 +14,11 @@ import {
   FooterSocialLinks
 } from "components/footer";
 import Sticky from "components/sticky";
-import { SearchInput2 } from "components/search-box";
 import { NavigationList } from "components/navbar";
 import { MobileMenu } from "components/mobile-navbar/mobile-menu";
 import { MobileNavigationBar } from "components/mobile-navigation";
 import { Topbar, TopbarLanguageSelector, TopbarSocialLinks } from "components/topbar";
-import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, HeaderSearch } from "components/header";
+import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, MobileHeaderActions } from "components/header";
 // CUSTOM DATA MODEL
 import LayoutModel from "models/Layout.model";
 
@@ -48,13 +47,7 @@ export default function ShopLayout3({
       <MobileHeader.Logo logoUrl={mobileNavigation.logo} />
 
       <MobileHeader.Right>
-        <HeaderSearch>
-          <SearchInput2 />
-        </HeaderSearch>
-
-        <HeaderLogin />
-        <HeaderWishlist />
-        <HeaderCart />
+        <MobileHeaderActions />
       </MobileHeader.Right>
     </MobileHeader>
   );

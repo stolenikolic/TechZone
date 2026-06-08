@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 
-const SCROLL_THRESHOLD = 10;
+const SCROLL_THRESHOLD = 24;
 const TOP_THRESHOLD = 50;
+const TOGGLE_COOLDOWN_MS = 180;
 
 export function useScrollChromeState(enabled: boolean) {
   const [chromeVisible, setChromeVisible] = useState(true);
+  const chromeVisibleRef = useRef(true);
   const lastScrollY = useRef(0);
+  const lastToggleAt = useRef(0);
   const ticking = useRef(false);
 
   useEffect(() => {
     if (!enabled) {
+      chromeVisibleRef.current = true;
       queueMicrotask(() => setChromeVisible(true));
       return;
     }
@@ -17,8 +21,19 @@ export function useScrollChromeState(enabled: boolean) {
     const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (motionQuery.matches) return;
 
+    const applyVisibility = (nextVisible: boolean, force = false) => {
+      if (nextVisible === chromeVisibleRef.current) return;
+
+      const now = Date.now();
+      if (!force && now - lastToggleAt.current < TOGGLE_COOLDOWN_MS) return;
+
+      chromeVisibleRef.current = nextVisible;
+      lastToggleAt.current = now;
+      setChromeVisible(nextVisible);
+    };
+
     const onMotionChange = (event: MediaQueryListEvent) => {
-      if (event.matches) setChromeVisible(true);
+      if (event.matches) applyVisibility(true, true);
     };
 
     motionQuery.addEventListener("change", onMotionChange);
@@ -30,14 +45,17 @@ export function useScrollChromeState(enabled: boolean) {
       requestAnimationFrame(() => {
         const currentY = window.scrollY;
         const delta = currentY - lastScrollY.current;
+        let nextVisible = chromeVisibleRef.current;
 
         if (currentY <= TOP_THRESHOLD) {
-          setChromeVisible(true);
+          nextVisible = true;
         } else if (delta > SCROLL_THRESHOLD) {
-          setChromeVisible(false);
+          nextVisible = false;
         } else if (delta < -SCROLL_THRESHOLD) {
-          setChromeVisible(true);
+          nextVisible = true;
         }
+
+        applyVisibility(nextVisible, currentY <= TOP_THRESHOLD);
 
         lastScrollY.current = Math.max(0, currentY);
         ticking.current = false;

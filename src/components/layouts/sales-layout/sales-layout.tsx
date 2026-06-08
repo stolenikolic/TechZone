@@ -17,9 +17,9 @@ import { CategoryList } from "components/categories";
 import { SecondaryHeader } from "components/secondary-header";
 import { MobileMenu } from "components/mobile-navbar/mobile-menu";
 import { MobileNavigationBar } from "components/mobile-navigation";
-import { SearchInput1, SearchInput2 } from "components/search-box";
+import { SearchInput1 } from "components/search-box";
 import { Topbar, TopbarLanguageSelector, TopbarSocialLinks } from "components/topbar";
-import { Header, HeaderCart, HeaderLogin, HeaderSearch, HeaderWishlist, MobileHeader } from "components/header";
+import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, MobileHeaderActions } from "components/header";
 // CUSTOM DATA MODEL
 import LayoutModel from "models/Layout.model";
 
@@ -41,13 +41,7 @@ export default function SalesLayout({ children, data }: Props) {
       <MobileHeader.Logo logoUrl={mobileNavigation.logo} />
 
       <MobileHeader.Right>
-        <HeaderSearch>
-          <SearchInput2 />
-        </HeaderSearch>
-
-        <HeaderLogin />
-        <HeaderWishlist />
-        <HeaderCart />
+        <MobileHeaderActions />
       </MobileHeader.Right>
     </MobileHeader>
   );

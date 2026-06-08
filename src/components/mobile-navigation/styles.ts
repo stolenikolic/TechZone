@@ -40,10 +40,15 @@ const SafeAreaInset = styled("div")(({ theme }) => ({
   backgroundColor: theme.palette.background.paper
 }));
 
-const StyledNavLink = styled(NavLink)({
+const StyledNavLink = styled(NavLink)(({ theme }) => ({
   flex: "1 1 0",
   display: "flex",
-  fontSize: "13px",
+  fontSize: "12px",
+  minWidth: 0,
+  textAlign: "center",
+  [theme.breakpoints.down("sm")]: {
+    fontSize: "11px"
+  },
   alignItems: "center",
   flexDirection: "column",
   justifyContent: "center",
@@ -53,7 +58,7 @@ const StyledNavLink = styled(NavLink)({
     alignItems: "center",
     justifyContent: "center"
   }
-});
+}));
 
 const StyledBox = styled("div")(({ theme }) => ({
   flex: "1 1 0",

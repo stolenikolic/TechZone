@@ -19,10 +19,6 @@ export const StyledRoot = styled("div", {
     prop !== "componentHeight" && prop !== "fixed" && prop !== "fixedOn" && prop !== "chromeHidden"
 })<Props>(({ theme, componentHeight, fixedOn, fixed, chromeHidden }) => ({
   paddingTop: fixed ? componentHeight : 0,
-  ...(fixed &&
-    chromeHidden && {
-      [theme.breakpoints.down("lg")]: { paddingTop: 0 }
-    }),
   ".hold": {
     zIndex: 2,
     boxShadow: "none",
@@ -36,7 +32,10 @@ export const StyledRoot = styled("div", {
     top: `${fixedOn}px`,
     boxShadow: theme.shadows[5],
     [theme.breakpoints.down("lg")]: {
-      transition: "transform 250ms ease-in-out",
+      willChange: "transform",
+      transition: chromeHidden
+        ? "transform 200ms ease-in"
+        : "transform 160ms ease-out",
       transform: chromeHidden ? "translateY(-100%)" : "translateY(0)"
     },
     [theme.breakpoints.up("lg")]: {
