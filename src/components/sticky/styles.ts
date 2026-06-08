@@ -33,9 +33,7 @@ export const StyledRoot = styled("div", {
     boxShadow: theme.shadows[5],
     [theme.breakpoints.down("lg")]: {
       willChange: "transform",
-      transition: chromeHidden
-        ? "transform 200ms ease-in"
-        : "transform 160ms ease-out",
+      transition: chromeHidden ? "transform 180ms ease-in" : "none",
       transform: chromeHidden ? "translateY(-100%)" : "translateY(0)"
     },
     [theme.breakpoints.up("lg")]: {

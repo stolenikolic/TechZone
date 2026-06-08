@@ -8,7 +8,9 @@ export const metadata: Metadata = rootMetadata;
 
 export const viewport: Viewport = {
   width: "device-width",
-  initialScale: 1
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#1F2937"
 };
 
 import "overlayscrollbars/overlayscrollbars.css";
@@ -29,6 +31,7 @@ import RTL from "components/rtl";
 import ProgressBar from "components/progress";
 import LastNonCartRouteTracker from "components/last-non-cart-route-tracker";
 import ScrollToTopOnNavigate from "components/scroll-to-top-on-navigate";
+import SafariThemeColor from "components/safari-theme-color";
 
 // IMPORT i18n SUPPORT FILE
 import "i18n";
@@ -49,6 +52,7 @@ export default function RootLayout({ children, modal }: RootLayoutProps) {
             <CartProvider>
             <SettingsProvider>
               <ThemeProvider>
+              <SafariThemeColor />
               <RTL>
                 <Suspense fallback={null}>
                   <LastNonCartRouteTracker />

@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 
-const SCROLL_THRESHOLD = 24;
+const SCROLL_THRESHOLD = 32;
 const TOP_THRESHOLD = 50;
-const TOGGLE_COOLDOWN_MS = 180;
+const TOGGLE_COOLDOWN_MS = 280;
 
 export function useScrollChromeState(enabled: boolean) {
   const [chromeVisible, setChromeVisible] = useState(true);
   const chromeVisibleRef = useRef(true);
+  const latchedHidden = useRef(false);
   const lastScrollY = useRef(0);
   const lastToggleAt = useRef(0);
   const ticking = useRef(false);
@@ -14,6 +15,7 @@ export function useScrollChromeState(enabled: boolean) {
   useEffect(() => {
     if (!enabled) {
       chromeVisibleRef.current = true;
+      latchedHidden.current = false;
       queueMicrotask(() => setChromeVisible(true));
       return;
     }
@@ -48,11 +50,16 @@ export function useScrollChromeState(enabled: boolean) {
         let nextVisible = chromeVisibleRef.current;
 
         if (currentY <= TOP_THRESHOLD) {
+          latchedHidden.current = false;
           nextVisible = true;
         } else if (delta > SCROLL_THRESHOLD) {
+          latchedHidden.current = true;
           nextVisible = false;
         } else if (delta < -SCROLL_THRESHOLD) {
+          latchedHidden.current = false;
           nextVisible = true;
+        } else {
+          nextVisible = latchedHidden.current ? false : chromeVisibleRef.current;
         }
 
         applyVisibility(nextVisible, currentY <= TOP_THRESHOLD);

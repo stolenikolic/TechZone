@@ -23,7 +23,11 @@ export const components: ThemeComponents = {
   MuiCssBaseline: {
     styleOverrides: (theme) => ({
       html: {
-        scrollBehavior: "smooth"
+        scrollBehavior: "smooth",
+        backgroundColor: theme.palette.topbar?.main ?? theme.palette.grey[800]
+      },
+      body: {
+        backgroundColor: theme.palette.background.default
       },
       "*": {
         margin: 0,
