@@ -18,7 +18,8 @@ export const StyledRoot = styled("div", {
   shouldForwardProp: (prop) =>
     prop !== "componentHeight" && prop !== "fixed" && prop !== "fixedOn" && prop !== "chromeHidden"
 })<Props>(({ theme, componentHeight, fixedOn, fixed, chromeHidden }) => ({
-  paddingTop: fixed ? componentHeight : 0,
+  // When chrome is hidden, drop the spacer so page content fills the full display (incl. behind URL bar).
+  paddingTop: fixed && !chromeHidden ? componentHeight : 0,
   ".hold": {
     zIndex: 2,
     boxShadow: "none",
@@ -33,11 +34,15 @@ export const StyledRoot = styled("div", {
     boxShadow: theme.shadows[5],
     [theme.breakpoints.down("lg")]: {
       top: 0,
-      background: "transparent",
       boxShadow: "none",
       willChange: "transform",
-      transition: chromeHidden ? "transform 180ms ease-in" : "none",
-      transform: chromeHidden ? "translateY(-100%)" : "translateY(0)"
+      transform: chromeHidden ? "translateY(-100%)" : "translateY(0)",
+      // Safari 26+ still samples fixed elements at the top even when translated off-screen.
+      // visibility:hidden removes the header from tinting so scrolling content shows behind the URL bar.
+      visibility: chromeHidden ? "hidden" : "visible",
+      transition: chromeHidden
+        ? "transform 180ms ease-in, visibility 0s linear 180ms"
+        : "transform 160ms ease-out, visibility 0s linear 0s"
     },
     [theme.breakpoints.up("lg")]: {
       transition: "all 350ms ease-in-out",
