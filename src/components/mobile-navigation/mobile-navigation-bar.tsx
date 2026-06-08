@@ -1,6 +1,7 @@
 "use client";
 
 import Badge from "@mui/material/Badge";
+import { useScrollChromeVisible } from "contexts/ScrollChromeContext";
 // GLOBAL CUSTOM HOOK
 import useCart from "hooks/useCart";
 // GLOBAL CUSTOM COMPONENT
@@ -16,9 +17,10 @@ type Props = { navigation: MobileNavItem[] };
 
 export function MobileNavigationBar({ navigation }: Props) {
   const { state } = useCart();
+  const chromeVisible = useScrollChromeVisible();
 
   return (
-    <Wrapper>
+    <Wrapper chromeHidden={!chromeVisible}>
       <NavRow>
         {navigation.map(({ icon, href, title, badge }) => (
           <StyledNavLink href={href} key={title}>

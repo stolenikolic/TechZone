@@ -5,6 +5,7 @@ interface Props {
   fixed?: boolean;
   fixedOn?: number;
   componentHeight?: number;
+  chromeHidden?: boolean;
 }
 // ==============================================================
 
@@ -14,9 +15,14 @@ const slideDown = keyframes`
 `;
 
 export const StyledRoot = styled("div", {
-  shouldForwardProp: (prop) => prop !== "componentHeight" && prop !== "fixed" && prop !== "fixedOn"
-})<Props>(({ theme, componentHeight, fixedOn, fixed }) => ({
+  shouldForwardProp: (prop) =>
+    prop !== "componentHeight" && prop !== "fixed" && prop !== "fixedOn" && prop !== "chromeHidden"
+})<Props>(({ theme, componentHeight, fixedOn, fixed, chromeHidden }) => ({
   paddingTop: fixed ? componentHeight : 0,
+  ...(fixed &&
+    chromeHidden && {
+      [theme.breakpoints.down("lg")]: { paddingTop: 0 }
+    }),
   ".hold": {
     zIndex: 2,
     boxShadow: "none",
@@ -29,7 +35,13 @@ export const StyledRoot = styled("div", {
     position: "fixed",
     top: `${fixedOn}px`,
     boxShadow: theme.shadows[5],
-    transition: "all 350ms ease-in-out",
-    animation: `${slideDown} 400ms ${theme.transitions.easing.easeInOut}`
+    [theme.breakpoints.down("lg")]: {
+      transition: "transform 250ms ease-in-out",
+      transform: chromeHidden ? "translateY(-100%)" : "translateY(0)"
+    },
+    [theme.breakpoints.up("lg")]: {
+      transition: "all 350ms ease-in-out",
+      animation: `${slideDown} 400ms ${theme.transitions.easing.easeInOut}`
+    }
   }
 }));

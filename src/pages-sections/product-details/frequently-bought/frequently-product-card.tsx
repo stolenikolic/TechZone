@@ -1,4 +1,3 @@
-import Link from "next/link";
 import Typography from "@mui/material/Typography";
 // GLOBAL CUSTOM COMPONENTS
 import HoverBox from "components/HoverBox";
@@ -6,7 +5,7 @@ import LazyImage from "components/LazyImage";
 // CUSTOM UTILS LIBRARY FUNCTIONS
 import { calculateDiscount, formatPrice } from "lib";
 // STYLED COMPONENTS
-import { ItemCard, Price } from "./styles";
+import { CardLink, ItemCard, Price } from "./styles";
 
 // =======================================================
 interface Props {
@@ -25,7 +24,7 @@ export default function FrequentlyProductCard({
   imgUrl = "/assets/images/products/Rectangle 116.png"
 }: Props) {
   return (
-    <Link href={`/products/${slug}`}>
+    <CardLink href={`/products/${slug}`}>
       <ItemCard>
         <HoverBox sx={{ mb: 1.5, borderRadius: 2 }}>
           <LazyImage alt={title} width={500} height={500} src={imgUrl} />
@@ -42,6 +41,6 @@ export default function FrequentlyProductCard({
           <del>{calculateDiscount(price, 35)}</del>
         </Price>
       </ItemCard>
-    </Link>
+    </CardLink>
   );
 }

@@ -1,4 +1,5 @@
-import { Fragment, PropsWithChildren } from "react";
+import { PropsWithChildren } from "react";
+import { ScrollChromeProvider } from "contexts/ScrollChromeContext";
 // GLOBAL CUSTOM COMPONENTS
 import Sticky from "components/sticky";
 import { SearchInput2 } from "components/search-box";
@@ -39,7 +40,7 @@ export default function ShopLayout2({ children, data }: LayoutProps) {
   );
 
   return (
-    <Fragment>
+    <ScrollChromeProvider>
       <Topbar>
         <Topbar.Left label={topbar.label} title={topbar.title} />
 
@@ -72,6 +73,6 @@ export default function ShopLayout2({ children, data }: LayoutProps) {
       </Sticky>
 
       {children}
-    </Fragment>
+    </ScrollChromeProvider>
   );
 }

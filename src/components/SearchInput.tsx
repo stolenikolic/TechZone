@@ -1,11 +1,12 @@
 import InputBase, { InputBaseProps } from "@mui/material/InputBase";
 import { styled } from "@mui/material/styles";
 import Search from "@mui/icons-material/Search";
+import { touchSafeInputFontSize } from "theme/utils";
 
 // STYLED COMPONENT
 const StyledInputBase = styled(InputBase)(({ theme }) => ({
   height: 44,
-  fontSize: 14,
+  ...touchSafeInputFontSize(theme),
   width: "100%",
   maxWidth: 350,
   padding: "0 1rem",

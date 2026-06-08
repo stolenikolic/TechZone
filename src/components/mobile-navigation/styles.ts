@@ -4,7 +4,9 @@ import { NavLink } from "components/nav-link";
 import { layoutConstant } from "utils/constants";
 
 // STYLED COMPONENTS — icon row (64px) + safe-area strip below (iPhone home indicator)
-const Wrapper = styled("div")(({ theme }) => ({
+const Wrapper = styled("div", {
+  shouldForwardProp: (prop) => prop !== "chromeHidden"
+})<{ chromeHidden?: boolean }>(({ theme, chromeHidden }) => ({
   left: 0,
   right: 0,
   bottom: 0,
@@ -14,7 +16,12 @@ const Wrapper = styled("div")(({ theme }) => ({
   zIndex: theme.zIndex.drawer + 1,
   backgroundColor: theme.palette.background.paper,
   boxShadow: "0px 1px 4px 3px rgba(0, 0, 0, 0.1)",
-  [theme.breakpoints.down("lg")]: { display: "flex", width: "100vw" }
+  [theme.breakpoints.down("lg")]: {
+    display: "flex",
+    width: "100vw",
+    transition: "transform 250ms ease-in-out",
+    transform: chromeHidden ? "translateY(100%)" : "translateY(0)"
+  }
 }));
 
 const NavRow = styled("div")({

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Fragment, PropsWithChildren } from "react";
+import { PropsWithChildren } from "react";
+import { ScrollChromeProvider } from "contexts/ScrollChromeContext";
 import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
 // CUSTOM GLOBAL COMPONENTS
@@ -52,7 +53,7 @@ export default function SalesLayout({ children, data }: Props) {
   );
 
   return (
-    <Fragment>
+    <ScrollChromeProvider>
       <Topbar>
         <Topbar.Left label={topbar.label} title={topbar.title} />
 
@@ -144,6 +145,6 @@ export default function SalesLayout({ children, data }: Props) {
 
       {/* SMALLER DEVICE NAVIGATION */}
       <MobileNavigationBar navigation={mobileNavigation.version1} />
-    </Fragment>
+    </ScrollChromeProvider>
   );
 }

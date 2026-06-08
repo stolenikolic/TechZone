@@ -2,6 +2,7 @@
 
 import { Fragment, PropsWithChildren, useState } from "react";
 import Badge from "@mui/material/Badge";
+import { useScrollChromeVisible } from "contexts/ScrollChromeContext";
 // GLOBAL CUSTOM HOOKS
 import useCart from "hooks/useCart";
 // STYLED COMPONENTS
@@ -17,6 +18,7 @@ interface Props extends PropsWithChildren {
 
 export function MobileNavigationBar2({ children, navigation }: Props) {
   const { state } = useCart();
+  const chromeVisible = useScrollChromeVisible();
   const [open, setOpen] = useState(false);
 
   const handleDrawerClose = () => setOpen(false);
@@ -28,7 +30,7 @@ export function MobileNavigationBar2({ children, navigation }: Props) {
         {children}
       </StyledDrawer>
 
-      <Wrapper>
+      <Wrapper chromeHidden={!chromeVisible}>
         <NavRow>
         {navigation.map(({ Icon, title, href, badge }) => {
           // LINK INNER CONTENTS

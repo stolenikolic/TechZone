@@ -1,4 +1,5 @@
-import { Fragment, PropsWithChildren } from "react";
+import { PropsWithChildren } from "react";
+import { ScrollChromeProvider } from "contexts/ScrollChromeContext";
 import Link from "next/link";
 import Image from "next/image";
 // MUI
@@ -59,7 +60,7 @@ export default function ShopLayout3({
   );
 
   return (
-    <Fragment>
+    <ScrollChromeProvider>
       <Topbar>
         <Topbar.Left label={topbar.label} title={topbar.title} />
 
@@ -141,6 +142,6 @@ export default function ShopLayout3({
           </Footer1.Copyright>
         </Footer1>
       )}
-    </Fragment>
+    </ScrollChromeProvider>
   );
 }

@@ -1,10 +1,15 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense, type ReactNode } from "react";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { geist } from "lib/fonts";
 import { rootMetadata } from "lib/site-metadata";
 
 export const metadata: Metadata = rootMetadata;
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1
+};
 
 import "overlayscrollbars/overlayscrollbars.css";
 

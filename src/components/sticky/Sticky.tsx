@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, PropsWithChildren } from "react";
 import clsx from "clsx";
+import { useScrollChromeVisible } from "contexts/ScrollChromeContext";
 // STYLED COMPONENT
 import { StyledRoot } from "./styles";
 
@@ -18,6 +19,7 @@ export default function Sticky({ fixedOn, children, onSticky, scrollDistance = 0
   const [height, setHeight] = useState(0);
   const [fixed, setFixed] = useState(false);
   const elementRef = useRef<HTMLDivElement>(null);
+  const chromeVisible = useScrollChromeVisible();
 
   const scrollListener = useCallback(() => {
     const isFixed = window.scrollY >= fixedOn + scrollDistance;
@@ -48,7 +50,12 @@ export default function Sticky({ fixedOn, children, onSticky, scrollDistance = 0
   }, [scrollListener]);
 
   return (
-    <StyledRoot fixedOn={fixedOn} componentHeight={height} fixed={fixed}>
+    <StyledRoot
+      fixedOn={fixedOn}
+      componentHeight={height}
+      fixed={fixed}
+      chromeHidden={fixed && !chromeVisible}
+    >
       <div ref={elementRef} className={clsx({ hold: !fixed, fixed: fixed })}>
         {children}
       </div>

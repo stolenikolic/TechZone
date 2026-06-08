@@ -1,7 +1,7 @@
 import { alpha } from "@mui/material/styles";
 import { dark, grey, orange, secondary, success } from "./theme-colors";
 import { ThemeComponents } from "theme/types";
-import { classes } from "theme/utils";
+import { classes, touchSafeInputFontSize } from "theme/utils";
 import { typography } from "./typography";
 
 // ========================================================
@@ -21,7 +21,7 @@ declare module "@mui/material/Button" {
 
 export const components: ThemeComponents = {
   MuiCssBaseline: {
-    styleOverrides: {
+    styleOverrides: (theme) => ({
       html: {
         scrollBehavior: "smooth"
       },
@@ -45,8 +45,9 @@ export const components: ThemeComponents = {
       ".bg-white": {
         backgroundColor: "white"
       },
+      "input, textarea, select": touchSafeInputFontSize(theme),
       ...classes()
-    }
+    })
   },
 
   MuiDialog: {
@@ -112,7 +113,19 @@ export const components: ThemeComponents = {
       root: { borderRadius: 8 },
       sizeSmall: { lineHeight: "1.8em" },
       inputSizeSmall: { height: "1.8em" },
-      notchedOutline: { borderColor: grey[300] }
+      notchedOutline: { borderColor: grey[300] },
+      input: ({ theme }) => touchSafeInputFontSize(theme)
+    }
+  },
+  MuiInputBase: {
+    styleOverrides: {
+      root: ({ theme }) => touchSafeInputFontSize(theme),
+      input: ({ theme }) => touchSafeInputFontSize(theme)
+    }
+  },
+  MuiFilledInput: {
+    styleOverrides: {
+      input: ({ theme }) => touchSafeInputFontSize(theme)
     }
   },
   MuiButton: {
