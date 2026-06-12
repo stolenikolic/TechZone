@@ -23,7 +23,8 @@ export type JobType =
   | "aggregate_prices"
   | "auto_match"
   | "enrichment"
-  | "apply_value_aliases";
+  | "apply_value_aliases"
+  | "ai_descriptions";
 
 export type JobStatus = "running" | "success" | "failed" | "partial";
 

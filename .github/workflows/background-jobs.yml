@@ -21,6 +21,7 @@ on:
           - aggregate_prices
           - ipon_scrape_details
           - enrichment
+          - ai_descriptions
 
 env:
   NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -28,6 +29,7 @@ env:
   NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
   SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
   SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
 concurrency:
   group: background-jobs-manual-${{ inputs.job }}
@@ -68,5 +70,6 @@ jobs:
             aggregate_prices) npx tsx -r ./scripts/register-ws.cjs scripts/run-aggregate-prices.ts ;;
             ipon_scrape_details) npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-scrape-details.ts ;;
             enrichment) npx tsx -r ./scripts/register-ws.cjs scripts/run-enrichment.ts ;;
+            ai_descriptions) npx tsx -r ./scripts/register-ws.cjs scripts/run-ai-descriptions.ts ;;
             *) echo "Unknown job"; exit 1 ;;
           esac

@@ -34,6 +34,7 @@
     "konzolvilag:import-products:full": "cross-env KONZOLVILAG_MAX_PRODUCTS_PER_RUN=0 tsx scripts/run-konzolvilag-import-products.ts",
     "aggregate-prices": "tsx scripts/run-aggregate-prices.ts",
     "auto-match": "tsx scripts/run-auto-match.ts",
+    "ai-descriptions": "tsx scripts/run-ai-descriptions.ts",
     "test:auto-link": "tsx scripts/test-match-supplier-product.ts && tsx scripts/test-auto-link-import-integration.ts",
     "test:pricing": "tsx scripts/test-pricing-engine.ts"
   },
@@ -41,6 +42,7 @@
     "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^5.2.2",
     "@mui/icons-material": "^7.3.6",
     "@mui/lab": "^7.0.1-beta.20",
@@ -61,6 +63,7 @@
     "embla-carousel-autoplay": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
     "i18next": "^25.7.3",
+    "isomorphic-dompurify": "^3.16.0",
     "lodash": "^4.17.21",
     "next": "16.1.1",
     "next-i18next": "^15.4.3",

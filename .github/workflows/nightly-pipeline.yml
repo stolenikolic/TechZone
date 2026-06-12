@@ -16,6 +16,7 @@ env:
   NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
   SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
   SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
 concurrency:
   group: nightly-pipeline
@@ -204,3 +205,22 @@ jobs:
       - run: npm ci
       - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
       - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-enrichment.ts
+
+  ai_descriptions:
+    name: "6 · AI descriptions"
+    needs: [enrichment]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      JOB_TRIGGERED_BY: cron
+      JOB_TYPE: ai_descriptions
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-ai-descriptions.ts

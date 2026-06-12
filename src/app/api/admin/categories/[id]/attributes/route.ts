@@ -104,14 +104,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 }
 
 type PatchBody = {
-  action?: "update" | "move";
+  action?: "update" | "move" | "update_ai";
   attributeId?: string;
   name?: string;
   slug?: string;
+  nameBs?: string | null;
   displayType?: "checkbox" | "range";
   unit?: string | null;
   step?: number | null;
   direction?: "up" | "down";
+  includeInAiDescription?: boolean;
+  aiDescriptionPriority?: number;
 };
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -125,7 +128,34 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const action = body.action ?? "update";
     const supabase = createSupabaseServiceClient();
 
-    if (action === "move") {
+    if (action === "update_ai") {
+      const patch: Record<string, unknown> = {};
+      if ("includeInAiDescription" in body) {
+        patch.include_in_ai_description = Boolean(body.includeInAiDescription);
+      }
+      if ("aiDescriptionPriority" in body && body.aiDescriptionPriority != null) {
+        const prio = Number(body.aiDescriptionPriority);
+        if (!Number.isFinite(prio)) {
+          return NextResponse.json({ error: "aiDescriptionPriority must be a number." }, { status: 400 });
+        }
+        patch.ai_description_priority = Math.round(prio);
+      }
+      if (Object.keys(patch).length > 0) {
+        const { error: caError } = await supabase
+          .from("category_attributes")
+          .update(patch)
+          .eq("category_id", categoryId)
+          .eq("attribute_id", attributeId);
+        if (caError) return NextResponse.json({ error: caError.message }, { status: 400 });
+      }
+      if ("nameBs" in body) {
+        const { error: attrError } = await supabase
+          .from("attributes")
+          .update({ name_bs: body.nameBs?.trim() || null })
+          .eq("id", attributeId);
+        if (attrError) return NextResponse.json({ error: attrError.message }, { status: 400 });
+      }
+    } else if (action === "move") {
       const direction = body.direction === "down" ? "down" : "up";
       const { data: rows, error } = await supabase
         .from("category_attributes")
@@ -158,6 +188,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     } else {
       const patch: Record<string, unknown> = {};
       if ("name" in body && body.name != null) patch.name = body.name.trim();
+      if ("nameBs" in body) patch.name_bs = body.nameBs?.trim() || null;
       if ("slug" in body && body.slug != null) patch.slug = normalizeAttributeSlug(body.slug);
       if ("displayType" in body) patch.filter_display_type = body.displayType === "range" ? "range" : "checkbox";
       if ("unit" in body) patch.filter_unit = body.unit?.trim() || null;

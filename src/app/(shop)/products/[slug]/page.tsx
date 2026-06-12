@@ -7,40 +7,13 @@ import api from "utils/__api__/products";
 import { getFrequentlyBought, getRelatedProducts } from "utils/__api__/related-products";
 // CUSTOM DATA MODEL
 import { SlugParams } from "models/Common";
-import type Product from "models/Product.model";
 import { absoluteOgImageUrl } from "lib/og-image-url";
+import {
+  buildBreadcrumbJsonLd,
+  buildFaqPageJsonLd,
+  buildProductJsonLd
+} from "lib/product-jsonld/build-product-jsonld";
 import { ogPageTitle, pageTitle, SITE_NAME } from "lib/site-metadata";
-
-/** Build schema.org Product JSON-LD for rich results (no layout/UI changes). */
-function buildProductSchema(product: Product): Record<string, unknown> {
-  const images =
-    product.images?.length > 0
-      ? product.images
-      : product.thumbnail
-        ? [product.thumbnail]
-        : [];
-
-  const offer: Record<string, unknown> = {
-    "@type": "Offer",
-    priceCurrency: "BAM",
-    availability: "https://schema.org/InStock"
-  };
-  if (product.price != null && product.price > 0) {
-    offer.price = product.price;
-  }
-
-  const schema: Record<string, unknown> = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: product.title,
-    image: images,
-    offers: offer
-  };
-  if (product.brand) {
-    schema.brand = { "@type": "Brand", name: product.brand };
-  }
-  return schema;
-}
 
 /** Base URL for canonical and OG URLs (server-only). Set NEXT_PUBLIC_SITE_URL in production. */
 function getBaseUrl(): string {
@@ -55,13 +28,15 @@ export async function generateMetadata({ params }: SlugParams): Promise<Metadata
   if (!product) notFound();
 
   const baseUrl = getBaseUrl();
-  // Canonical always uses product.slug so it points to the main product page (prevents duplicate content).
   const canonicalUrl = `${baseUrl}/products/${product.slug}`;
   const title = pageTitle(product.title, "shop");
   const ogTitle = ogPageTitle(product.title);
   const description =
-    product.description ??
+    product.metaDescription ??
+    product.description?.replace(/<[^>]+>/g, " ").trim() ??
     `Kupite ${product.title} na Tech Zone — računarska oprema i komponente u BiH.`;
+  const ogDescription =
+    product.ogDescription ?? product.metaDescription ?? description;
   const mainImage = absoluteOgImageUrl(
     product.images?.[0] ?? product.thumbnail ?? "/assets/images/categories/default-category.jpg"
   );
@@ -72,7 +47,7 @@ export async function generateMetadata({ params }: SlugParams): Promise<Metadata
     keywords: ["tech zone", "računari", "komponente", product.title],
     openGraph: {
       title: ogTitle,
-      description,
+      description: ogDescription,
       type: "website",
       url: canonicalUrl,
       siteName: SITE_NAME,
@@ -81,7 +56,7 @@ export async function generateMetadata({ params }: SlugParams): Promise<Metadata
     twitter: {
       card: "summary_large_image",
       title: ogTitle,
-      description,
+      description: ogDescription,
       images: [mainImage]
     },
     alternates: { canonical: canonicalUrl }
@@ -98,14 +73,30 @@ export default async function ProductDetails({ params }: SlugParams) {
 
   if (!product) notFound();
 
-  const schemaData = buildProductSchema(product);
+  const baseUrl = getBaseUrl();
+  const canonicalUrl = `${baseUrl}/products/${product.slug}`;
+  const productSchema = buildProductJsonLd(product, canonicalUrl);
+  const faqSchema = buildFaqPageJsonLd(product.faq);
+  const breadcrumbSchema = buildBreadcrumbJsonLd(product, baseUrl);
 
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(schemaData) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
       />
+      {faqSchema ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+        />
+      ) : null}
+      {breadcrumbSchema ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        />
+      ) : null}
       <ProductDetailsPageView
         product={product}
         relatedProducts={relatedProducts}

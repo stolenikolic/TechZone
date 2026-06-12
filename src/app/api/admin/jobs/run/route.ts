@@ -25,7 +25,8 @@ const ALLOWED: JobType[] = [
   "aggregate_prices",
   "auto_match",
   "enrichment",
-  "apply_value_aliases"
+  "apply_value_aliases",
+  "ai_descriptions"
 ];
 
 /** Same UUIDs as importer scripts — only for `job_runs.supplier_id` / admin UI join. */
@@ -68,6 +69,9 @@ async function runJob(
   options?: {
     enrichmentCategoryId?: string;
     enrichmentOverwrite?: boolean;
+    aiDescriptionsCategoryId?: string;
+    aiDescriptionsOverwrite?: boolean;
+    aiDescriptionsAutoApprove?: boolean;
     applyValueAliasesCategoryId?: string;
     applyValueAliasesAttributeId?: string;
     iponScrapeRunUntilQueueEmpty?: boolean;
@@ -118,6 +122,14 @@ async function runJob(
       overwrite: options?.enrichmentOverwrite ?? false
     });
   }
+  if (jobType === "ai_descriptions") {
+    const { runAiDescriptions } = await import("lib/ai-descriptions/runAiDescriptions");
+    return runAiDescriptions({
+      categoryId: options?.aiDescriptionsCategoryId,
+      overwrite: options?.aiDescriptionsOverwrite ?? false,
+      autoApprove: options?.aiDescriptionsAutoApprove ?? false
+    });
+  }
   if (jobType === "apply_value_aliases") {
     const { applyValueAliasesToProducts } = await import("lib/attributes/apply-value-aliases-to-products");
     const { createSupabaseServiceClient } = await import("utils/supabase");
@@ -140,6 +152,9 @@ export async function POST(request: Request) {
       jobType?: string;
       enrichmentCategoryId?: string;
       enrichmentOverwrite?: boolean;
+      aiDescriptionsCategoryId?: string;
+      aiDescriptionsOverwrite?: boolean;
+      aiDescriptionsAutoApprove?: boolean;
       applyValueAliasesCategoryId?: string;
       applyValueAliasesAttributeId?: string;
       iponScrapeRunUntilQueueEmpty?: boolean;
@@ -160,6 +175,9 @@ export async function POST(request: Request) {
         runJob(jobType, {
           enrichmentCategoryId: body.enrichmentCategoryId,
           enrichmentOverwrite: body.enrichmentOverwrite,
+          aiDescriptionsCategoryId: body.aiDescriptionsCategoryId,
+          aiDescriptionsOverwrite: body.aiDescriptionsOverwrite,
+          aiDescriptionsAutoApprove: body.aiDescriptionsAutoApprove,
           applyValueAliasesCategoryId: body.applyValueAliasesCategoryId,
           applyValueAliasesAttributeId: body.applyValueAliasesAttributeId,
           iponScrapeRunUntilQueueEmpty: body.iponScrapeRunUntilQueueEmpty

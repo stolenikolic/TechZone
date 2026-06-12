@@ -182,7 +182,7 @@ export async function GET(
     const { data: productRow, error: productError } = await supabase
       .from("products")
       .select(
-        "id, name, slug, description, brand, category_id, main_image, price, custom_price, is_active, publish_locked, mpn, ean, selling_margin_override, categories(id, name, slug, parent_id, selling_margin_default)"
+        "id, name, slug, description, brand, category_id, main_image, price, custom_price, is_active, publish_locked, mpn, ean, selling_margin_override, ai_meta_description, ai_title_suggestion, ai_og_description, ai_faq, ai_description_status, ai_description_locked, ai_description_generated_at, categories(id, name, slug, parent_id, selling_margin_default)"
       )
       .eq("slug", slug)
       .maybeSingle();
@@ -275,7 +275,19 @@ export async function GET(
         publishLocked: Boolean(product.publish_locked),
         mpn: product.mpn ?? "",
         ean: product.ean ?? "",
-        sellingMarginOverride: numOrNull(product.selling_margin_override)
+        sellingMarginOverride: numOrNull(product.selling_margin_override),
+        aiMetaDescription: (product as DbProduct & { ai_meta_description?: string | null }).ai_meta_description ?? "",
+        aiTitleSuggestion: (product as DbProduct & { ai_title_suggestion?: string | null }).ai_title_suggestion ?? "",
+        aiOgDescription: (product as DbProduct & { ai_og_description?: string | null }).ai_og_description ?? "",
+        aiFaq: (product as DbProduct & { ai_faq?: unknown }).ai_faq ?? null,
+        aiDescriptionStatus:
+          (product as DbProduct & { ai_description_status?: string | null }).ai_description_status ?? "pending",
+        aiDescriptionLocked: Boolean(
+          (product as DbProduct & { ai_description_locked?: boolean | null }).ai_description_locked
+        ),
+        aiDescriptionGeneratedAt:
+          (product as DbProduct & { ai_description_generated_at?: string | null }).ai_description_generated_at ??
+          null
       },
       categories: ((categoriesRows ?? []) as DbCategory[]).map((row) => ({
         id: row.id,
@@ -306,6 +318,8 @@ type PatchBody = {
     ean?: string | null;
     isActive?: boolean;
     customPrice?: number | null;
+    aiDescriptionLocked?: boolean;
+    markDescriptionManual?: boolean;
   };
   pricing?: {
     sellingMarginOverride?: number | null;
@@ -341,7 +355,16 @@ export async function PATCH(
       const patch: Record<string, unknown> = {};
       if ("name" in body.basic) patch.name = body.basic.name?.trim() || "";
       if ("brand" in body.basic) patch.brand = body.basic.brand?.trim() || null;
-      if ("description" in body.basic) patch.description = body.basic.description?.trim() || null;
+      if ("description" in body.basic) {
+        patch.description = body.basic.description?.trim() || null;
+        if (body.basic.markDescriptionManual) {
+          patch.ai_description_locked = true;
+          patch.ai_description_status = "manual";
+        }
+      }
+      if ("aiDescriptionLocked" in body.basic) {
+        patch.ai_description_locked = Boolean(body.basic.aiDescriptionLocked);
+      }
       if ("mpn" in body.basic) {
         const mpn = body.basic.mpn?.trim() || null;
         patch.mpn = mpn;

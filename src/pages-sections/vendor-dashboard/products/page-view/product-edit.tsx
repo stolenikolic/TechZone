@@ -15,6 +15,9 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Chip from "@mui/material/Chip";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Switch from "@mui/material/Switch";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import DropZone from "components/DropZone";
@@ -43,6 +46,12 @@ type EditPayload = {
     mpn: string;
     ean: string;
     sellingMarginOverride: number | null;
+    aiMetaDescription: string;
+    aiTitleSuggestion: string;
+    aiOgDescription: string;
+    aiDescriptionStatus: string;
+    aiDescriptionLocked: boolean;
+    aiDescriptionGeneratedAt: string | null;
   };
   categories: {
     id: string;
@@ -75,6 +84,10 @@ type EditPayload = {
 
 type Notice = { severity: "success" | "error"; text: string } | null;
 
+function normalizeField(value: string): string {
+  return value.trim();
+}
+
 export default function EditProductPageView() {
   const params = useParams<{ slug: string }>();
   const slug = params?.slug ?? "";
@@ -105,6 +118,10 @@ export default function EditProductPageView() {
   const [attributesText, setAttributesText] = useState("{}");
   const [saving, setSaving] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [aiDescriptionLocked, setAiDescriptionLocked] = useState(false);
+  const [aiDescriptionStatus, setAiDescriptionStatus] = useState("pending");
+  const [initialDescription, setInitialDescription] = useState("");
 
   const roots = useMemo(
     () => (payload?.categories ?? []).filter((item) => item.parentId == null),
@@ -166,6 +183,9 @@ export default function EditProductPageView() {
             ? String(data.product.customPrice)
             : ""
       });
+      setInitialDescription(data.product.description ?? "");
+      setAiDescriptionLocked(Boolean(data.product.aiDescriptionLocked));
+      setAiDescriptionStatus(data.product.aiDescriptionStatus ?? "pending");
       setPricing({
         price: data.product.price != null && Number.isFinite(data.product.price) ? String(data.product.price) : "",
         sellingMarginOverride:
@@ -270,6 +290,31 @@ export default function EditProductPageView() {
     );
   }, [payload, basic, pricing, childCategoryId, mainImage, normalizedImageUrls, attributesText]);
 
+  const regenerateDescription = async () => {
+    if (!slug) return;
+    setRegenerating(true);
+    setNotice(null);
+    try {
+      const response = await fetch(
+        `/api/admin/products/by-slug/${encodeURIComponent(slug)}/regenerate-description`,
+        { method: "POST" }
+      );
+      const data = (await response.json()) as { success?: boolean; error?: string; message?: string };
+      if (!response.ok || !data.success) {
+        throw new Error(data.message ?? data.error ?? "Regeneracija nije uspjela.");
+      }
+      setNotice({ severity: "success", text: "AI opis je regenerisan." });
+      await load();
+    } catch (err) {
+      setNotice({
+        severity: "error",
+        text: err instanceof Error ? err.message : "Regeneracija nije uspjela."
+      });
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
   const saveAll = async () => {
     if (!canSaveCategory) {
       setNotice({ severity: "error", text: "Parent i child category su obavezni." });
@@ -294,6 +339,10 @@ export default function EditProductPageView() {
             name: basic.name,
             brand: basic.brand || null,
             description: basic.description || null,
+            markDescriptionManual:
+              normalizeField(basic.description) !== normalizeField(initialDescription) &&
+              Boolean(basic.description?.trim()),
+            aiDescriptionLocked: aiDescriptionLocked,
             mpn: basic.mpn || null,
             ean: basic.ean || null,
             isActive: basic.isActive,
@@ -445,14 +494,41 @@ export default function EditProductPageView() {
               />
             </Grid>
             <Grid size={{ md: 8, xs: 12 }}>
-              <TextField
-                fullWidth
-                multiline
-                minRows={4}
-                label="Description"
-                value={basic.description}
-                onChange={(e) => setBasic((prev) => ({ ...prev, description: e.target.value }))}
-              />
+              <Stack spacing={1.5}>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                  <Chip size="small" label={`AI status: ${aiDescriptionStatus}`} />
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={regenerating}
+                    onClick={() => void regenerateDescription()}
+                  >
+                    {regenerating ? "Generišem…" : "Regeneriši opis"}
+                  </Button>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={aiDescriptionLocked}
+                        onChange={(e) => setAiDescriptionLocked(e.target.checked)}
+                      />
+                    }
+                    label="Zaključaj opis (AI ne dira)"
+                  />
+                </Stack>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={6}
+                  label="Description (HTML dozvoljen)"
+                  value={basic.description}
+                  onChange={(e) => setBasic((prev) => ({ ...prev, description: e.target.value }))}
+                />
+                {payload?.product.aiTitleSuggestion ? (
+                  <Typography variant="caption" color="text.secondary">
+                    Predlog SEO naslova: {payload.product.aiTitleSuggestion}
+                  </Typography>
+                ) : null}
+              </Stack>
             </Grid>
             <Grid size={{ md: 4, xs: 12 }}>
               <TextField

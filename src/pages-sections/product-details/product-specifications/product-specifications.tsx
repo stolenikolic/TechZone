@@ -16,6 +16,8 @@ export type ProductSpecItem = ProductSpecFilterItem;
 type Props = {
   specifications: ProductSpecItem[];
   categoryHref: string | null;
+  /** When false, omit the section heading (parent/tab provides it). */
+  showTitle?: boolean;
 };
 // ==============================================================
 
@@ -37,14 +39,20 @@ const linkSx = {
  * Renders a "Specifications" section only when specifications exist.
  * Do not render when specifications.length === 0.
  */
-export default function ProductSpecifications({ specifications, categoryHref }: Props) {
+export default function ProductSpecifications({
+  specifications,
+  categoryHref,
+  showTitle = true
+}: Props) {
   if (!specifications?.length) return null;
 
   return (
-    <Box sx={{ mt: 4, mb: 3 }}>
-      <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-        Specifications
-      </Typography>
+    <Box>
+      {showTitle ? (
+        <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+          Specifikacije
+        </Typography>
+      ) : null}
       <Table size="small" sx={{ maxWidth: 480 }}>
         <TableBody>
           {specifications.map((spec) => {

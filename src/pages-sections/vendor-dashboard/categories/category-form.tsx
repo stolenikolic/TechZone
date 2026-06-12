@@ -17,6 +17,7 @@ import Grid from "@mui/material/Grid";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import FormControlLabel from "@mui/material/FormControlLabel";
+import Switch from "@mui/material/Switch";
 import Stack from "@mui/material/Stack";
 import MenuItem from "@mui/material/MenuItem";
 import Table from "@mui/material/Table";
@@ -57,7 +58,19 @@ type AttributeOption = {
   filter_step: number | null;
 };
 
-type CategoryAttributeRow = AttributeOption & { sort_order: number };
+type CategoryAttributeRow = AttributeOption & {
+  sort_order: number;
+  name_bs?: string | null;
+  include_in_ai_description?: boolean;
+  ai_description_priority?: number;
+};
+
+type AiDescriptionConfig = {
+  tone: string;
+  audience: string;
+  extraInstructions: string;
+  isEnabled: boolean;
+};
 
 type CategoryProductRow = {
   id: string;
@@ -140,6 +153,13 @@ export default function CategoryForm({ mode }: Props) {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [categoryAttributes, setCategoryAttributes] = useState<CategoryAttributeRow[]>([]);
+  const [aiDescriptionConfig, setAiDescriptionConfig] = useState<AiDescriptionConfig>({
+    tone: "profesionalan, prirodan",
+    audience: "",
+    extraInstructions: "",
+    isEnabled: true
+  });
+  const [aiConfigSaving, setAiConfigSaving] = useState(false);
   const [allAttributes, setAllAttributes] = useState<AttributeOption[]>([]);
   const [attachAttributeId, setAttachAttributeId] = useState("");
   const [name, setName] = useState("");
@@ -267,6 +287,12 @@ export default function CategoryForm({ mode }: Props) {
           categories: CategoryOption[];
           attributes: AttributeOption[];
           categoryAttributes: CategoryAttributeRow[];
+          aiDescriptionConfig: {
+            tone: string | null;
+            audience: string | null;
+            extraInstructions: string | null;
+            isEnabled: boolean;
+          } | null;
         }
       | { error: string };
     if (!response.ok || "error" in data) {
@@ -278,6 +304,14 @@ export default function CategoryForm({ mode }: Props) {
     setCategoryAttributes(
       [...(data.categoryAttributes ?? [])].sort((a, b) => a.sort_order - b.sort_order)
     );
+    if (data.aiDescriptionConfig) {
+      setAiDescriptionConfig({
+        tone: data.aiDescriptionConfig.tone ?? "profesionalan, prirodan",
+        audience: data.aiDescriptionConfig.audience ?? "",
+        extraInstructions: data.aiDescriptionConfig.extraInstructions ?? "",
+        isEnabled: data.aiDescriptionConfig.isEnabled !== false
+      });
+    }
     setName(data.category.name);
     setSlug(data.category.slug);
     setParentId(data.category.parent_id ?? "");
@@ -491,6 +525,31 @@ export default function CategoryForm({ mode }: Props) {
     }
   };
 
+  const saveAiDescriptionConfig = async () => {
+    if (!categoryId) return;
+    setAiConfigSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/categories/${categoryId}/ai-config`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tone: aiDescriptionConfig.tone,
+          audience: aiDescriptionConfig.audience || null,
+          extraInstructions: aiDescriptionConfig.extraInstructions || null,
+          isEnabled: aiDescriptionConfig.isEnabled
+        })
+      });
+      const data = (await response.json()) as { error?: string };
+      if (!response.ok || data.error) throw new Error(data.error ?? "Čuvanje AI postavki nije uspjelo.");
+      setNotice("AI postavke kategorije su sačuvane.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Čuvanje AI postavki nije uspjelo.");
+    } finally {
+      setAiConfigSaving(false);
+    }
+  };
+
   const saveAllCategoryAttributeEdits = async () => {
     if (!categoryId || categoryAttributes.length === 0) return;
     setAttributesSectionSaving(true);
@@ -506,6 +565,7 @@ export default function CategoryForm({ mode }: Props) {
               attributeId: row.id,
               name: row.name,
               slug: row.slug,
+              nameBs: row.name_bs ?? null,
               displayType: row.filter_display_type === "range" ? "range" : "checkbox",
               unit: row.filter_unit ?? null,
               step: row.filter_step ?? null
@@ -513,6 +573,22 @@ export default function CategoryForm({ mode }: Props) {
           });
           const data = (await response.json()) as { error?: string };
           if (!response.ok || data.error) throw new Error(data.error ?? `Greška pri čuvanju: ${row.slug}`);
+
+          const aiResponse = await fetch(`/api/admin/categories/${categoryId}/attributes`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "update_ai",
+              attributeId: row.id,
+              includeInAiDescription: Boolean(row.include_in_ai_description),
+              aiDescriptionPriority: row.ai_description_priority ?? 100,
+              nameBs: row.name_bs ?? null
+            })
+          });
+          const aiData = (await aiResponse.json()) as { error?: string };
+          if (!aiResponse.ok || aiData.error) {
+            throw new Error(aiData.error ?? `Greška pri čuvanju AI postavki: ${row.slug}`);
+          }
         })
       );
       setNotice("Izmjene u tabeli filtera su sačuvane.");
@@ -968,6 +1044,9 @@ export default function CategoryForm({ mode }: Props) {
                   <TableCell>Type</TableCell>
                   <TableCell>Unit</TableCell>
                   <TableCell>Step</TableCell>
+                  <TableCell>Name (BS)</TableCell>
+                  <TableCell>AI opis</TableCell>
+                  <TableCell>AI prio</TableCell>
                   <TableCell align="right">Vrijednosti</TableCell>
                   <TableCell align="right">Ukloni</TableCell>
                 </TableRow>
@@ -975,7 +1054,7 @@ export default function CategoryForm({ mode }: Props) {
               <TableBody>
                 {categoryAttributes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8}>No category attributes.</TableCell>
+                    <TableCell colSpan={11}>No category attributes.</TableCell>
                   </TableRow>
                 ) : (
                   categoryAttributes.map((attribute, index) => (
@@ -1076,6 +1155,53 @@ export default function CategoryForm({ mode }: Props) {
                           }
                         />
                       </TableCell>
+                      <TableCell>
+                        <TextField
+                          size="small"
+                          value={attribute.name_bs ?? ""}
+                          onChange={(e) =>
+                            setCategoryAttributes((prev) =>
+                              prev.map((row) =>
+                                row.id === attribute.id ? { ...row, name_bs: e.target.value } : row
+                              )
+                            )
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          size="small"
+                          checked={Boolean(attribute.include_in_ai_description)}
+                          onChange={(e) =>
+                            setCategoryAttributes((prev) =>
+                              prev.map((row) =>
+                                row.id === attribute.id
+                                  ? { ...row, include_in_ai_description: e.target.checked }
+                                  : row
+                              )
+                            )
+                          }
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={attribute.ai_description_priority ?? 100}
+                          onChange={(e) =>
+                            setCategoryAttributes((prev) =>
+                              prev.map((row) =>
+                                row.id === attribute.id
+                                  ? {
+                                      ...row,
+                                      ai_description_priority: Number(e.target.value || 100)
+                                    }
+                                  : row
+                              )
+                            )
+                          }
+                        />
+                      </TableCell>
                       <TableCell align="right">
                         <Button
                           size="small"
@@ -1120,6 +1246,73 @@ export default function CategoryForm({ mode }: Props) {
               </Stack>
             ) : null}
           </Stack>
+        </Card>
+      ) : null}
+
+      {mode === "edit" && categoryId ? (
+        <Card className="p-3">
+          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+            AI opisi — postavke kategorije
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Odaberi koje specifikacije ulaze u AI prompt (kolone u tabeli iznad). Ovdje podešavaš ton,
+            publiku i dodatne instrukcije za generisanje opisa.
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid size={{ md: 6, xs: 12 }}>
+              <TextField
+                fullWidth
+                label="Ton pisanja"
+                value={aiDescriptionConfig.tone}
+                onChange={(e) =>
+                  setAiDescriptionConfig((prev) => ({ ...prev, tone: e.target.value }))
+                }
+              />
+            </Grid>
+            <Grid size={{ md: 6, xs: 12 }}>
+              <TextField
+                fullWidth
+                label="Ciljna publika"
+                value={aiDescriptionConfig.audience}
+                onChange={(e) =>
+                  setAiDescriptionConfig((prev) => ({ ...prev, audience: e.target.value }))
+                }
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="Dodatne instrukcije za AI"
+                value={aiDescriptionConfig.extraInstructions}
+                onChange={(e) =>
+                  setAiDescriptionConfig((prev) => ({ ...prev, extraInstructions: e.target.value }))
+                }
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={aiDescriptionConfig.isEnabled}
+                    onChange={(e) =>
+                      setAiDescriptionConfig((prev) => ({ ...prev, isEnabled: e.target.checked }))
+                    }
+                  />
+                }
+                label="AI opisi uključeni za ovu kategoriju"
+              />
+            </Grid>
+          </Grid>
+          <Button
+            variant="contained"
+            sx={{ mt: 2 }}
+            disabled={aiConfigSaving}
+            onClick={() => void saveAiDescriptionConfig()}
+          >
+            {aiConfigSaving ? "Čuvam…" : "Sačuvaj AI postavke"}
+          </Button>
         </Card>
       ) : null}
 

@@ -13,7 +13,10 @@ const ALLOWED_JOB_TYPES = [
   "oazis_import",
   "konzolvilag_import",
   "aggregate_prices",
-  "auto_match"
+  "auto_match",
+  "enrichment",
+  "apply_value_aliases",
+  "ai_descriptions"
 ] as const;
 
 type Row = { job_type: string; is_paused: boolean; notes: string | null; updated_at: string };

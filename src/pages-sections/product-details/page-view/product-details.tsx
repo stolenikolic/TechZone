@@ -9,6 +9,7 @@ import AvailableShops from "../available-shops";
 import RelatedProducts from "../related-products";
 import FrequentlyBought from "../frequently-bought";
 import ProductDescription from "../product-description";
+import ProductFaq from "../product-faq";
 import SiteBreadcrumbs from "components/site-breadcrumbs/site-breadcrumbs";
 import type { SiteBreadcrumbItem } from "components/site-breadcrumbs";
 // CUSTOM DATA MODEL
@@ -26,6 +27,8 @@ interface Props {
 export default function ProductDetailsPageView(props: Props) {
   const { product } = props;
   const leafHref = getLeafCategoryHref(product);
+  const hasSpecifications = Boolean(product.specifications?.length);
+  const hasFaq = Boolean(product.faq?.length);
 
   const breadcrumbItems: SiteBreadcrumbItem[] = [
     ...(product.parentCategory
@@ -43,18 +46,22 @@ export default function ProductDetailsPageView(props: Props) {
       {/* PRODUCT DETAILS INFO AREA */}
       <ProductIntro product={product} />
 
-      {/* PRODUCT DESCRIPTION | SPECIFICATIONS (if attributes exist) | REVIEWS */}
+      {/* PRODUCT DESCRIPTION | SPECIFICATIONS | FAQ | REVIEWS */}
       <ProductTabs
-        description={<ProductDescription description={props.product.description} />}
+        description={<ProductDescription description={product.description} />}
         specifications={
-          product.specifications && product.specifications.length > 0 ? (
+          hasSpecifications ? (
             <ProductSpecifications
-              specifications={product.specifications}
+              specifications={product.specifications!}
               categoryHref={leafHref}
+              showTitle={false}
             />
           ) : undefined
         }
+        faq={hasFaq ? <ProductFaq items={product.faq} showTitle={false} /> : undefined}
         reviews={<ProductReviews />}
+        hasSpecifications={hasSpecifications}
+        hasFaq={hasFaq}
       />
 
       {/* FREQUENTLY BOUGHT PRODUCTS AREA */}

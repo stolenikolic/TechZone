@@ -13,6 +13,12 @@ export default interface Product {
   discount: number;
   thumbnail: string;
   description?: string;
+  mpn?: string;
+  ean?: string;
+  metaDescription?: string;
+  ogDescription?: string;
+  faq?: Array<{ q: string; a: string }>;
+  aiDescriptionStatus?: string;
   id: string;
   shop?: Shop;
   brand?: string;

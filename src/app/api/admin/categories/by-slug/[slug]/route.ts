@@ -21,9 +21,18 @@ type AttributeRow = {
   filter_step: number | null;
 };
 
+type CategoryAiConfigRow = {
+  tone: string | null;
+  audience: string | null;
+  extra_instructions: string | null;
+  is_enabled: boolean;
+};
+
 type CategoryAttributeRow = {
   attribute_id: string;
   sort_order: number;
+  include_in_ai_description: boolean;
+  ai_description_priority: number;
   attributes:
     | {
         id: string;
@@ -32,6 +41,7 @@ type CategoryAttributeRow = {
         filter_display_type: string | null;
         filter_unit: string | null;
         filter_step: number | null;
+        name_bs: string | null;
       }
     | {
         id: string;
@@ -40,6 +50,7 @@ type CategoryAttributeRow = {
         filter_display_type: string | null;
         filter_unit: string | null;
         filter_step: number | null;
+        name_bs: string | null;
       }[]
     | null;
 };
@@ -61,7 +72,8 @@ export async function GET(
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     if (!category) return NextResponse.json({ error: "Category not found." }, { status: 404 });
 
-    const [{ data: categories }, { data: attributes }, { data: categoryAttrs }] = await Promise.all([
+    const [{ data: categories }, { data: attributes }, { data: categoryAttrs }, { data: aiConfig }] =
+      await Promise.all([
       supabase
         .from("categories")
         .select("id, name, slug, parent_id, image_url, selling_margin_default, created_at")
@@ -73,10 +85,15 @@ export async function GET(
       supabase
         .from("category_attributes")
         .select(
-          "attribute_id, sort_order, attributes(id, name, slug, filter_display_type, filter_unit, filter_step)"
+          "attribute_id, sort_order, include_in_ai_description, ai_description_priority, attributes(id, name, slug, name_bs, filter_display_type, filter_unit, filter_step)"
         )
         .eq("category_id", category.id)
-        .order("sort_order", { ascending: true })
+        .order("sort_order", { ascending: true }),
+      supabase
+        .from("category_ai_description_config")
+        .select("tone, audience, extra_instructions, is_enabled")
+        .eq("category_id", category.id)
+        .maybeSingle()
     ]);
 
     const selectedAttributeIds = (categoryAttrs ?? [])
@@ -94,7 +111,10 @@ export async function GET(
           filter_display_type: attribute.filter_display_type,
           filter_unit: attribute.filter_unit,
           filter_step: attribute.filter_step,
-          sort_order: row.sort_order ?? 0
+          name_bs: attribute.name_bs ?? null,
+          sort_order: row.sort_order ?? 0,
+          include_in_ai_description: Boolean(row.include_in_ai_description),
+          ai_description_priority: row.ai_description_priority ?? 100
         };
       })
       .filter((row): row is NonNullable<typeof row> => row != null);
@@ -104,7 +124,15 @@ export async function GET(
       categories: (categories ?? []) as CategoryRow[],
       attributes: (attributes ?? []) as AttributeRow[],
       selectedAttributeIds,
-      categoryAttributes
+      categoryAttributes,
+      aiDescriptionConfig: aiConfig
+        ? {
+            tone: (aiConfig as CategoryAiConfigRow).tone,
+            audience: (aiConfig as CategoryAiConfigRow).audience,
+            extraInstructions: (aiConfig as CategoryAiConfigRow).extra_instructions,
+            isEnabled: (aiConfig as CategoryAiConfigRow).is_enabled
+          }
+        : null
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

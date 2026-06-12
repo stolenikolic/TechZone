@@ -22,6 +22,12 @@ type DbProduct = {
   price: number | null;
   custom_price: number | null;
   original_price: number | null;
+  mpn: string | null;
+  ean: string | null;
+  ai_meta_description: string | null;
+  ai_og_description: string | null;
+  ai_faq: unknown;
+  ai_description_status: string | null;
   categories: DbCategory | DbCategory[] | null;
 };
 
@@ -65,7 +71,9 @@ const getProduct = cache(async (slug: string): Promise<Product | null> => {
     const { data, error } = await applyStorefrontProductVisibility(
       supabase
         .from("products")
-        .select("id, name, slug, description, brand, main_image, rating, price, custom_price, original_price, categories(id, name, slug, parent_id)")
+        .select(
+          "id, name, slug, description, brand, main_image, rating, price, custom_price, original_price, mpn, ean, ai_meta_description, ai_og_description, ai_faq, ai_description_status, categories(id, name, slug, parent_id)"
+        )
         .eq("slug", slug)
     ).maybeSingle();
 
@@ -126,6 +134,25 @@ const getProduct = cache(async (slug: string): Promise<Product | null> => {
       row.id,
       product.price ?? 0
     );
+
+    if (row.mpn) product.mpn = row.mpn;
+    if (row.ean) product.ean = row.ean;
+    product.aiDescriptionStatus = row.ai_description_status ?? undefined;
+
+    const aiApproved =
+      row.ai_description_status === "approved" || row.ai_description_status === "generated";
+
+    if (aiApproved && row.ai_meta_description) {
+      product.metaDescription = row.ai_meta_description;
+    }
+    if (aiApproved && row.ai_og_description) {
+      product.ogDescription = row.ai_og_description;
+    }
+    if (aiApproved && row.ai_faq && Array.isArray(row.ai_faq)) {
+      product.faq = (row.ai_faq as Array<{ q?: string; a?: string }>)
+        .filter((item) => item.q && item.a)
+        .map((item) => ({ q: String(item.q), a: String(item.a) }));
+    }
 
     return product;
   } catch (err) {

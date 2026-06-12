@@ -34,7 +34,8 @@ const JOB_TYPES = [
   "aggregate_prices",
   "auto_match",
   "enrichment",
-  "apply_value_aliases"
+  "apply_value_aliases",
+  "ai_descriptions"
 ] as const;
 
 const STATUSES = ["running", "success", "failed", "partial"] as const;
