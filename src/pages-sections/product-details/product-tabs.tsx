@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, ReactNode, SyntheticEvent, useEffect, useMemo, useState } from "react";
-import Grid from "@mui/material/Grid";
+import Box from "@mui/material/Box";
+import Divider from "@mui/material/Divider";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
@@ -83,17 +84,38 @@ export default function ProductTabs({
     switch (activeKey) {
       case "description-specs":
         return (
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: hasSpecifications ? 6 : 12 }}>{description}</Grid>
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "stretch",
+              gap: 4
+            }}
+          >
+            <Box sx={{ flex: 1, minWidth: 0 }}>{description}</Box>
             {hasSpecifications && specifications ? (
-              <Grid size={{ xs: 12, md: 6 }}>
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                  Specifikacije
-                </Typography>
-                {specifications}
-              </Grid>
+              <>
+                <Divider orientation="vertical" flexItem />
+                <Box
+                  sx={{
+                    flex: 1,
+                    minWidth: 0,
+                    display: "flex",
+                    justifyContent: "center"
+                  }}
+                >
+                  <Box sx={{ width: "100%", maxWidth: 480 }}>
+                    <Typography
+                      variant="h6"
+                      sx={{ mb: 2, fontWeight: 600, textAlign: "center" }}
+                    >
+                      Specifikacije
+                    </Typography>
+                    {specifications}
+                  </Box>
+                </Box>
+              </>
             ) : null}
-          </Grid>
+          </Box>
         );
       case "description":
         return description;

@@ -16,6 +16,7 @@ export const maxDuration = 300;
 
 const ALLOWED: JobType[] = [
   "ipon_import",
+  "ipon_xml_sync",
   "ipon_scrape_details",
   "pcx_import",
   "firstshop_import",
@@ -33,6 +34,7 @@ const ALLOWED: JobType[] = [
 function supplierIdForDashboardJob(jobType: JobType): string | null {
   switch (jobType) {
     case "ipon_import":
+    case "ipon_xml_sync":
     case "ipon_scrape_details":
       return IPON_SUPPLIER_ID;
     case "pcx_import":
@@ -80,6 +82,10 @@ async function runJob(
   if (jobType === "ipon_import") {
     const { runIponImportProducts } = await import("lib/suppliers/ipon/importProducts");
     return runIponImportProducts();
+  }
+  if (jobType === "ipon_xml_sync") {
+    const { runIponXmlSync } = await import("lib/suppliers/ipon/xmlSync");
+    return runIponXmlSync();
   }
   if (jobType === "ipon_scrape_details") {
     const { runIponScrapeDetails } = await import("lib/suppliers/ipon/scrapeDetails");

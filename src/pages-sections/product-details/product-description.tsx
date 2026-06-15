@@ -9,7 +9,7 @@ const DescriptionHtml = styled("div")(({ theme }) => ({
   fontSize: theme.typography.body1.fontSize,
   lineHeight: 1.7,
   "& p": {
-    margin: "0 0 1em"
+    margin: "0 0 1.5em"
   },
   "& p:last-child": {
     marginBottom: 0
@@ -26,18 +26,31 @@ const DescriptionHtml = styled("div")(({ theme }) => ({
     "&:first-child": { marginTop: 0 }
   },
   "& strong": {
-    fontWeight: 600
+    fontWeight: 600,
+    color: theme.palette.primary.main
   },
   "& ul": {
-    listStyle: "disc",
-    margin: "0.5em 0 1em",
-    paddingLeft: "1.25em"
+    listStyle: "none",
+    margin: "0.75em 0 1.5em",
+    padding: 0
   },
   "& li": {
-    marginBottom: "0.35em"
-  },
-  "& li::marker": {
-    color: theme.palette.text.secondary
+    position: "relative",
+    paddingLeft: "1.125rem",
+    marginBottom: "0.625em",
+    "&:last-child": {
+      marginBottom: 0
+    },
+    "&::before": {
+      content: '""',
+      position: "absolute",
+      left: 0,
+      top: "0.72em",
+      width: 6,
+      height: 6,
+      backgroundColor: theme.palette.primary.main,
+      borderRadius: 1
+    }
   }
 }));
 

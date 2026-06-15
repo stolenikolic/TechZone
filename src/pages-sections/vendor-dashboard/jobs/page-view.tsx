@@ -25,6 +25,7 @@ import Typography from "@mui/material/Typography";
 
 const JOB_TYPES = [
   "ipon_import",
+  "ipon_xml_sync",
   "ipon_scrape_details",
   "pcx_import",
   "firstshop_import",

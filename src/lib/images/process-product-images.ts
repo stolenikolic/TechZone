@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { PRODUCT_IMAGES_BUCKET } from "lib/images/constants";
 import { fetchImageBuffer } from "lib/images/fetch-image";
 import { resizeProductToWebp } from "lib/images/resize-to-webp";
-import { uploadWebp } from "lib/images/storage";
+import { removeProductImageFolder, removeStoragePaths, storagePathFromPublicUrl, uploadWebp } from "lib/images/storage";
 
 export type ProcessProductImagesOptions = {
   /** When false (import default), skip if product_images already exist. */
@@ -23,7 +23,22 @@ export async function processProductImages(
 
   const replaceExisting = options?.replaceExisting ?? false;
 
-  if (!replaceExisting) {
+  if (replaceExisting) {
+    const { data: existingRows } = await supabase
+      .from("product_images")
+      .select("image_url")
+      .eq("product_id", productId);
+
+    const legacyPaths = (existingRows ?? [])
+      .map((row) => storagePathFromPublicUrl(String(row.image_url), PRODUCT_IMAGES_BUCKET))
+      .filter((p): p is string => Boolean(p));
+
+    await removeProductImageFolder(supabase, productId);
+    if (legacyPaths.length > 0) {
+      await removeStoragePaths(supabase, PRODUCT_IMAGES_BUCKET, legacyPaths);
+    }
+    await supabase.from("product_images").delete().eq("product_id", productId);
+  } else {
     const { data: existing } = await supabase
       .from("product_images")
       .select("id")

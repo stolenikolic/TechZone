@@ -5,6 +5,7 @@ export {
 } from "./convert";
 export {
   aggregatePrices,
+  aggregatePricesForProductIds,
   wrapAggregatePricesJobResult,
   type AggregatePricesResult
 } from "./aggregate-prices";

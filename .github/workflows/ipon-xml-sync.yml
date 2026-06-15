@@ -1,0 +1,38 @@
+# iPon XML feed — cijene i deaktivacija svakih 2 sata (odvojeno od nightly pipeline-a).
+
+name: iPon XML sync
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+  SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  JOB_TRIGGERED_BY: cron
+  JOB_TYPE: ipon_xml_sync
+  IPON_XML_FEED_URL: ${{ secrets.IPON_XML_FEED_URL }}
+
+concurrency:
+  group: ipon-xml-sync
+  cancel-in-progress: false
+
+jobs:
+  xml_sync:
+    name: iPon XML sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: echo "Triggered by ${{ github.event_name }} at $(date -u)"
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-xml-sync.ts

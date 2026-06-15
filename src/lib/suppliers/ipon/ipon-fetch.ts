@@ -16,10 +16,18 @@ export function numEnv(name: string, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/** Discovery mode: cijene ide preko XML sync-a; API samo novi artikli + slika. */
+export function isIponDiscoveryImportMode(): boolean {
+  const mode = process.env.IPON_IMPORT_MODE?.trim().toLowerCase();
+  return mode !== "full" && mode !== "legacy";
+}
+
+const discoveryImport = isIponDiscoveryImportMode();
+
 /** Pauza između koraka warmup-a i između stranica liste (ms). */
-export const IPON_WARMUP_GAP_MS = numEnv("IPON_WARMUP_GAP_MS", 900);
-export const IPON_PAGE_DELAY_MS = numEnv("IPON_PAGE_DELAY_MS", 650);
-export const IPON_BEFORE_LIST_API_MS = numEnv("IPON_BEFORE_LIST_API_MS", 500);
+export const IPON_WARMUP_GAP_MS = numEnv("IPON_WARMUP_GAP_MS", discoveryImport ? 300 : 900);
+export const IPON_PAGE_DELAY_MS = numEnv("IPON_PAGE_DELAY_MS", discoveryImport ? 0 : 650);
+export const IPON_BEFORE_LIST_API_MS = numEnv("IPON_BEFORE_LIST_API_MS", discoveryImport ? 0 : 500);
 
 export function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));

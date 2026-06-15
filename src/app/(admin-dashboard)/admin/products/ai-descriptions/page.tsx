@@ -1,8 +1,5 @@
-import { adminPageMetadata } from "lib/site-metadata";
-import { AiDescriptionsReviewPageView } from "pages-sections/vendor-dashboard/products/page-view/ai-descriptions-review";
+import { redirect } from "next/navigation";
 
-export const metadata = adminPageMetadata("AI opisi — pregled");
-
-export default function AiDescriptionsReviewPage() {
-  return <AiDescriptionsReviewPageView />;
+export default function AiDescriptionsLegacyRedirect() {
+  redirect("/admin/ai-descriptions");
 }

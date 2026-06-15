@@ -16,6 +16,10 @@ PRAVILA:
 - Fokus na KORIST za korisnika, ne na puko nabrajanje. Kratke, aktivne rečenice.
 - Bez keyword stuffinga. NE spominji cijenu.
 - HTML dozvoljen samo: <p>, <ul>, <li>, <strong>, <h2>, <h3> (naslovi samo ako sadržaj traži).
+- Obavezna struktura opisa:
+    1. Uvodni pasus koji sadrži puno ime proizvoda.
+    2. <h2>Zašto odabrati [Naziv Proizvoda]?</h2> (pasus sa glavnim benefitima).
+    3. <h2>Tehničke prednosti i kompatibilnost</h2> (pasus sa tehničkim detaljima).
 - Vrati ISKLJUČIVO validan JSON po zadatoj šemi, bez markdown ograda.`;
 
 export function buildUserPrompt(input: BuildPromptInput): string {

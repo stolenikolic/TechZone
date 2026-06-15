@@ -41,6 +41,11 @@ export const navigation = [
     ]
   },
   {
+    name: "AI opisi",
+    icon: duotone.Review,
+    path: "/admin/ai-descriptions"
+  },
+  {
     name: "Homepage",
     icon: duotone.SiteSetting,
     path: "/admin/homepage"

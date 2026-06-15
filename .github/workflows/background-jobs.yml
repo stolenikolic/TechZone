@@ -12,6 +12,7 @@ on:
         type: choice
         options:
           - ipon_import
+          - ipon_xml_sync
           - pcx_import
           - firstshop_import
           - pcland_import
@@ -61,6 +62,7 @@ jobs:
       - run: |
           case "${{ inputs.job }}" in
             ipon_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-import-products.ts ;;
+            ipon_xml_sync) npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-xml-sync.ts ;;
             pcx_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-pcx-import-products.ts ;;
             firstshop_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-firstshop-import-products.ts ;;
             pcland_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-pcland-import-products.ts ;;

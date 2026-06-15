@@ -1,13 +1,18 @@
 /**
- * iPon: API import proizvoda (bez HTML scrapinga).
- * Poziva se više puta za sync cena i novih artikala.
+ * iPon: API import proizvoda (discovery mod — novi artikli, detekcija slike).
+ * Cijene i deaktivacija: `xmlSync.ts` (XML feed, cron svakih 2h).
  *
  * Pokretanje: npx tsx scripts/run-ipon-import-products.ts
+ * Cijene: npx tsx scripts/run-ipon-xml-sync.ts
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceClient } from "utils/supabase";
-import { aggregatePrices, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
+import {
+  aggregatePrices,
+  aggregatePricesForProductIds,
+  reconcileProductsIsActiveFromSupplierOffers
+} from "lib/pricing";
 import { mergeMatchAudit, resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
 import { normalizeEan, normalizeMpn, mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
@@ -17,11 +22,18 @@ import {
   fetchIponProductDataPage,
   IPON_BEFORE_LIST_API_MS,
   IPON_PAGE_DELAY_MS,
+  isIponDiscoveryImportMode,
   looksLikeCaptchaOrBlock,
   sleep,
   warmupIponSessionForListing
 } from "./ipon-fetch";
 import { processProductImages } from "./processProductImages";
+import {
+  getFirstPictureUrl,
+  needsPicturesIngest,
+  PICTURES_INGESTED_FROM_KEY,
+  reingestIponProductImages
+} from "./ipon-product-images";
 import { withPostgrestTransientRetry } from "./transient-retry";
 import {
   parseIponDeliveryDays,
@@ -82,8 +94,157 @@ const SUPPLIER_PRODUCTS_IN_CHUNK = 100;
 type OfferSnapshot = { price_amount: number | null; is_active: boolean | null };
 
 type UpsertIponListItemResult =
-  | { outcome: "imported" }
-  | { outcome: "succeeded"; priceChanged: boolean; activated: boolean };
+  | { outcome: "imported"; productId: string }
+  | {
+      outcome: "succeeded";
+      priceChanged: boolean;
+      activated: boolean;
+      imageChanged?: boolean;
+      rescrapeQueued?: boolean;
+    };
+
+type DiscoveryPriceAggregateResult = {
+  pricesAggregated: number;
+  aggregateBatches: number;
+  aggError?: string;
+  aggWarnings?: string[];
+};
+
+async function aggregateDiscoveryNewProductPrices(
+  discoveryMode: boolean,
+  newProductIds: string[]
+): Promise<DiscoveryPriceAggregateResult> {
+  if (!discoveryMode || newProductIds.length === 0) {
+    return { pricesAggregated: 0, aggregateBatches: 0 };
+  }
+
+  const uniqueIds = Array.from(new Set(newProductIds));
+  console.log(`[iPon import] Agregacija cijena za ${uniqueIds.length} novih proizvoda…`);
+  const agg = await aggregatePricesForProductIds(uniqueIds);
+  if (agg.error) {
+    console.warn("[iPon import] aggregatePricesForProductIds:", agg.error);
+  }
+
+  return {
+    pricesAggregated: agg.updated,
+    aggregateBatches: agg.batches,
+    aggError: agg.error,
+    aggWarnings: agg.warnings
+  };
+}
+
+function getFirstPictureUrlFromItem(item: IponProductItem | Record<string, unknown> | null | undefined): string | null {
+  return getFirstPictureUrl(item);
+}
+
+async function queueRescrapeAfterImageChange(
+  supabase: SupabaseClient,
+  productId: string,
+  supplierProductId: string,
+  item: IponProductItem,
+  existingRaw: Record<string, unknown> | null
+): Promise<void> {
+  const mergedRaw: Record<string, unknown> = {
+    ...(existingRaw ?? {}),
+    ...(item as unknown as Record<string, unknown>),
+    pictures: item.pictures
+  };
+
+  const pictureUrls = Array.isArray(item.pictures)
+    ? item.pictures.filter((u): u is string => typeof u === "string")
+    : [];
+  if (pictureUrls[0]) {
+    mergedRaw[PICTURES_INGESTED_FROM_KEY] = pictureUrls[0];
+  }
+
+  const { error: spErr } = await withPostgrestTransientRetry(
+    "supplier_products.rescrape-reset",
+    async () =>
+      await supabase
+        .from("supplier_products")
+        .update({
+          raw_json: mergedRaw,
+          spec_snapshot: null,
+          specs_fetched_at: null,
+          enrichment_status: "pending",
+          updated_at: new Date().toISOString()
+        })
+        .eq("supplier_id", IPON_SUPPLIER_ID)
+        .eq("supplier_product_id", supplierProductId)
+  );
+  if (spErr) {
+    throw new Error(`supplier_products rescrape reset failed: ${spErr.message}`);
+  }
+
+  if (pictureUrls.length > 0) {
+    await reingestIponProductImages(supabase, productId, pictureUrls, {
+      supplierProductId,
+      existingRaw: mergedRaw,
+      updateIngestedMarker: false
+    });
+  }
+
+  const { data: productRow } = await supabase
+    .from("products")
+    .select("ai_description_locked")
+    .eq("id", productId)
+    .maybeSingle();
+
+  if (!productRow?.ai_description_locked) {
+    await supabase
+      .from("products")
+      .update({ ai_description_status: "pending", updated_at: new Date().toISOString() })
+      .eq("id", productId);
+  }
+}
+
+async function handleDiscoveryExistingOffer(
+  supabase: SupabaseClient,
+  productId: string,
+  supplierProductId: string,
+  item: IponProductItem,
+  existingRaw: unknown
+): Promise<UpsertIponListItemResult> {
+  const rawRecord =
+    existingRaw && typeof existingRaw === "object" ? (existingRaw as Record<string, unknown>) : null;
+  const newPic = getFirstPictureUrlFromItem(item);
+  const oldPic = getFirstPictureUrlFromItem(rawRecord as IponProductItem | null);
+  const urlChanged = Boolean(newPic && oldPic && newPic !== oldPic);
+  const ingestPending = needsPicturesIngest(rawRecord, newPic);
+
+  if (urlChanged) {
+    await queueRescrapeAfterImageChange(supabase, productId, supplierProductId, item, rawRecord);
+    await deactivateOtherIponOffersForProduct(supabase, productId, supplierProductId);
+    return {
+      outcome: "succeeded",
+      priceChanged: false,
+      activated: false,
+      imageChanged: true,
+      rescrapeQueued: true
+    };
+  }
+
+  if (ingestPending && newPic) {
+    const pictureUrls = Array.isArray(item.pictures)
+      ? item.pictures.filter((u): u is string => typeof u === "string")
+      : [newPic];
+    await reingestIponProductImages(supabase, productId, pictureUrls, {
+      supplierProductId,
+      existingRaw: rawRecord
+    });
+    await deactivateOtherIponOffersForProduct(supabase, productId, supplierProductId);
+    return {
+      outcome: "succeeded",
+      priceChanged: false,
+      activated: false,
+      imageChanged: true,
+      rescrapeQueued: false
+    };
+  }
+
+  await deactivateOtherIponOffersForProduct(supabase, productId, supplierProductId);
+  return { outcome: "succeeded", priceChanged: false, activated: false, imageChanged: false, rescrapeQueued: false };
+}
 
 function iponOfferPriceChanged(before: OfferSnapshot | null | undefined, grossPrice: number): boolean {
   if (!before) return false;
@@ -237,13 +398,14 @@ async function upsertIponListItem(
   internalCategoryId: string
 ): Promise<UpsertIponListItemResult> {
   const supplierProductId = toSupplierProductId(item);
+  const discoveryMode = isIponDiscoveryImportMode();
 
   const { data: existing, error: lookupErr } = await withPostgrestTransientRetry(
     "supplier_products.lookup",
     async () =>
       await supabase
         .from("supplier_products")
-        .select("product_id, price_amount, is_active")
+        .select("product_id, price_amount, is_active, raw_json")
         .eq("supplier_id", IPON_SUPPLIER_ID)
         .eq("supplier_product_id", supplierProductId)
         .maybeSingle()
@@ -253,6 +415,16 @@ async function upsertIponListItem(
   }
 
   if (existing?.product_id) {
+    if (discoveryMode) {
+      return handleDiscoveryExistingOffer(
+        supabase,
+        existing.product_id,
+        supplierProductId,
+        item,
+        existing.raw_json
+      );
+    }
+
     const priceChanged = iponOfferPriceChanged(existing, item.grossPrice);
     const activated = iponOfferActivated(existing);
     const upSp = await withPostgrestTransientRetry(
@@ -313,7 +485,7 @@ async function upsertIponListItem(
     if (linkedOfferLookupError) {
       throw new Error(`supplier_products autolink lookup failed: ${linkedOfferLookupError.message}`);
     }
-    const priceChanged = iponOfferPriceChanged(linkedOfferBefore, item.grossPrice);
+    const priceChanged = discoveryMode ? false : iponOfferPriceChanged(linkedOfferBefore, item.grossPrice);
     const activated = iponOfferActivated(linkedOfferBefore);
 
     const { error: upsertLinkedError } = await withPostgrestTransientRetry(
@@ -416,9 +588,20 @@ async function upsertIponListItem(
     if (firstImage?.image_url) {
       await supabase.from("products").update({ main_image: firstImage.image_url }).eq("id", product.id);
     }
+    if (pictureUrls[0]) {
+      const baseRaw = mergeMatchAudit(item as unknown as Record<string, unknown>, match.audit);
+      await supabase
+        .from("supplier_products")
+        .update({
+          raw_json: { ...baseRaw, [PICTURES_INGESTED_FROM_KEY]: pictureUrls[0] },
+          updated_at: new Date().toISOString()
+        })
+        .eq("supplier_id", IPON_SUPPLIER_ID)
+        .eq("supplier_product_id", supplierProductId);
+    }
   }
 
-  return { outcome: "imported" };
+  return { outcome: "imported", productId: product.id };
 }
 
 async function upsertItemsForCategory(
@@ -430,51 +613,70 @@ async function upsertItemsForCategory(
   succeeded: number;
   updated: number;
   activated: number;
+  imageChanged: number;
+  rescrapeQueued: number;
   fetchedIds: Set<string>;
+  newProductIds: string[];
 }> {
   const fetchedIds = new Set<string>();
+  const newProductIds: string[] = [];
   let imported = 0;
   let succeeded = 0;
   let updated = 0;
   let activated = 0;
+  let imageChanged = 0;
+  let rescrapeQueued = 0;
   for (const raw of rawItems) {
     if (!raw || typeof raw !== "object") continue;
     const item = normalizeListItem(raw as Record<string, unknown>);
     if (!item) continue;
     fetchedIds.add(toSupplierProductId(item));
     const r = await upsertIponListItem(supabase, item, cat.internalCategoryId);
-    if (r.outcome === "imported") imported += 1;
-    else {
+    if (r.outcome === "imported") {
+      imported += 1;
+      newProductIds.push(r.productId);
+    } else {
       succeeded += 1;
       if (r.priceChanged) updated += 1;
       if (r.activated) activated += 1;
+      if (r.imageChanged) imageChanged += 1;
+      if (r.rescrapeQueued) rescrapeQueued += 1;
     }
   }
-  return { imported, succeeded, updated, activated, fetchedIds };
+  return { imported, succeeded, updated, activated, imageChanged, rescrapeQueued, fetchedIds, newProductIds };
 }
 
 async function importIponCategory(
   supabase: SupabaseClient,
   cat: IponCategory,
-  jar: Map<string, string>
+  jar: Map<string, string>,
+  options?: { skipWarmup?: boolean }
 ): Promise<{
   imported: number;
   succeeded: number;
   updated: number;
   activated: number;
+  imageChanged: number;
+  rescrapeQueued: number;
   deactivated: number;
+  newProductIds: string[];
 }> {
   const groupId = getIponSupplierGroupId(cat);
 
-  console.log("[iPon import] Warmup sesije:", cat.name, cat.url);
-  await warmupIponSessionForListing(jar, cat.url);
-  await sleep(IPON_BEFORE_LIST_API_MS);
+  if (!options?.skipWarmup) {
+    console.log("[iPon import] Warmup sesije:", cat.name, cat.url);
+    await warmupIponSessionForListing(jar, cat.url);
+    await sleep(IPON_BEFORE_LIST_API_MS);
+  }
 
   const fetchedIds = new Set<string>();
   let imported = 0;
   let succeeded = 0;
   let updated = 0;
   let activated = 0;
+  let imageChanged = 0;
+  let rescrapeQueued = 0;
+  const newProductIds: string[] = [];
   let page = 1;
   let apiTotal: number | null = null;
   let skippedUnparseable = 0;
@@ -526,7 +728,10 @@ async function importIponCategory(
     succeeded += batch.succeeded;
     updated += batch.updated;
     activated += batch.activated;
+    imageChanged += batch.imageChanged;
+    rescrapeQueued += batch.rescrapeQueued;
     batch.fetchedIds.forEach((id) => fetchedIds.add(id));
+    newProductIds.push(...batch.newProductIds);
 
     page += 1;
     await sleep(IPON_PAGE_DELAY_MS);
@@ -544,7 +749,7 @@ async function importIponCategory(
   }
 
   console.log(
-    `[iPon import] Sažetak ${cat.name}: API total=${apiTotal ?? "?"}, fetchedIds=${fetchedIds.size}, preskočeno (bez cijene)=${skippedUnparseable}, novih=${imported}, uspješno=${succeeded}, izmijenjeno=${updated}, aktivirano=${activated}, deaktivirano=${deactivated}`
+    `[iPon import] Sažetak ${cat.name}: API total=${apiTotal ?? "?"}, fetchedIds=${fetchedIds.size}, preskočeno (bez cijene)=${skippedUnparseable}, novih=${imported}, uspješno=${succeeded}, izmijenjeno=${updated}, aktivirano=${activated}, slika=${imageChanged}, rescrape=${rescrapeQueued}, deaktivirano=${deactivated}`
   );
   if (apiTotal != null && fetchedIds.size !== apiTotal) {
     console.warn(
@@ -552,7 +757,7 @@ async function importIponCategory(
     );
   }
 
-  return { imported, succeeded, updated, activated, deactivated };
+  return { imported, succeeded, updated, activated, imageChanged, rescrapeQueued, deactivated, newProductIds };
 }
 
 export type IponImportProductsResult = {
@@ -572,10 +777,13 @@ export type IponImportProductsResult = {
     succeeded: number;
     updated: number;
     activated: number;
+    image_changed?: number;
+    rescrape_queued?: number;
     deactivated_offers: number;
     prices_aggregated: number;
     aggregate_batches: number;
     categories_processed: number;
+    import_mode?: string;
     single_category?: boolean;
     category_name?: string;
     internal_category_id?: string;
@@ -607,11 +815,8 @@ export async function runIponImportFromFixtureFile(
 
   console.log("[iPon import] Fixture:", filePath, "stavki:", rawItems.length, "→ kategorija:", cat.name);
 
-  const { imported, succeeded, updated, activated, fetchedIds } = await upsertItemsForCategory(
-    supabase,
-    cat,
-    rawItems
-  );
+  const { imported, succeeded, updated, activated, imageChanged, rescrapeQueued, fetchedIds, newProductIds } =
+    await upsertItemsForCategory(supabase, cat, rawItems);
 
   let deactivated = 0;
   if (fetchedIds.size > 0) {
@@ -622,36 +827,60 @@ export async function runIponImportFromFixtureFile(
     }
   }
 
-  const agg = await aggregatePrices();
+  const discoveryMode = isIponDiscoveryImportMode();
+  let pricesAggregated = 0;
+  let aggregateBatches = 0;
+  let aggError: string | undefined;
+  let aggWarnings: string[] | undefined;
+
+  if (discoveryMode) {
+    const agg = await aggregateDiscoveryNewProductPrices(discoveryMode, newProductIds);
+    pricesAggregated = agg.pricesAggregated;
+    aggregateBatches = agg.aggregateBatches;
+    aggError = agg.aggError;
+    aggWarnings = agg.aggWarnings;
+  } else {
+    const agg = await aggregatePrices();
+    pricesAggregated = agg.updated;
+    aggregateBatches = agg.batches;
+    aggError = agg.error;
+    aggWarnings = agg.warnings;
+  }
+
   console.log("[iPon import] Fixture završeno.", {
     imported,
     succeeded,
     updated,
     activated,
+    imageChanged,
+    rescrapeQueued,
     deactivated,
-    pricesUpdated: agg.updated
+    pricesUpdated: pricesAggregated
   });
 
   return {
-    success: !agg.error,
+    success: !aggError,
     imported,
     succeeded,
     updated,
     activated,
     deactivated,
-    pricesAggregated: agg.updated,
+    pricesAggregated,
     categoriesProcessed: 1,
     summary: {
       imported,
       succeeded,
       updated,
       activated,
+      image_changed: imageChanged,
+      rescrape_queued: rescrapeQueued,
       deactivated_offers: deactivated,
-      prices_aggregated: agg.updated,
-      aggregate_batches: agg.batches,
+      prices_aggregated: pricesAggregated,
+      aggregate_batches: aggregateBatches,
       categories_processed: 1,
-      ...(agg.error ? { aggregate_error: agg.error } : {}),
-      ...(agg.warnings?.length ? { aggregate_warnings: agg.warnings } : {})
+      import_mode: discoveryMode ? "discovery" : "full",
+      ...(aggError ? { aggregate_error: aggError } : {}),
+      ...(aggWarnings?.length ? { aggregate_warnings: aggWarnings } : {})
     }
   };
 }
@@ -673,54 +902,95 @@ export async function runIponImportProducts(
 
   const supabase = createSupabaseServiceClient();
   const jar = new Map<string, string>();
+  const discoveryMode = isIponDiscoveryImportMode();
+
+  if (discoveryMode) {
+    console.log("[iPon import] Discovery mod — postojeći: cijene preko XML sync-a; novi: odmah nakon importa.");
+  }
 
   let imported = 0;
   let succeeded = 0;
   let updated = 0;
   let activated = 0;
+  let imageChanged = 0;
+  let rescrapeQueued = 0;
   let deactivated = 0;
+  const newProductIds: string[] = [];
+
+  const firstCat = categories[0];
+  if (firstCat) {
+    console.log("[iPon import] Warmup sesije (jednom):", firstCat.url);
+    await warmupIponSessionForListing(jar, firstCat.url);
+    await sleep(IPON_BEFORE_LIST_API_MS);
+  }
 
   for (const cat of categories) {
-    const r = await importIponCategory(supabase, cat, jar);
+    const r = await importIponCategory(supabase, cat, jar, { skipWarmup: Boolean(firstCat) });
     imported += r.imported;
     succeeded += r.succeeded;
     updated += r.updated;
     activated += r.activated;
+    imageChanged += r.imageChanged;
+    rescrapeQueued += r.rescrapeQueued;
     deactivated += r.deactivated;
+    newProductIds.push(...r.newProductIds);
   }
 
-  const agg = await aggregatePrices();
+  let pricesAggregated = 0;
+  let aggregateBatches = 0;
+  let aggError: string | undefined;
+  let aggWarnings: string[] | undefined;
+
+  if (discoveryMode) {
+    const agg = await aggregateDiscoveryNewProductPrices(discoveryMode, newProductIds);
+    pricesAggregated = agg.pricesAggregated;
+    aggregateBatches = agg.aggregateBatches;
+    aggError = agg.aggError;
+    aggWarnings = agg.aggWarnings;
+  } else {
+    const agg = await aggregatePrices();
+    pricesAggregated = agg.updated;
+    aggregateBatches = agg.batches;
+    aggError = agg.error;
+    aggWarnings = agg.warnings;
+  }
 
   console.log("[iPon import] Završeno.", {
     imported,
     succeeded,
     updated,
     activated,
+    imageChanged,
+    rescrapeQueued,
     deactivated,
-    pricesUpdated: agg.updated,
-    categories: categories.length
+    pricesUpdated: pricesAggregated,
+    categories: categories.length,
+    mode: discoveryMode ? "discovery" : "full"
   });
 
   return {
-    success: !agg.error,
+    success: !aggError,
     imported,
     succeeded,
     updated,
     activated,
     deactivated,
-    pricesAggregated: agg.updated,
+    pricesAggregated,
     categoriesProcessed: categories.length,
     summary: {
       imported,
       succeeded,
       updated,
       activated,
+      image_changed: imageChanged,
+      rescrape_queued: rescrapeQueued,
       deactivated_offers: deactivated,
-      prices_aggregated: agg.updated,
-      aggregate_batches: agg.batches,
+      prices_aggregated: pricesAggregated,
+      aggregate_batches: aggregateBatches,
       categories_processed: categories.length,
-      ...(agg.error ? { aggregate_error: agg.error } : {}),
-      ...(agg.warnings?.length ? { aggregate_warnings: agg.warnings } : {})
+      import_mode: discoveryMode ? "discovery" : "full",
+      ...(aggError ? { aggregate_error: aggError } : {}),
+      ...(aggWarnings?.length ? { aggregate_warnings: aggWarnings } : {})
     }
   };
 }
@@ -805,8 +1075,32 @@ export async function runIponImportForSupplierCategory(
   const cat = buildIponCategoryFromSupplierRow(input);
   const supabase = createSupabaseServiceClient();
   const jar = new Map<string, string>();
-  const r = await importIponCategory(supabase, cat, jar);
-  const agg = await aggregatePrices();
+  const discoveryMode = isIponDiscoveryImportMode();
+
+  console.log("[iPon import] Warmup sesije (jedna kategorija):", cat.url);
+  await warmupIponSessionForListing(jar, cat.url);
+  await sleep(IPON_BEFORE_LIST_API_MS);
+
+  const r = await importIponCategory(supabase, cat, jar, { skipWarmup: true });
+
+  let pricesAggregated = 0;
+  let aggregateBatches = 0;
+  let aggError: string | undefined;
+  let aggWarnings: string[] | undefined;
+
+  if (discoveryMode) {
+    const agg = await aggregateDiscoveryNewProductPrices(discoveryMode, r.newProductIds);
+    pricesAggregated = agg.pricesAggregated;
+    aggregateBatches = agg.aggregateBatches;
+    aggError = agg.aggError;
+    aggWarnings = agg.aggWarnings;
+  } else {
+    const agg = await aggregatePrices();
+    pricesAggregated = agg.updated;
+    aggregateBatches = agg.batches;
+    aggError = agg.error;
+    aggWarnings = agg.warnings;
+  }
 
   console.log("[iPon import] Jedna kategorija završena.", {
     category: cat.name,
@@ -814,33 +1108,38 @@ export async function runIponImportForSupplierCategory(
     succeeded: r.succeeded,
     updated: r.updated,
     activated: r.activated,
+    imageChanged: r.imageChanged,
+    rescrapeQueued: r.rescrapeQueued,
     deactivated: r.deactivated,
-    pricesUpdated: agg.updated
+    pricesUpdated: pricesAggregated
   });
 
   return {
-    success: !agg.error,
+    success: !aggError,
     imported: r.imported,
     succeeded: r.succeeded,
     updated: r.updated,
     activated: r.activated,
     deactivated: r.deactivated,
-    pricesAggregated: agg.updated,
+    pricesAggregated,
     categoriesProcessed: 1,
     summary: {
       imported: r.imported,
       succeeded: r.succeeded,
       updated: r.updated,
       activated: r.activated,
+      image_changed: r.imageChanged,
+      rescrape_queued: r.rescrapeQueued,
       deactivated_offers: r.deactivated,
-      prices_aggregated: agg.updated,
-      aggregate_batches: agg.batches,
+      prices_aggregated: pricesAggregated,
+      aggregate_batches: aggregateBatches,
       categories_processed: 1,
+      import_mode: discoveryMode ? "discovery" : "full",
       single_category: true,
       category_name: cat.name,
       internal_category_id: cat.internalCategoryId,
-      ...(agg.error ? { aggregate_error: agg.error } : {}),
-      ...(agg.warnings?.length ? { aggregate_warnings: agg.warnings } : {})
+      ...(aggError ? { aggregate_error: aggError } : {}),
+      ...(aggWarnings?.length ? { aggregate_warnings: aggWarnings } : {})
     }
   };
 }

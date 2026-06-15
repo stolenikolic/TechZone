@@ -14,6 +14,7 @@ import { createSupabaseServiceClient } from "utils/supabase";
 
 export type JobType =
   | "ipon_import"
+  | "ipon_xml_sync"
   | "ipon_scrape_details"
   | "pcx_import"
   | "firstshop_import"

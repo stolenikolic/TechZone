@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- CreatedAt: 2026-06-15 11:25:06 -->
+<products>
+  <termek>
+    <cikkszam>LAN0073</cikkszam>
+    <nev><![CDATA[D-LINK DES-1024D 24-Port Fast Ethernet Unmanaged Desktop Switch]]></nev>
+    <leiras>-</leiras>
+    <ar>27189</ar>
+    <fotolink>https://media.icdn.hu/product/2021-10/728325/1735523_d-link-des-1024d-24-port-fast-ethernet-unmanaged-desktop-switch.webp</fotolink>
+    <termeklink><![CDATA[https://ipon.hu/shop/termek/d-link-des-1024d-24-port-fast-ethernet-unmanaged-desktop-switch/15260?utm_source=argep&utm_medium=referral&utm_campaign=argep&utm_content=15260]]></termeklink>
+    <ido>9 nap</ido>
+    <szallitas>1990</szallitas>
+    <ean>0790069246111</ean>
+  </termek>
+  <termek>
+    <cikkszam>CPU0001</cikkszam>
+    <nev><![CDATA[Intel Core i5-12400]]></nev>
+    <leiras>-</leiras>
+    <ar>89990</ar>
+    <fotolink>https://example.com/cpu.jpg</fotolink>
+    <termeklink><![CDATA[https://ipon.hu/shop/termek/intel-core-i5-12400/99001]]></termeklink>
+    <ido>0 nap</ido>
+    <szallitas>1990</szallitas>
+    <ean>1234567890123</ean>
+  </termek>
+  <termek>
+    <cikkszam>BAD001</cikkszam>
+    <nev><![CDATA[No price product]]></nev>
+    <ar></ar>
+    <termeklink><![CDATA[https://ipon.hu/shop/termek/no-price/99999]]></termeklink>
+    <ido>1 nap</ido>
+  </termek>
+</products>

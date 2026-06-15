@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 const ALLOWED_JOB_TYPES = [
   "ipon_import",
+  "ipon_xml_sync",
   "ipon_scrape_details",
   "pcx_import",
   "firstshop_import",

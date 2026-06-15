@@ -13,6 +13,8 @@ import { getEffectivePrice } from "lib/effective-price";
 
 /** Number of supplier_products rows to fetch per query. Keep at 1000 to stay under PostgREST default row limit. */
 const FETCH_PAGE_SIZE = 1000;
+/** PostgREST .in(product_id) chunk size for scoped aggregation. */
+const PRODUCT_IDS_IN_CHUNK = 100;
 /** Number of products to update per RPC call. */
 const UPDATE_BATCH_SIZE = 2500;
 
@@ -62,11 +64,96 @@ function mergeWarnings(...lists: (string[] | undefined)[]): string[] | undefined
   return out.length ? out : undefined;
 }
 
-/**
- * Loads supplier_products with supplier formulas, computes min acquisition KM per product,
- * applies selling rules from DB settings/tiers/category/product, then batch-updates products.price.
- */
-export async function aggregatePrices(): Promise<AggregatePricesResult> {
+function ingestSupplierOfferRows(
+  rows: SupplierProductRow[],
+  settings: ReturnType<typeof resolvePricingSettingsRow>["settings"],
+  minCostByProduct: Map<string, number>
+): void {
+  for (const row of rows) {
+    const supplier = firstSupplier(row.suppliers);
+    const km = computeAcquisitionKm(
+      Number(row.price_amount),
+      row.currency ?? "",
+      supplier ?? { id: row.supplier_id, pricing_formula: null, cost_adjustment_multiplier: 1 },
+      settings
+    );
+    if (!Number.isFinite(km) || km <= 0) continue;
+
+    const current = minCostByProduct.get(row.product_id);
+    if (current === undefined || km < current) {
+      minCostByProduct.set(row.product_id, km);
+    }
+  }
+}
+
+async function loadMinCostByProduct(
+  supabase: ReturnType<typeof createSupabaseServiceClient>,
+  settings: ReturnType<typeof resolvePricingSettingsRow>["settings"],
+  productIdsFilter: string[] | null
+): Promise<Map<string, number>> {
+  const minCostByProduct = new Map<string, number>();
+
+  if (productIdsFilter != null) {
+    for (let i = 0; i < productIdsFilter.length; i += PRODUCT_IDS_IN_CHUNK) {
+      const slice = productIdsFilter.slice(i, i + PRODUCT_IDS_IN_CHUNK);
+      const { data: rows, error: fetchError } = await supabase
+        .from("supplier_products")
+        .select(
+          "product_id, supplier_id, price_amount, currency, suppliers(pricing_formula, cost_adjustment_multiplier)"
+        )
+        .in("product_id", slice)
+        .eq("is_active", true);
+
+      if (fetchError) {
+        throw new Error(`supplier_products fetch failed: ${fetchError.message}`);
+      }
+
+      ingestSupplierOfferRows((rows ?? []) as SupplierProductRow[], settings, minCostByProduct);
+    }
+    return minCostByProduct;
+  }
+
+  let offset = 0;
+  while (true) {
+    const { data: rows, error: fetchError } = await supabase
+      .from("supplier_products")
+      .select(
+        "product_id, supplier_id, price_amount, currency, suppliers(pricing_formula, cost_adjustment_multiplier)"
+      )
+      .not("product_id", "is", null)
+      .eq("is_active", true)
+      .order("product_id", { ascending: true })
+      .range(offset, offset + FETCH_PAGE_SIZE - 1);
+
+    if (fetchError) {
+      throw new Error(`supplier_products fetch failed: ${fetchError.message}`);
+    }
+
+    const chunk = (rows ?? []) as SupplierProductRow[];
+    if (chunk.length === 0) break;
+
+    ingestSupplierOfferRows(chunk, settings, minCostByProduct);
+    offset += chunk.length;
+    if (chunk.length < FETCH_PAGE_SIZE) break;
+  }
+
+  return minCostByProduct;
+}
+
+type AggregatePricesOptions = {
+  /** When set, only these master products are updated (e.g. newly imported). */
+  productIds?: string[];
+  /** Run reconcile_products_is_active_from_supplier_offers after price update. Default true for full catalog. */
+  reconcile?: boolean;
+};
+
+async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<AggregatePricesResult> {
+  const productIdsFilter =
+    options?.productIds != null && options.productIds.length > 0
+      ? Array.from(new Set(options.productIds))
+      : null;
+  const shouldReconcile = options?.reconcile ?? productIdsFilter == null;
+
   const supabase = createSupabaseServiceClient();
 
   const { data: settingsRows, error: settingsError } = await supabase
@@ -103,57 +190,24 @@ export async function aggregatePrices(): Promise<AggregatePricesResult> {
     return { updated: 0, batches: 0, error: validationError, warnings: settingWarnings };
   }
 
-  const minCostByProduct = new Map<string, number>();
-  let offset = 0;
-
-  while (true) {
-    const { data: rows, error: fetchError } = await supabase
-      .from("supplier_products")
-      .select("product_id, supplier_id, price_amount, currency, suppliers(pricing_formula, cost_adjustment_multiplier)")
-      .not("product_id", "is", null)
-      .eq("is_active", true)
-      .order("product_id", { ascending: true })
-      .range(offset, offset + FETCH_PAGE_SIZE - 1);
-
-    if (fetchError) {
-      return {
-        updated: minCostByProduct.size,
-        batches: 0,
-        error: `supplier_products fetch failed: ${fetchError.message}`,
-        warnings: settingWarnings
-      };
-    }
-
-    const chunk = (rows ?? []) as SupplierProductRow[];
-    if (chunk.length === 0) break;
-
-    for (const row of chunk) {
-      const supplier = firstSupplier(row.suppliers);
-      const km = computeAcquisitionKm(
-        Number(row.price_amount),
-        row.currency ?? "",
-        supplier ?? { id: row.supplier_id, pricing_formula: null, cost_adjustment_multiplier: 1 },
-        settings
-      );
-      if (!Number.isFinite(km) || km <= 0) continue;
-
-      const current = minCostByProduct.get(row.product_id);
-      if (current === undefined || km < current) {
-        minCostByProduct.set(row.product_id, km);
-      }
-    }
-
-    offset += chunk.length;
-    if (chunk.length < FETCH_PAGE_SIZE) break;
+  let minCostByProduct: Map<string, number>;
+  try {
+    minCostByProduct = await loadMinCostByProduct(supabase, settings, productIdsFilter);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { updated: 0, batches: 0, error: message, warnings: settingWarnings };
   }
 
   if (minCostByProduct.size === 0) {
-    const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
-    const warnings = mergeWarnings(
-      settingWarnings,
-      rec.error ? [`reconcile_products_is_active_from_supplier_offers: ${rec.error}`] : undefined
-    );
-    return { updated: 0, batches: 0, warnings };
+    if (shouldReconcile) {
+      const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
+      const warnings = mergeWarnings(
+        settingWarnings,
+        rec.error ? [`reconcile_products_is_active_from_supplier_offers: ${rec.error}`] : undefined
+      );
+      return { updated: 0, batches: 0, warnings };
+    }
+    return { updated: 0, batches: 0, warnings: settingWarnings };
   }
 
   const productIds = Array.from(minCostByProduct.keys());
@@ -240,17 +294,36 @@ export async function aggregatePrices(): Promise<AggregatePricesResult> {
     batches += 1;
   }
 
-  const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
-  const warnings = mergeWarnings(
-    settingWarnings,
-    rec.error ? [`reconcile_products_is_active_from_supplier_offers: ${rec.error}`] : undefined
-  );
+  let warnings: string[] | undefined = settingWarnings;
+  if (shouldReconcile) {
+    const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
+    warnings = mergeWarnings(
+      settingWarnings,
+      rec.error ? [`reconcile_products_is_active_from_supplier_offers: ${rec.error}`] : undefined
+    );
+  }
 
   return {
     updated: updatedCount,
     batches,
     warnings
   };
+}
+
+/**
+ * Loads supplier_products with supplier formulas, computes min acquisition KM per product,
+ * applies selling rules from DB settings/tiers/category/product, then batch-updates products.price.
+ */
+export async function aggregatePrices(): Promise<AggregatePricesResult> {
+  return aggregatePricesCore();
+}
+
+/** Aggregate selling price only for given master product IDs (e.g. after iPon discovery import). */
+export async function aggregatePricesForProductIds(
+  productIds: string[]
+): Promise<AggregatePricesResult> {
+  if (productIds.length === 0) return { updated: 0, batches: 0 };
+  return aggregatePricesCore({ productIds, reconcile: false });
 }
 
 /** Shape for `withJobRun` / admin APIs: flat fields + nested `summary` for `job_runs`. */

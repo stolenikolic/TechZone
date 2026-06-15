@@ -16,6 +16,8 @@
     "run-ssd-attributes": "tsx scripts/run-ssd-attributes.ts",
     "worker:ai": "tsx scripts/run-ai-worker.ts",
     "ipon:import-products": "tsx scripts/run-ipon-import-products.ts",
+    "ipon:xml-sync": "tsx scripts/run-ipon-xml-sync.ts",
+    "ipon:repair-images": "tsx scripts/run-ipon-repair-product-images.ts",
     "ipon:scrape-details": "tsx scripts/run-ipon-scrape-details.ts",
     "ipon:scrape-details:procesori": "cross-env IPON_SCRAPE_CATEGORY=procesori IPON_SCRAPE_UNTIL_EMPTY=1 tsx scripts/run-ipon-scrape-details.ts",
     "ipon:scrape-details:maticne-ploce": "cross-env IPON_SCRAPE_CATEGORY=maticne-ploce IPON_SCRAPE_UNTIL_EMPTY=1 tsx scripts/run-ipon-scrape-details.ts",
@@ -36,6 +38,7 @@
     "auto-match": "tsx scripts/run-auto-match.ts",
     "ai-descriptions": "tsx scripts/run-ai-descriptions.ts",
     "test:auto-link": "tsx scripts/test-match-supplier-product.ts && tsx scripts/test-auto-link-import-integration.ts",
+    "test:ipon-xml-feed": "tsx scripts/test-ipon-xml-feed.ts",
     "test:pricing": "tsx scripts/test-pricing-engine.ts"
   },
   "dependencies": {
@@ -62,6 +65,7 @@
     "embla-carousel-auto-height": "^8.6.0",
     "embla-carousel-autoplay": "^8.6.0",
     "embla-carousel-react": "^8.6.0",
+    "fast-xml-parser": "^5.9.0",
     "i18next": "^25.7.3",
     "isomorphic-dompurify": "^3.16.0",
     "lodash": "^4.17.21",
