@@ -32,6 +32,7 @@ function nextInboundDayOnOrAfter(from: Date, weekday: number): Date {
 export function normalizeDeliveryPolicy(raw: unknown): DeliveryPolicy {
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     const o = raw as Record<string, unknown>;
+    if (o.type === "daily") return { type: "daily" };
     const weekday =
       typeof o.weekday === "number" && o.weekday >= 0 && o.weekday <= 6
         ? Math.round(o.weekday)
@@ -49,6 +50,7 @@ export function estimateTechZoneDeliveryDate(
   const policy = normalizeDeliveryPolicy(_policy);
   const lead = Math.max(0, Math.round(supplierLeadDays));
   const readyAt = addDays(startOfLocalDay(fromDate), lead);
+  if (policy.type === "daily") return readyAt;
   return nextInboundDayOnOrAfter(readyAt, policy.weekday);
 }
 

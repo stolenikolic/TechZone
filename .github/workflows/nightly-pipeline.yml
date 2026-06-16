@@ -133,9 +133,28 @@ jobs:
       - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
       - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-konzolvilag-import-products.ts
 
+  comtrade_import:
+    name: "1g · ComTrade import"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      JOB_TRIGGERED_BY: cron
+      JOB_TYPE: comtrade_import
+      COMTRADE_USERNAME: ${{ secrets.COMTRADE_USERNAME }}
+      COMTRADE_PASSWORD: ${{ secrets.COMTRADE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-comtrade-import-products.ts
+
   auto_match:
     name: "2 · Auto match"
-    needs: [ipon_import, pcx_import, firstshop_import, pcland_import, oazis_import, konzolvilag_import]
+    needs: [ipon_import, pcx_import, firstshop_import, pcland_import, oazis_import, konzolvilag_import, comtrade_import]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

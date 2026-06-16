@@ -18,6 +18,8 @@ on:
           - pcland_import
           - oazis_import
           - konzolvilag_import
+          - comtrade_import
+          - comtrade_price_sync
           - auto_match
           - aggregate_prices
           - ipon_scrape_details
@@ -31,6 +33,8 @@ env:
   SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
   SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+  COMTRADE_USERNAME: ${{ secrets.COMTRADE_USERNAME }}
+  COMTRADE_PASSWORD: ${{ secrets.COMTRADE_PASSWORD }}
 
 concurrency:
   group: background-jobs-manual-${{ inputs.job }}
@@ -68,6 +72,8 @@ jobs:
             pcland_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-pcland-import-products.ts ;;
             oazis_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-oazis-import-products.ts ;;
             konzolvilag_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-konzolvilag-import-products.ts ;;
+            comtrade_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-comtrade-import-products.ts ;;
+            comtrade_price_sync) npx tsx -r ./scripts/register-ws.cjs scripts/run-comtrade-price-sync.ts ;;
             auto_match) npx tsx -r ./scripts/register-ws.cjs scripts/run-auto-match.ts ;;
             aggregate_prices) npx tsx -r ./scripts/register-ws.cjs scripts/run-aggregate-prices.ts ;;
             ipon_scrape_details) npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-scrape-details.ts ;;

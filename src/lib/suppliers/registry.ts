@@ -23,6 +23,8 @@ import { OAZIS_CATEGORIES } from "lib/suppliers/oazis/categories";
 import { OAZIS_SUPPLIER_ID } from "lib/suppliers/oazis/constants";
 import { KONZOLVILAG_CATEGORIES } from "lib/suppliers/konzolvilag/categories";
 import { KONZOLVILAG_SUPPLIER_ID } from "lib/suppliers/konzolvilag/constants";
+import { COMTRADE_CATEGORIES } from "lib/suppliers/comtrade/categories";
+import { COMTRADE_SUPPLIER_ID } from "lib/suppliers/comtrade/constants";
 
 export type RegistryCategory = {
   internalCategoryId: string;
@@ -154,6 +156,14 @@ function fallbackCategoriesForSupplier(supplierId: string): RegistryCategory[] {
       sortOrder: (idx + 1) * 10
     })).filter((c) => c.internalCategoryId);
   }
+  if (supplierId === COMTRADE_SUPPLIER_ID) {
+    return COMTRADE_CATEGORIES.map((c, idx) => ({
+      internalCategoryId: c.internalCategoryId,
+      supplierCategoryKey: c.productGroupId,
+      listingUrl: null,
+      sortOrder: (idx + 1) * 10
+    }));
+  }
   return [];
 }
 
@@ -161,6 +171,7 @@ function fallbackCategoriesForSupplier(supplierId: string): RegistryCategory[] {
 export const PCX_SUPPLIER_ID = "f4a8b2c0-9d1e-4f3a-bc5d-6e7f8091a2b3";
 
 export {
+  COMTRADE_SUPPLIER_ID,
   FIRSTSHOP_SUPPLIER_ID,
   KONZOLVILAG_SUPPLIER_ID,
   PCLAND_SUPPLIER_ID,

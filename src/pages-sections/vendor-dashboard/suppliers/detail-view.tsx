@@ -29,6 +29,7 @@ import Edit from "@mui/icons-material/Edit";
 import Delete from "@mui/icons-material/Delete";
 import { IPON_SUPPLIER_ID } from "lib/suppliers/ipon/constants";
 import {
+  COMTRADE_SUPPLIER_ID,
   FIRSTSHOP_SUPPLIER_ID,
   KONZOLVILAG_SUPPLIER_ID,
   OAZIS_SUPPLIER_ID,
@@ -47,7 +48,7 @@ type Supplier = {
   createsMasterProducts: boolean;
   isActive: boolean;
   enrichmentPriority: number;
-  deliveryPolicy: { type: "weekly"; weekday: number } | null;
+  deliveryPolicy: { type: "weekly"; weekday: number } | { type: "daily" } | null;
   inboundLeadDaysDefault: number;
 };
 
@@ -124,13 +125,15 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
   const isPclandSupplier = supplierId === PCLAND_SUPPLIER_ID;
   const isOazisSupplier = supplierId === OAZIS_SUPPLIER_ID;
   const isKonzolvilagSupplier = supplierId === KONZOLVILAG_SUPPLIER_ID;
+  const isComtradeSupplier = supplierId === COMTRADE_SUPPLIER_ID;
   const supportsCategoryImport =
     isIponSupplier ||
     isPcxSupplier ||
     isFirstshopSupplier ||
     isPclandSupplier ||
     isOazisSupplier ||
-    isKonzolvilagSupplier;
+    isKonzolvilagSupplier ||
+    isComtradeSupplier;
 
   const [openCatModal, setOpenCatModal] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -332,7 +335,12 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
   };
 
   const handleImportCategory = async (row: SupplierCategoryRow) => {
-    if (!row.listingUrl?.trim()) {
+    if (isComtradeSupplier) {
+      if (!row.supplierCategoryKey?.trim()) {
+        setActionError("Postavi Source key (productGroupID, npr. CPU) prije importa.");
+        return;
+      }
+    } else if (!row.listingUrl?.trim()) {
       setActionError("Postavi Listing URL za ovaj red prije importa.");
       return;
     }
@@ -564,7 +572,9 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
               <Typography variant="subtitle1">Kategorije ovog dobavljača</Typography>
               {supportsCategoryImport ? (
                 <Typography variant="caption" color="text.secondary" display="block">
-                  {isFirstshopSupplier
+                  {isComtradeSupplier
+                    ? "ComTrade import filtrira /Price/items po Source key (productGroupID). Listing URL nije potreban."
+                    : isFirstshopSupplier
                     ? "Pun FirstShop import (jobs) čita sve aktivne kategorije iz tabele. „Import sada” skrejpuje cijeli listing za ovaj red."
                     : isPcxSupplier
                       ? "Pun PCX import (jobs) ide po svim kategorijama s cap-om po runu. „Import sada” skrejpuje cijeli listing ove kategorije."
@@ -615,7 +625,13 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
                           size="small"
                           variant="contained"
                           color="secondary"
-                          disabled={busy || categoryImportRowId != null || !row.listingUrl?.trim()}
+                          disabled={
+                            busy ||
+                            categoryImportRowId != null ||
+                            (isComtradeSupplier
+                              ? !row.supplierCategoryKey?.trim()
+                              : !row.listingUrl?.trim())
+                          }
                           onClick={() => void handleImportCategory(row)}
                         >
                           {categoryImportRowId === row.id ? (

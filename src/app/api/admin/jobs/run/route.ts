@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from "utils/supabase";
 import { withJobRun, type JobType } from "lib/jobs/job-runner";
 import { IPON_SUPPLIER_ID } from "lib/suppliers/ipon/categories";
 import {
+  COMTRADE_SUPPLIER_ID,
   FIRSTSHOP_SUPPLIER_ID,
   KONZOLVILAG_SUPPLIER_ID,
   OAZIS_SUPPLIER_ID,
@@ -23,6 +24,9 @@ const ALLOWED: JobType[] = [
   "pcland_import",
   "oazis_import",
   "konzolvilag_import",
+  "comtrade_import",
+  "comtrade_price_sync",
+  "comtrade_enrich",
   "aggregate_prices",
   "auto_match",
   "enrichment",
@@ -47,6 +51,10 @@ function supplierIdForDashboardJob(jobType: JobType): string | null {
       return OAZIS_SUPPLIER_ID;
     case "konzolvilag_import":
       return KONZOLVILAG_SUPPLIER_ID;
+    case "comtrade_import":
+    case "comtrade_price_sync":
+    case "comtrade_enrich":
+      return COMTRADE_SUPPLIER_ID;
     default:
       return null;
   }
@@ -112,6 +120,18 @@ async function runJob(
   if (jobType === "konzolvilag_import") {
     const { runKonzolvilagImportProducts } = await import("lib/suppliers/konzolvilag/importProducts");
     return runKonzolvilagImportProducts();
+  }
+  if (jobType === "comtrade_import") {
+    const { runComtradeImportProducts } = await import("lib/suppliers/comtrade/importProducts");
+    return runComtradeImportProducts();
+  }
+  if (jobType === "comtrade_price_sync") {
+    const { runComtradePriceSync } = await import("lib/suppliers/comtrade/priceSync");
+    return runComtradePriceSync();
+  }
+  if (jobType === "comtrade_enrich") {
+    const { runComtradeEnrich } = await import("lib/suppliers/comtrade/enrich");
+    return runComtradeEnrich();
   }
   if (jobType === "aggregate_prices") {
     const { aggregatePrices, wrapAggregatePricesJobResult } = await import("lib/pricing");

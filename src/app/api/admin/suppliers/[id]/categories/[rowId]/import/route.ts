@@ -16,6 +16,8 @@ import { runOazisImportForSupplierCategory } from "lib/suppliers/oazis/importPro
 import { OAZIS_SUPPLIER_ID } from "lib/suppliers/oazis/constants";
 import { runKonzolvilagImportForSupplierCategory } from "lib/suppliers/konzolvilag/importProducts";
 import { KONZOLVILAG_SUPPLIER_ID } from "lib/suppliers/konzolvilag/constants";
+import { runComtradeImportForSupplierCategory } from "lib/suppliers/comtrade/importProducts";
+import { COMTRADE_SUPPLIER_ID } from "lib/suppliers/comtrade/constants";
 import { guardAdminApi } from "lib/auth/admin-route";
 import { createSupabaseServiceClient } from "utils/supabase";
 
@@ -37,10 +39,14 @@ export async function POST(
       supplierId !== FIRSTSHOP_SUPPLIER_ID &&
       supplierId !== PCLAND_SUPPLIER_ID &&
       supplierId !== OAZIS_SUPPLIER_ID &&
-      supplierId !== KONZOLVILAG_SUPPLIER_ID
+      supplierId !== KONZOLVILAG_SUPPLIER_ID &&
+      supplierId !== COMTRADE_SUPPLIER_ID
     ) {
       return NextResponse.json(
-        { error: "Ručni import po kategoriji je podržan samo za iPon, PCX, FirstShop, PCLand, Oázis i Konzolvilág." },
+        {
+          error:
+            "Ručni import po kategoriji je podržan samo za iPon, PCX, FirstShop, PCLand, Oázis, Konzolvilág i ComTrade."
+        },
         { status: 400 }
       );
     }
@@ -58,8 +64,21 @@ export async function POST(
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     if (!row) return NextResponse.json({ error: "Category row not found." }, { status: 404 });
 
+    const isComtrade = supplierId === COMTRADE_SUPPLIER_ID;
     const listingUrl = row.listing_url?.trim() ?? "";
-    if (!listingUrl) {
+    const productGroupId = row.supplier_category_key?.trim() ?? "";
+
+    if (isComtrade) {
+      if (!productGroupId) {
+        return NextResponse.json(
+          {
+            error:
+              "supplier_category_key (ComTrade productGroupID, npr. CPU) nije postavljen za ovaj red."
+          },
+          { status: 400 }
+        );
+      }
+    } else if (!listingUrl) {
       return NextResponse.json(
         { error: "Listing URL nije postavljen za ovaj red — dodaj URL prije importa." },
         { status: 400 }
@@ -83,27 +102,37 @@ export async function POST(
 
     const { runId, value } = await withJobRun(
       {
-        jobType: isKonzolvilag
-          ? "konzolvilag_import"
-          : isOazis
-            ? "oazis_import"
-            : isPcland
-            ? "pcland_import"
-            : isFirstshop
-              ? "firstshop_import"
-              : isPcx
-                ? "pcx_import"
-                : "ipon_import",
+        jobType: isComtrade
+          ? "comtrade_import"
+          : isKonzolvilag
+            ? "konzolvilag_import"
+            : isOazis
+              ? "oazis_import"
+              : isPcland
+                ? "pcland_import"
+                : isFirstshop
+                  ? "firstshop_import"
+                  : isPcx
+                    ? "pcx_import"
+                    : "ipon_import",
         supplierId,
         triggeredBy: "manual",
         initialSummary: {
           single_category: true,
           supplier_category_row_id: rowId,
           category_name: categoryName,
-          internal_category_id: row.internal_category_id
+          internal_category_id: row.internal_category_id,
+          ...(isComtrade ? { product_group_id: productGroupId } : {})
         }
       },
       async () => {
+        if (isComtrade) {
+          return runComtradeImportForSupplierCategory({
+            productGroupId,
+            internalCategoryId: row.internal_category_id,
+            name: categoryName
+          });
+        }
         if (isKonzolvilag) {
           return runKonzolvilagImportForSupplierCategory({
             listingUrl,

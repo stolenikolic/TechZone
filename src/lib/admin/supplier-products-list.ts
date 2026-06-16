@@ -230,8 +230,25 @@ function toRow(
   };
 }
 
-const LIST_SELECT =
-  "id, supplier_product_id, product_id, master_match_status, enrichment_status, price_amount, currency, mpn, ean, raw_json, updated_at, suppliers(id, name, code, pricing_formula, cost_adjustment_multiplier), products(id, name, slug, main_image, selling_margin_override, categories(selling_margin_default))";
+const SUPPLIERS_EMBED =
+  "suppliers(id, name, code, pricing_formula, cost_adjustment_multiplier)";
+const SUPPLIERS_INNER_EMBED =
+  "suppliers!inner(id, name, code, pricing_formula, cost_adjustment_multiplier)";
+const PRODUCTS_EMBED =
+  "products(id, name, slug, main_image, selling_margin_override, categories(selling_margin_default))";
+
+function supplierFilterActive(params: Pick<SupplierOffersListParams, "supplier">): boolean {
+  return Boolean(params.supplier && params.supplier !== "all");
+}
+
+function buildListSelect(supplierFiltered: boolean): string {
+  const suppliers = supplierFiltered ? SUPPLIERS_INNER_EMBED : SUPPLIERS_EMBED;
+  return `id, supplier_product_id, product_id, master_match_status, enrichment_status, price_amount, currency, mpn, ean, raw_json, updated_at, ${suppliers}, ${PRODUCTS_EMBED}`;
+}
+
+function buildCountSelect(supplierFiltered: boolean): string {
+  return supplierFiltered ? "id, suppliers!inner(code)" : "id";
+}
 
 function escapeIlike(value: string): string {
   return value.replace(/[%_,]/g, "\\$&");
@@ -315,10 +332,11 @@ export async function listSupplierOffers(
   const { settings, tiers } = await loadPricingContext(supabase);
   const sortColumn = resolveSortColumn(params.sortBy);
   const ascending = params.sortDir === "asc";
+  const supplierFiltered = supplierFilterActive(params);
 
   let countQuery = supabase
     .from("supplier_products")
-    .select("id", { count: "exact", head: true });
+    .select(buildCountSelect(supplierFiltered), { count: "exact", head: true });
   countQuery = applySupplierOffersFilters(countQuery, params);
   const { count, error: countError } = await countQuery;
   if (countError) throw new Error(countError.message);
@@ -326,7 +344,7 @@ export async function listSupplierOffers(
   const total = count ?? 0;
   const offset = (params.page - 1) * params.limit;
 
-  let dataQuery = supabase.from("supplier_products").select(LIST_SELECT);
+  let dataQuery = supabase.from("supplier_products").select(buildListSelect(supplierFiltered));
   dataQuery = applySupplierOffersFilters(dataQuery, params);
   const { data, error } = await dataQuery
     .order(sortColumn, { ascending })
