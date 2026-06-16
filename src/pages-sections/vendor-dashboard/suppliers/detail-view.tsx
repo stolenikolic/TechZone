@@ -51,7 +51,7 @@ type Supplier = {
   inboundLeadDaysDefault: number;
 };
 
-type CategoryOption = { id: string; name: string; slug: string };
+type CategoryOption = { id: string; name: string; slug: string; parent_id: string | null };
 type AttributeOption = { id: string; name: string; slug: string };
 
 type SupplierCategoryRow = {
@@ -138,6 +138,7 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
   const [openConfigModal, setOpenConfigModal] = useState(false);
 
   const [catForm, setCatForm] = useState({
+    parentCategoryId: "",
     internalCategoryId: "",
     supplierCategoryKey: "",
     listingUrl: "",
@@ -181,8 +182,19 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
       const hit = suppliers.find((s) => s.id === supplierId) ?? null;
       setSupplier(hit);
 
-      const categoriesItems = (categoriesRes.items ?? categoriesRes) as Array<CategoryOption | { id: string; name: string; slug: string }>;
-      setCategories(Array.isArray(categoriesItems) ? (categoriesItems as CategoryOption[]) : []);
+      const categoriesItems = (categoriesRes.items ?? categoriesRes) as Array<
+        CategoryOption | { id: string; name: string; slug: string; parent_id?: string | null }
+      >;
+      setCategories(
+        Array.isArray(categoriesItems)
+          ? categoriesItems.map((c) => ({
+              id: c.id,
+              name: c.name,
+              slug: c.slug,
+              parent_id: "parent_id" in c ? (c.parent_id ?? null) : null
+            }))
+          : []
+      );
       setAttributes((attributesRes.items ?? []) as AttributeOption[]);
 
       setSupplierCategories((scRes.items ?? []) as SupplierCategoryRow[]);
@@ -204,6 +216,22 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
     for (const c of categories) m.set(c.id, c.name);
     return m;
   }, [categories]);
+
+  const rootCategories = useMemo(
+    () =>
+      categories
+        .filter((c) => c.parent_id == null)
+        .sort((a, b) => a.name.localeCompare(b.name, "bs")),
+    [categories]
+  );
+
+  const childCategoriesForParent = useMemo(
+    () =>
+      categories
+        .filter((c) => c.parent_id === catForm.parentCategoryId)
+        .sort((a, b) => a.name.localeCompare(b.name, "bs")),
+    [categories, catForm.parentCategoryId]
+  );
 
   const handleSaveSettings = async () => {
     if (!supplier) return;
@@ -237,7 +265,14 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
 
   const resetCatForm = () => {
     setEditingCategoryId(null);
-    setCatForm({ internalCategoryId: "", supplierCategoryKey: "", listingUrl: "", sortOrder: 0, isActive: true });
+    setCatForm({
+      parentCategoryId: "",
+      internalCategoryId: "",
+      supplierCategoryKey: "",
+      listingUrl: "",
+      sortOrder: 0,
+      isActive: true
+    });
   };
 
   const openAddCategoryModal = () => {
@@ -246,8 +281,10 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
   };
 
   const openEditCategoryModal = (row: SupplierCategoryRow) => {
+    const selected = categories.find((c) => c.id === row.internalCategoryId);
     setEditingCategoryId(row.id);
     setCatForm({
+      parentCategoryId: selected?.parent_id ?? "",
       internalCategoryId: row.internalCategoryId,
       supplierCategoryKey: row.supplierCategoryKey ?? "",
       listingUrl: row.listingUrl ?? "",
@@ -816,20 +853,50 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
         <DialogTitle>{editingCategoryId ? "Uredi kategoriju" : "Nova kategorija"}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 0 }}>
-            <Grid size={12}>
+            <Grid size={6}>
               <TextField
                 select
                 fullWidth
                 size="small"
-                label="Interna kategorija"
-                value={catForm.internalCategoryId}
-                onChange={(e) => setCatForm({ ...catForm, internalCategoryId: e.target.value })}
+                label="Parent kategorija"
+                value={catForm.parentCategoryId}
+                onChange={(e) =>
+                  setCatForm({ ...catForm, parentCategoryId: e.target.value, internalCategoryId: "" })
+                }
                 disabled={Boolean(editingCategoryId)}
                 helperText={editingCategoryId ? "Interna kategorija se ne mijenja na postojećem redu." : undefined}
               >
-                {categories.map((c) => (
+                <MenuItem value="">Odaberi parent</MenuItem>
+                {rootCategories.map((c) => (
                   <MenuItem key={c.id} value={c.id}>
-                    {c.name} ({c.slug})
+                    {c.name}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid size={6}>
+              <TextField
+                select
+                fullWidth
+                size="small"
+                label="Podkategorija"
+                value={catForm.internalCategoryId}
+                onChange={(e) => setCatForm({ ...catForm, internalCategoryId: e.target.value })}
+                disabled={Boolean(editingCategoryId) || !catForm.parentCategoryId}
+                helperText={
+                  editingCategoryId
+                    ? undefined
+                    : !catForm.parentCategoryId
+                      ? "Prvo odaberi parent kategoriju."
+                      : childCategoriesForParent.length === 0
+                        ? "Nema podkategorija za ovaj parent."
+                        : undefined
+                }
+              >
+                <MenuItem value="">Odaberi podkategoriju</MenuItem>
+                {childCategoriesForParent.map((c) => (
+                  <MenuItem key={c.id} value={c.id}>
+                    {c.name}
                   </MenuItem>
                 ))}
               </TextField>
@@ -872,7 +939,11 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
         </DialogContent>
         <DialogActions>
           <Button onClick={closeCatModal}>Otkaži</Button>
-          <Button onClick={() => void handleSaveCategory()} variant="contained" disabled={busy}>
+          <Button
+            onClick={() => void handleSaveCategory()}
+            variant="contained"
+            disabled={busy || (!editingCategoryId && !catForm.internalCategoryId)}
+          >
             Sačuvaj
           </Button>
         </DialogActions>
@@ -937,12 +1008,12 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
                 select
                 fullWidth
                 size="small"
-                label="Internal category (opcionalno)"
+                label="Parent kategorija (opcionalno)"
                 value={mappingForm.internalCategoryId}
                 onChange={(e) => setMappingForm({ ...mappingForm, internalCategoryId: e.target.value })}
               >
                 <MenuItem value="">Sve kategorije</MenuItem>
-                {categories.map((c) => (
+                {rootCategories.map((c) => (
                   <MenuItem key={c.id} value={c.id}>
                     {c.name}
                   </MenuItem>

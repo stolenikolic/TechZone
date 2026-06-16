@@ -174,7 +174,10 @@ export default function CategoryForm({ mode }: Props) {
 
   const parentOptions = useMemo(
     () =>
-      categories.filter((item) => (mode === "edit" && categoryId ? item.id !== categoryId : true)),
+      categories.filter(
+        (item) =>
+          item.parent_id == null && (mode === "edit" && categoryId ? item.id !== categoryId : true)
+      ),
     [categories, mode, categoryId]
   );
 

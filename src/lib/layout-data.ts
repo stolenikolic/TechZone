@@ -13,7 +13,8 @@ type DbCategory = { id: string; name: string; slug: string; parent_id: string | 
 type TreeNode = DbCategory & { children: TreeNode[] };
 
 const CATEGORY_ICON_BY_SLUG: Record<string, string> = {
-  "racunarske-komponente": "Microchip"
+  "racunarske-komponente": "Microchip",
+  "racunarska-periferija": "Headset"
 };
 
 const MAIN_NAVIGATION: Menu[] = [
