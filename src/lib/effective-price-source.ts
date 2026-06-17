@@ -7,10 +7,11 @@ export function resolveEffectivePriceSource(
   engineSupplierName: string | null | undefined
 ): string | null {
   if (toNumberOrNull(customPrice) != null) return "manual";
+  const name = engineSupplierName?.trim();
+  if (name && name.length > 0) return name;
   const base = toNumberOrNull(basePrice);
   if (base == null || base <= 0) return null;
-  const name = engineSupplierName?.trim();
-  return name && name.length > 0 ? name : null;
+  return null;
 }
 
 export function formatEffectivePriceSourceLabel(source: string | null | undefined): string {

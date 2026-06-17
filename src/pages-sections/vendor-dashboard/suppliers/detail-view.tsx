@@ -29,6 +29,7 @@ import Edit from "@mui/icons-material/Edit";
 import Delete from "@mui/icons-material/Delete";
 import { IPON_SUPPLIER_ID } from "lib/suppliers/ipon/constants";
 import {
+  AVTERA_SUPPLIER_ID,
   COMTRADE_SUPPLIER_ID,
   FIRSTSHOP_SUPPLIER_ID,
   KONZOLVILAG_SUPPLIER_ID,
@@ -126,6 +127,7 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
   const isOazisSupplier = supplierId === OAZIS_SUPPLIER_ID;
   const isKonzolvilagSupplier = supplierId === KONZOLVILAG_SUPPLIER_ID;
   const isComtradeSupplier = supplierId === COMTRADE_SUPPLIER_ID;
+  const isAvteraSupplier = supplierId === AVTERA_SUPPLIER_ID;
   const supportsCategoryImport =
     isIponSupplier ||
     isPcxSupplier ||
@@ -133,7 +135,8 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
     isPclandSupplier ||
     isOazisSupplier ||
     isKonzolvilagSupplier ||
-    isComtradeSupplier;
+    isComtradeSupplier ||
+    isAvteraSupplier;
 
   const [openCatModal, setOpenCatModal] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -335,9 +338,13 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
   };
 
   const handleImportCategory = async (row: SupplierCategoryRow) => {
-    if (isComtradeSupplier) {
+    if (isComtradeSupplier || isAvteraSupplier) {
       if (!row.supplierCategoryKey?.trim()) {
-        setActionError("Postavi Source key (productGroupID, npr. CPU) prije importa.");
+        setActionError(
+          isComtradeSupplier
+            ? "Postavi Source key (productGroupID, npr. CPU) prije importa."
+            : "Postavi Source key (kategorija/@id, npr. MS) prije importa."
+        );
         return;
       }
     } else if (!row.listingUrl?.trim()) {
@@ -378,6 +385,10 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
       } else if (isPcxSupplier) {
         setActionNotice(
           `PCX import (${label}): uvezeno ${r?.upserted ?? 0}, preskočeno bez cijene ${r?.skippedNoPrice ?? 0}, bez ID ${r?.skippedNoSupplierProductId ?? 0}, duplikat ${r?.skippedDuplicateCikkszam ?? 0}, deaktivirano ${r?.staleDeactivated ?? 0}.`
+        );
+      } else if (isComtradeSupplier || isAvteraSupplier) {
+        setActionNotice(
+          `${isComtradeSupplier ? "ComTrade" : "Avtera"} import (${label}): uvezeno ${r?.upserted ?? 0}, preskočeno postojećih ${r?.skippedExisting ?? r?.summary?.skipped_existing ?? 0}.`
         );
       } else {
         setActionNotice(
@@ -574,7 +585,9 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
                 <Typography variant="caption" color="text.secondary" display="block">
                   {isComtradeSupplier
                     ? "ComTrade import filtrira /Price/items po Source key (productGroupID). Listing URL nije potreban."
-                    : isFirstshopSupplier
+                    : isAvteraSupplier
+                      ? "Avtera import filtrira XML feed po Source key (kategorija/@id, npr. MS). Listing URL nije potreban."
+                      : isFirstshopSupplier
                     ? "Pun FirstShop import (jobs) čita sve aktivne kategorije iz tabele. „Import sada” skrejpuje cijeli listing za ovaj red."
                     : isPcxSupplier
                       ? "Pun PCX import (jobs) ide po svim kategorijama s cap-om po runu. „Import sada” skrejpuje cijeli listing ove kategorije."
@@ -628,7 +641,7 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
                           disabled={
                             busy ||
                             categoryImportRowId != null ||
-                            (isComtradeSupplier
+                            (isComtradeSupplier || isAvteraSupplier
                               ? !row.supplierCategoryKey?.trim()
                               : !row.listingUrl?.trim())
                           }

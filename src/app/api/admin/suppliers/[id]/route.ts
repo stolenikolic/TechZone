@@ -8,7 +8,12 @@ export const dynamic = "force-dynamic";
 
 function isAllowedFormula(f: string | null | undefined): boolean {
   if (f == null || f === "") return true;
-  return f === "ipon_huf" || f === "hungary_huf_alza_tax" || f === "domestic_custom";
+  return (
+    f === "ipon_huf" ||
+    f === "hungary_huf_alza_tax" ||
+    f === "domestic_custom" ||
+    f === "domestic_km_net"
+  );
 }
 
 /** PATCH /api/admin/suppliers/:id — body: { pricing_formula?, cost_adjustment_multiplier?, enrichment_priority?, delivery_policy? } */

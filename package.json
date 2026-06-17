@@ -37,11 +37,14 @@
     "comtrade:import": "tsx scripts/run-comtrade-import-products.ts",
     "comtrade:price-sync": "tsx scripts/run-comtrade-price-sync.ts",
     "comtrade:enrich": "tsx scripts/run-comtrade-enrich.ts",
+    "avtera:import": "tsx scripts/run-avtera-import-products.ts",
+    "avtera:price-sync": "tsx scripts/run-avtera-price-sync.ts",
     "aggregate-prices": "tsx scripts/run-aggregate-prices.ts",
     "auto-match": "tsx scripts/run-auto-match.ts",
     "ai-descriptions": "tsx scripts/run-ai-descriptions.ts",
     "test:auto-link": "tsx scripts/test-match-supplier-product.ts && tsx scripts/test-auto-link-import-integration.ts",
     "test:ipon-xml-feed": "tsx scripts/test-ipon-xml-feed.ts",
+    "test:avtera-xml-feed": "tsx scripts/test-avtera-xml-feed.ts",
     "test:pricing": "tsx scripts/test-pricing-engine.ts"
   },
   "dependencies": {

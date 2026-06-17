@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<izdelki>
+  <izdelek st="1">
+    <izdelekID>100033</izdelekID>
+    <VendorItemNo.>C13S015329</VendorItemNo.>
+    <WarrantyCustomer/>
+    <izdelekIme><![CDATA[ Ribon EPSON FX-890 ]]></izdelekIme>
+    <opis><![CDATA[ ]]></opis>
+    <url><![CDATA[ https://www.avtera.ba/cat/product/100033 ]]></url>
+    <dodatneLastnosti>
+      <lastnost naziv="Osnovne informacije"><![CDATA[ 7,5 miliona znakova ]]></lastnost>
+    </dodatneLastnosti>
+    <slikaVelika><![CDATA[ https://www.avtera.ba/catalog/xml/media/100033.jpg ]]></slikaVelika>
+    <dodatneSlike/>
+    <PPC>14.7</PPC>
+    <cenaAkcijska/>
+    <nabavnaCena>14</nabavnaCena>
+    <DC>14</DC>
+    <davcnaStopnja>17</davcnaStopnja>
+    <kategorija id="PM">Potrošni materijal</kategorija>
+    <blagovnaZnamka id="E1">EPSON</blagovnaZnamka>
+    <skupinaIzdelka id="TR">Riboni</skupinaIzdelka>
+    <dobava id="1">ni zaloge</dobava>
+    <zaloga>0</zaloga>
+    <EAN>010343603936</EAN>
+    <brutoDolzina enota="m">0</brutoDolzina>
+    <brutoSirina enota="m">0</brutoSirina>
+    <brutoVisina enota="m">0</brutoVisina>
+    <brutoTeza>0.13</brutoTeza>
+  </izdelek>
+  <izdelek st="2">
+    <izdelekID>200001</izdelekID>
+    <VendorItemNo.>LOG-M185</VendorItemNo.>
+    <izdelekIme><![CDATA[ Logitech M185 Wireless Mouse ]]></izdelekIme>
+    <opis><![CDATA[ Bežični miš ]]></opis>
+    <url><![CDATA[ https://www.avtera.ba/cat/product/200001 ]]></url>
+    <dodatneLastnosti>
+      <lastnost naziv="Tip veze"><![CDATA[ Wireless ]]></lastnost>
+    </dodatneLastnosti>
+    <slikaVelika><![CDATA[ https://www.avtera.ba/catalog/xml/media/200001.jpg ]]></slikaVelika>
+    <dodatneSlike><slika><![CDATA[ https://www.avtera.ba/catalog/xml/media/200001-2.jpg ]]></slika></dodatneSlike>
+    <PPC>25</PPC>
+    <cenaAkcijska>18.5</cenaAkcijska>
+    <nabavnaCena>20</nabavnaCena>
+    <DC>20</DC>
+    <davcnaStopnja>17</davcnaStopnja>
+    <kategorija id="MS">Miševi</kategorija>
+    <blagovnaZnamka id="L1">Logitech</blagovnaZnamka>
+    <skupinaIzdelka id="MS1">Bežični miševi</skupinaIzdelka>
+    <dobava id="2">na zalogi</dobava>
+    <zaloga>5</zaloga>
+    <EAN>5099206042205</EAN>
+    <brutoDolzina enota="m">0.1</brutoDolzina>
+    <brutoSirina enota="m">0.06</brutoSirina>
+    <brutoVisina enota="m">0.04</brutoVisina>
+    <brutoTeza>0.08</brutoTeza>
+  </izdelek>
+  <izdelek st="3">
+    <izdelekID>200002</izdelekID>
+    <VendorItemNo.></VendorItemNo.>
+    <izdelekIme><![CDATA[ Generic USB Mouse ]]></izdelekIme>
+    <opis/>
+    <url><![CDATA[ https://www.avtera.ba/cat/product/200002 ]]></url>
+    <dodatneLastnosti/>
+    <slikaVelika><![CDATA[ https://www.avtera.ba/catalog/xml/media/200002.jpg ]]></slikaVelika>
+    <dodatneSlike/>
+    <PPC>12</PPC>
+    <cenaAkcijska/>
+    <nabavnaCena>9.5</nabavnaCena>
+    <DC>9.5</DC>
+    <davcnaStopnja>17</davcnaStopnja>
+    <kategorija id="MS">Miševi</kategorija>
+    <blagovnaZnamka id="G1">Generic</blagovnaZnamka>
+    <skupinaIzdelka id="MS2">Žični miševi</skupinaIzdelka>
+    <dobava id="1">ni zaloge</dobava>
+    <zaloga>0</zaloga>
+    <EAN>1234567890123</EAN>
+    <brutoTeza>0.1</brutoTeza>
+  </izdelek>
+</izdelki>

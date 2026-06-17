@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type Product from "models/Product.model";
-import { getEffectivePrice } from "lib/effective-price";
+import { getEffectivePrice, toNumberOrNull } from "lib/effective-price";
 import { resolveEffectivePriceSource } from "lib/effective-price-source";
 import { computeAcquisitionKm, resolvePricingSettingsRow, type PricingSettingsRow } from "lib/pricing";
 import {
@@ -21,6 +21,7 @@ type DbProduct = DbProductForStatus & {
   rating: number | null;
   is_active: boolean;
   publish_locked: boolean;
+  created_at?: string | null;
 };
 
 export type AdminProduct = Product & {
@@ -115,12 +116,18 @@ function toProduct(
 function needsIdScan(params: ProductsListParams): boolean {
   const quick = params.quickFilter ?? "all";
   const priceSource = params.priceSource ?? "all";
-  return (
-    quick !== "all" ||
-    (priceSource !== "all" && priceSource !== "manual") ||
-    params.priceMin != null ||
-    params.priceMax != null
-  );
+  if (priceSource !== "all" && priceSource !== "manual") return false;
+  return quick !== "all" || params.priceMin != null || params.priceMax != null;
+}
+
+function needsComputedFiltersBeyondSql(params: ProductsListParams): boolean {
+  const quick = params.quickFilter ?? "all";
+  return quick !== "all" || params.priceMin != null || params.priceMax != null;
+}
+
+function isWinningSupplierFilter(params: ProductsListParams): boolean {
+  const priceSource = params.priceSource ?? "all";
+  return priceSource !== "all" && priceSource !== "manual";
 }
 
 async function resolveCategoryIds(
@@ -297,12 +304,18 @@ async function loadSupplierAggregatesForProducts(
   const linkedSuppliersByProduct = new Map<string, Map<string, string>>();
   const minAcquisitionKmByProduct = new Map<string, number>();
   const engineSupplierNameByProduct = new Map<string, string>();
+  const engineSupplierCodeByProduct = new Map<string, string>();
 
   if (productIds.length === 0) {
-    return { supplierCountByProduct, linkedSuppliersByProduct, engineSupplierNameByProduct };
+    return {
+      supplierCountByProduct,
+      linkedSuppliersByProduct,
+      engineSupplierNameByProduct,
+      engineSupplierCodeByProduct
+    };
   }
 
-  const chunkSize = 200;
+  const chunkSize = 100;
   for (let i = 0; i < productIds.length; i += chunkSize) {
     const chunk = productIds.slice(i, i + chunkSize);
     const { data: supplierRows, error: supplierError } = await supabase
@@ -318,11 +331,12 @@ async function loadSupplierAggregatesForProducts(
       const productId = row.product_id as string;
       supplierCountByProduct.set(productId, (supplierCountByProduct.get(productId) ?? 0) + 1);
 
-      if (row.is_active === false) continue;
-
       const supplier = firstSupplier(row.suppliers);
       const supplierCode = (supplier?.code ?? "unknown").trim().toLowerCase();
       const supplierName = (supplier?.name ?? supplier?.code ?? "Unknown").trim();
+
+      if (row.is_active === false) continue;
+
       if (!linkedSuppliersByProduct.has(productId)) {
         linkedSuppliersByProduct.set(productId, new Map());
       }
@@ -345,33 +359,139 @@ async function loadSupplierAggregatesForProducts(
       if (currentMin === undefined || acquisitionKm < currentMin) {
         minAcquisitionKmByProduct.set(productId, acquisitionKm);
         engineSupplierNameByProduct.set(productId, supplierName);
+        engineSupplierCodeByProduct.set(productId, supplierCode);
       }
     }
   }
 
-  return { supplierCountByProduct, linkedSuppliersByProduct, engineSupplierNameByProduct };
+  return {
+    supplierCountByProduct,
+    linkedSuppliersByProduct,
+    engineSupplierNameByProduct,
+    engineSupplierCodeByProduct
+  };
 }
 
+const PRODUCT_SCAN_PAGE_SIZE = 1000;
+const OFFER_ID_PAGE_SIZE = 1000;
+
 const PRODUCT_SELECT =
-  "id, name, slug, description, brand, main_image, price, custom_price, rating, is_active, publish_locked, mpn, ean, attributes, categories(id, name, slug, parent_id)";
+  "id, name, slug, description, brand, main_image, price, custom_price, rating, is_active, publish_locked, mpn, ean, attributes, created_at, categories(id, name, slug, parent_id)";
+
+async function resolveSupplierIdByCode(
+  supabase: SupabaseClient,
+  supplierCode: string
+): Promise<string | null> {
+  const code = supplierCode.trim().toLowerCase();
+  if (!code) return null;
+  const { data, error } = await supabase.from("suppliers").select("id").eq("code", code).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data?.id ? (data.id as string) : null;
+}
+
+async function loadProductIdsWithActiveOfferFromSupplier(
+  supabase: SupabaseClient,
+  supplierId: string
+): Promise<string[]> {
+  const ids = new Set<string>();
+  let offset = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from("supplier_products")
+      .select("product_id")
+      .eq("supplier_id", supplierId)
+      .eq("is_active", true)
+      .not("product_id", "is", null)
+      .range(offset, offset + OFFER_ID_PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const page = data ?? [];
+    if (page.length === 0) break;
+    for (const row of page) {
+      if (row.product_id) ids.add(row.product_id as string);
+    }
+    offset += page.length;
+    if (page.length < OFFER_ID_PAGE_SIZE) break;
+  }
+  return Array.from(ids);
+}
+
+async function filterProductIdsByWinningSupplier(
+  supabase: SupabaseClient,
+  candidateProductIds: string[],
+  supplierCode: string,
+  settings: ReturnType<typeof resolvePricingSettingsRow>["settings"]
+): Promise<string[]> {
+  const needle = supplierCode.trim().toLowerCase();
+  const winnerIds: string[] = [];
+  const chunkSize = 150;
+  for (let i = 0; i < candidateProductIds.length; i += chunkSize) {
+    const chunk = candidateProductIds.slice(i, i + chunkSize);
+    const agg = await loadSupplierAggregatesForProducts(supabase, chunk, settings);
+    for (const productId of chunk) {
+      if (agg.engineSupplierCodeByProduct.get(productId)?.toLowerCase() === needle) {
+        winnerIds.push(productId);
+      }
+    }
+  }
+  return winnerIds;
+}
+
+async function loadProductsByIds(
+  supabase: SupabaseClient,
+  productIds: string[],
+  params: ProductsListParams,
+  categoryIds: string[] | null
+): Promise<DbProduct[]> {
+  if (productIds.length === 0) return [];
+  const rows: DbProduct[] = [];
+  const chunkSize = 200;
+  for (let i = 0; i < productIds.length; i += chunkSize) {
+    const chunk = productIds.slice(i, i + chunkSize);
+    let query = supabase.from("products").select(PRODUCT_SELECT).in("id", chunk);
+    query = applySqlProductFilters(query, params, categoryIds);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    rows.push(...((data ?? []) as DbProduct[]));
+  }
+  return rows;
+}
+
+function sortProductsByCreatedAtDesc(rows: DbProduct[]): DbProduct[] {
+  return [...rows].sort((a, b) => {
+    const at = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const bt = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return bt - at;
+  });
+}
+
+async function loadFilteredProductCandidates(
+  supabase: SupabaseClient,
+  params: ProductsListParams,
+  categoryIds: string[] | null
+): Promise<DbProduct[]> {
+  const rows: DbProduct[] = [];
+  let offset = 0;
+  for (;;) {
+    let query = supabase.from("products").select(PRODUCT_SELECT).order("created_at", { ascending: false });
+    query = applySqlProductFilters(query, params, categoryIds);
+    const { data, error } = await query.range(offset, offset + PRODUCT_SCAN_PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as DbProduct[];
+    if (page.length === 0) break;
+    rows.push(...page);
+    offset += page.length;
+    if (page.length < PRODUCT_SCAN_PAGE_SIZE) break;
+  }
+  return rows;
+}
 
 function matchesComputedFilters(
   row: DbProduct,
   masterStatusValue: MasterStatusValue,
-  effectivePriceSource: string | null,
   params: ProductsListParams
 ): boolean {
   const quick = params.quickFilter ?? "all";
   if (quick !== "all" && masterStatusValue !== quick) return false;
-
-  const priceSource = params.priceSource ?? "all";
-  if (priceSource !== "all") {
-    if (priceSource === "manual") {
-      if (effectivePriceSource !== "manual") return false;
-    } else if (effectivePriceSource !== priceSource) {
-      return false;
-    }
-  }
 
   const effectivePrice = getEffectivePrice(row.custom_price, row.price);
   if (params.priceMin != null && Number.isFinite(params.priceMin) && effectivePrice < params.priceMin) {
@@ -419,12 +539,7 @@ async function listProductsViaScan(
 ): Promise<PaginatedResult<AdminProduct>> {
   const { settings, categoryReqByCategoryId, parentCategoryById } = await loadListContext(supabase);
 
-  let query = supabase.from("products").select(PRODUCT_SELECT).order("created_at", { ascending: false });
-  query = applySqlProductFilters(query, params, categoryIds);
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-
-  const candidates = (data ?? []) as DbProduct[];
+  const candidates = await loadFilteredProductCandidates(supabase, params, categoryIds);
   const candidateIds = candidates.map((row) => row.id);
 
   const { productAttributeIds, productAttributeValues } = await loadAttributesForProducts(
@@ -442,12 +557,7 @@ async function listProductsViaScan(
       productAttributeIds,
       productAttributeValues
     );
-    const effectivePriceSource = resolveEffectivePriceSource(
-      row.custom_price,
-      row.price,
-      supplierAgg.engineSupplierNameByProduct.get(row.id) ?? null
-    );
-    if (!matchesComputedFilters(row, masterStatus.value, effectivePriceSource, params)) continue;
+    if (!matchesComputedFilters(row, masterStatus.value, params)) continue;
     filteredIds.push(row.id);
   }
 
@@ -472,6 +582,72 @@ async function listProductsViaScan(
   });
 
   return buildPaginatedResult(items, filteredIds.length, params.page, params.limit);
+}
+
+async function listProductsViaWinningSupplier(
+  supabase: SupabaseClient,
+  params: ProductsListParams,
+  categoryIds: string[] | null,
+  supplierCode: string
+): Promise<PaginatedResult<AdminProduct>> {
+  const { settings, categoryReqByCategoryId, parentCategoryById } = await loadListContext(supabase);
+  const supplierId = await resolveSupplierIdByCode(supabase, supplierCode);
+  if (!supplierId) {
+    return buildPaginatedResult([], 0, params.page, params.limit);
+  }
+
+  const candidateIds = await loadProductIdsWithActiveOfferFromSupplier(supabase, supplierId);
+  const winnerIds = await filterProductIdsByWinningSupplier(
+    supabase,
+    candidateIds,
+    supplierCode,
+    settings
+  );
+  if (winnerIds.length === 0) {
+    return buildPaginatedResult([], 0, params.page, params.limit);
+  }
+
+  let products = await loadProductsByIds(supabase, winnerIds, params, categoryIds);
+  products = products.filter((row) => toNumberOrNull(row.custom_price) == null);
+
+  if (needsComputedFiltersBeyondSql(params)) {
+    const productIds = products.map((row) => row.id);
+    const { productAttributeIds, productAttributeValues } = await loadAttributesForProducts(
+      supabase,
+      productIds
+    );
+    const supplierAgg = await loadSupplierAggregatesForProducts(supabase, productIds, settings);
+    products = products.filter((row) => {
+      const masterStatus = getMasterStatus(
+        row,
+        supplierAgg.supplierCountByProduct.get(row.id) ?? 0,
+        categoryReqByCategoryId,
+        productAttributeIds,
+        productAttributeValues
+      );
+      return matchesComputedFilters(row, masterStatus.value, params);
+    });
+  }
+
+  products = sortProductsByCreatedAtDesc(products);
+  const total = products.length;
+  const pageProducts = slicePage(products, params.page, params.limit);
+  const pageIds = pageProducts.map((row) => row.id);
+
+  const pageAttrs = await loadAttributesForProducts(supabase, pageIds);
+  const pageSupplierAgg = await loadSupplierAggregatesForProducts(supabase, pageIds, settings);
+
+  const items = enrichRows(pageProducts, {
+    categoryReqByCategoryId,
+    parentCategoryById,
+    productAttributeIds: pageAttrs.productAttributeIds,
+    productAttributeValues: pageAttrs.productAttributeValues,
+    supplierCountByProduct: pageSupplierAgg.supplierCountByProduct,
+    linkedSuppliersByProduct: pageSupplierAgg.linkedSuppliersByProduct,
+    engineSupplierNameByProduct: pageSupplierAgg.engineSupplierNameByProduct
+  });
+
+  return buildPaginatedResult(items, total, params.page, params.limit);
 }
 
 async function listProductsViaSql(
@@ -521,6 +697,10 @@ export async function listAdminProducts(
   );
   if (categoryIds && categoryIds.length === 0) {
     return buildPaginatedResult([], 0, params.page, params.limit);
+  }
+
+  if (isWinningSupplierFilter(params)) {
+    return listProductsViaWinningSupplier(supabase, params, categoryIds, params.priceSource!);
   }
 
   if (needsIdScan(params)) {
@@ -614,15 +794,16 @@ export async function getProductsFilterOptions(supabase: SupabaseClient): Promis
 
   const { data: suppliers, error: suppliersError } = await supabase
     .from("suppliers")
-    .select("name")
+    .select("name, code")
     .order("name", { ascending: true });
   if (suppliersError) throw new Error(suppliersError.message);
 
   const priceSources: ProductsFilterOptions["priceSources"] = [{ value: "manual", label: "manual" }];
   for (const row of suppliers ?? []) {
+    const code = String(row.code ?? "").trim().toLowerCase();
     const name = String(row.name ?? "").trim();
-    if (!name) continue;
-    priceSources.push({ value: name, label: name });
+    if (!code || !name) continue;
+    priceSources.push({ value: code, label: name });
   }
 
   return { categoryTree, priceSources };

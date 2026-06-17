@@ -4,7 +4,7 @@ import { round2 } from "./sell-price";
 
 /**
  * Acquisition cost in KM for one supplier offer row.
- * Uses `suppliers.pricing_formula` + `pricing_settings` for HUF; falls back to `convertToDisplayCurrency` when formula is null or currency is not HUF.
+ * Uses `suppliers.pricing_formula` + `pricing_settings` for HUF and domestic KM net; falls back to `convertToDisplayCurrency` when formula is null or currency is not HUF.
  */
 export function computeAcquisitionKm(
   priceAmount: number,
@@ -33,6 +33,10 @@ export function computeAcquisitionKm(
 
   if (cur === "HUF" && formula === "domestic_custom") {
     return round2(convertToDisplayCurrency(priceAmount, "HUF") * adj);
+  }
+
+  if ((cur === "KM" || cur === "BAM") && formula === "domestic_km_net") {
+    return round2(priceAmount * settings.pdv_bih * adj);
   }
 
   return round2(convertToDisplayCurrency(priceAmount, currency, supplier?.id) * adj);

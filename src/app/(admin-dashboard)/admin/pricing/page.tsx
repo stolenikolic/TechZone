@@ -501,6 +501,7 @@ function SupplierRow({
           <MenuItem value="ipon_huf">ipon_huf</MenuItem>
           <MenuItem value="hungary_huf_alza_tax">hungary_huf_alza_tax</MenuItem>
           <MenuItem value="domestic_custom">domestic_custom</MenuItem>
+          <MenuItem value="domestic_km_net">domestic_km_net</MenuItem>
         </TextField>
       </TableCell>
       <TableCell>

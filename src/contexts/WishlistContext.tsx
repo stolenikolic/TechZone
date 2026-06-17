@@ -24,7 +24,19 @@ type WishlistContextValue = {
   removeFromWishlist: (productId: string) => Promise<void>;
 };
 
-const WishlistContext = createContext<WishlistContextValue | undefined>(undefined);
+const noopAsync = async () => {};
+
+const defaultWishlistContext: WishlistContextValue = {
+  productIds: [],
+  count: 0,
+  isLoading: false,
+  isHydrated: false,
+  isInWishlist: () => false,
+  toggleWishlist: noopAsync,
+  removeFromWishlist: noopAsync
+};
+
+const WishlistContext = createContext<WishlistContextValue>(defaultWishlistContext);
 
 function sanitizeIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -211,9 +223,5 @@ export function WishlistProvider({ children }: PropsWithChildren) {
 }
 
 export function useWishlistContext() {
-  const ctx = useContext(WishlistContext);
-  if (!ctx) {
-    throw new Error("useWishlist must be used within WishlistProvider");
-  }
-  return ctx;
+  return useContext(WishlistContext);
 }

@@ -25,6 +25,8 @@ import { KONZOLVILAG_CATEGORIES } from "lib/suppliers/konzolvilag/categories";
 import { KONZOLVILAG_SUPPLIER_ID } from "lib/suppliers/konzolvilag/constants";
 import { COMTRADE_CATEGORIES } from "lib/suppliers/comtrade/categories";
 import { COMTRADE_SUPPLIER_ID } from "lib/suppliers/comtrade/constants";
+import { AVTERA_CATEGORIES } from "lib/suppliers/avtera/categories";
+import { AVTERA_SUPPLIER_ID } from "lib/suppliers/avtera/constants";
 
 export type RegistryCategory = {
   internalCategoryId: string;
@@ -164,6 +166,14 @@ function fallbackCategoriesForSupplier(supplierId: string): RegistryCategory[] {
       sortOrder: (idx + 1) * 10
     }));
   }
+  if (supplierId === AVTERA_SUPPLIER_ID) {
+    return AVTERA_CATEGORIES.map((c, idx) => ({
+      internalCategoryId: c.internalCategoryId,
+      supplierCategoryKey: c.categoryId,
+      listingUrl: null,
+      sortOrder: (idx + 1) * 10
+    })).filter((c) => c.supplierCategoryKey);
+  }
   return [];
 }
 
@@ -171,6 +181,7 @@ function fallbackCategoriesForSupplier(supplierId: string): RegistryCategory[] {
 export const PCX_SUPPLIER_ID = "f4a8b2c0-9d1e-4f3a-bc5d-6e7f8091a2b3";
 
 export {
+  AVTERA_SUPPLIER_ID,
   COMTRADE_SUPPLIER_ID,
   FIRSTSHOP_SUPPLIER_ID,
   KONZOLVILAG_SUPPLIER_ID,

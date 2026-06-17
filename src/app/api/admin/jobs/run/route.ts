@@ -4,6 +4,7 @@ import { withJobRun, type JobType } from "lib/jobs/job-runner";
 import { IPON_SUPPLIER_ID } from "lib/suppliers/ipon/categories";
 import {
   COMTRADE_SUPPLIER_ID,
+  AVTERA_SUPPLIER_ID,
   FIRSTSHOP_SUPPLIER_ID,
   KONZOLVILAG_SUPPLIER_ID,
   OAZIS_SUPPLIER_ID,
@@ -27,6 +28,8 @@ const ALLOWED: JobType[] = [
   "comtrade_import",
   "comtrade_price_sync",
   "comtrade_enrich",
+  "avtera_import",
+  "avtera_price_sync",
   "aggregate_prices",
   "auto_match",
   "enrichment",
@@ -55,6 +58,9 @@ function supplierIdForDashboardJob(jobType: JobType): string | null {
     case "comtrade_price_sync":
     case "comtrade_enrich":
       return COMTRADE_SUPPLIER_ID;
+    case "avtera_import":
+    case "avtera_price_sync":
+      return AVTERA_SUPPLIER_ID;
     default:
       return null;
   }
@@ -132,6 +138,14 @@ async function runJob(
   if (jobType === "comtrade_enrich") {
     const { runComtradeEnrich } = await import("lib/suppliers/comtrade/enrich");
     return runComtradeEnrich();
+  }
+  if (jobType === "avtera_import") {
+    const { runAvteraImportProducts } = await import("lib/suppliers/avtera/importProducts");
+    return runAvteraImportProducts();
+  }
+  if (jobType === "avtera_price_sync") {
+    const { runAvteraPriceSync } = await import("lib/suppliers/avtera/priceSync");
+    return runAvteraPriceSync();
   }
   if (jobType === "aggregate_prices") {
     const { aggregatePrices, wrapAggregatePricesJobResult } = await import("lib/pricing");

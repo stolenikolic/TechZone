@@ -20,6 +20,8 @@ on:
           - konzolvilag_import
           - comtrade_import
           - comtrade_price_sync
+          - avtera_import
+          - avtera_price_sync
           - auto_match
           - aggregate_prices
           - ipon_scrape_details
@@ -35,6 +37,7 @@ env:
   GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
   COMTRADE_USERNAME: ${{ secrets.COMTRADE_USERNAME }}
   COMTRADE_PASSWORD: ${{ secrets.COMTRADE_PASSWORD }}
+  AVTERA_XML_FEED_URL: ${{ secrets.AVTERA_XML_FEED_URL }}
 
 concurrency:
   group: background-jobs-manual-${{ inputs.job }}
@@ -74,6 +77,8 @@ jobs:
             konzolvilag_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-konzolvilag-import-products.ts ;;
             comtrade_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-comtrade-import-products.ts ;;
             comtrade_price_sync) npx tsx -r ./scripts/register-ws.cjs scripts/run-comtrade-price-sync.ts ;;
+            avtera_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-avtera-import-products.ts ;;
+            avtera_price_sync) npx tsx -r ./scripts/register-ws.cjs scripts/run-avtera-price-sync.ts ;;
             auto_match) npx tsx -r ./scripts/register-ws.cjs scripts/run-auto-match.ts ;;
             aggregate_prices) npx tsx -r ./scripts/register-ws.cjs scripts/run-aggregate-prices.ts ;;
             ipon_scrape_details) npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-scrape-details.ts ;;

@@ -409,7 +409,7 @@ export default function ProductsPageView() {
           <TextField
             select
             size="small"
-            label="Suppliers"
+            label="Price source"
             value={supplierFilter}
             onChange={(e) => setSupplierFilter(e.target.value)}
             sx={{ minWidth: 150 }}

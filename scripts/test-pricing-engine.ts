@@ -71,6 +71,22 @@ const huSupplier: SupplierPricingRow = {
 const kmHu = computeAcquisitionKm(hufIpon, "HUF", huSupplier, settings);
 assert.ok(kmHu > kmIpon, `alza path higher: ${kmHu} > ${kmIpon}`);
 
+const domesticKmSupplier: SupplierPricingRow = {
+  id: "s3",
+  pricing_formula: "domestic_km_net",
+  cost_adjustment_multiplier: 1
+};
+assert.equal(
+  computeAcquisitionKm(100, "KM", domesticKmSupplier, settings),
+  117,
+  "domestic net KM × pdv_bih"
+);
+assert.equal(
+  computeAcquisitionKm(20, "KM", domesticKmSupplier, settings),
+  23.4,
+  "Avtera-style net nabavna"
+);
+
 const cost5000 = 5000;
 const m5000 = resolveSellingMultiplier(cost5000, tiers, settings, null, null);
 const mCapped = Math.min(m5000, settings.high_cost_max_margin_multiplier!);

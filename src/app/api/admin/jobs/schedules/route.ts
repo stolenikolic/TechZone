@@ -16,6 +16,8 @@ const ALLOWED_JOB_TYPES = [
   "comtrade_import",
   "comtrade_price_sync",
   "comtrade_enrich",
+  "avtera_import",
+  "avtera_price_sync",
   "aggregate_prices",
   "auto_match",
   "enrichment",
