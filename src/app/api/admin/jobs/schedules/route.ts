@@ -22,7 +22,8 @@ const ALLOWED_JOB_TYPES = [
   "auto_match",
   "enrichment",
   "apply_value_aliases",
-  "ai_descriptions"
+  "ai_descriptions",
+  "olx_feed_export"
 ] as const;
 
 type Row = { job_type: string; is_paused: boolean; notes: string | null; updated_at: string };

@@ -10,6 +10,7 @@ import type { PricingMarginTierRow, PricingSettingsRow, SupplierPricingRow } fro
 import { reconcileProductsIsActiveFromSupplierOffers } from "./reconcile-product-active";
 import { computeOriginalPriceKm } from "./original-price";
 import { getEffectivePrice } from "lib/effective-price";
+import { resolvePriceSourceRegion } from "./price-source-region";
 
 /** Number of supplier_products rows to fetch per query. Keep at 1000 to stay under PostgREST default row limit. */
 const FETCH_PAGE_SIZE = 1000;
@@ -24,6 +25,11 @@ type SupplierProductRow = {
   price_amount: number;
   currency: string;
   suppliers: SupplierPricingRow | SupplierPricingRow[] | null;
+};
+
+type WinnerOffer = {
+  supplierId: string;
+  currency: string;
 };
 
 type ProductMarginRow = {
@@ -67,7 +73,8 @@ function mergeWarnings(...lists: (string[] | undefined)[]): string[] | undefined
 function ingestSupplierOfferRows(
   rows: SupplierProductRow[],
   settings: ReturnType<typeof resolvePricingSettingsRow>["settings"],
-  minCostByProduct: Map<string, number>
+  minCostByProduct: Map<string, number>,
+  winnerByProduct: Map<string, WinnerOffer>
 ): void {
   for (const row of rows) {
     const supplier = firstSupplier(row.suppliers);
@@ -82,6 +89,10 @@ function ingestSupplierOfferRows(
     const current = minCostByProduct.get(row.product_id);
     if (current === undefined || km < current) {
       minCostByProduct.set(row.product_id, km);
+      winnerByProduct.set(row.product_id, {
+        supplierId: row.supplier_id,
+        currency: row.currency ?? ""
+      });
     }
   }
 }
@@ -90,8 +101,9 @@ async function loadMinCostByProduct(
   supabase: ReturnType<typeof createSupabaseServiceClient>,
   settings: ReturnType<typeof resolvePricingSettingsRow>["settings"],
   productIdsFilter: string[] | null
-): Promise<Map<string, number>> {
+): Promise<{ minCostByProduct: Map<string, number>; winnerByProduct: Map<string, WinnerOffer> }> {
   const minCostByProduct = new Map<string, number>();
+  const winnerByProduct = new Map<string, WinnerOffer>();
 
   if (productIdsFilter != null) {
     for (let i = 0; i < productIdsFilter.length; i += PRODUCT_IDS_IN_CHUNK) {
@@ -108,9 +120,14 @@ async function loadMinCostByProduct(
         throw new Error(`supplier_products fetch failed: ${fetchError.message}`);
       }
 
-      ingestSupplierOfferRows((rows ?? []) as SupplierProductRow[], settings, minCostByProduct);
+      ingestSupplierOfferRows(
+        (rows ?? []) as SupplierProductRow[],
+        settings,
+        minCostByProduct,
+        winnerByProduct
+      );
     }
-    return minCostByProduct;
+    return { minCostByProduct, winnerByProduct };
   }
 
   let offset = 0;
@@ -132,12 +149,12 @@ async function loadMinCostByProduct(
     const chunk = (rows ?? []) as SupplierProductRow[];
     if (chunk.length === 0) break;
 
-    ingestSupplierOfferRows(chunk, settings, minCostByProduct);
+    ingestSupplierOfferRows(chunk, settings, minCostByProduct, winnerByProduct);
     offset += chunk.length;
     if (chunk.length < FETCH_PAGE_SIZE) break;
   }
 
-  return minCostByProduct;
+  return { minCostByProduct, winnerByProduct };
 }
 
 type AggregatePricesOptions = {
@@ -191,8 +208,11 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
   }
 
   let minCostByProduct: Map<string, number>;
+  let winnerByProduct: Map<string, WinnerOffer>;
   try {
-    minCostByProduct = await loadMinCostByProduct(supabase, settings, productIdsFilter);
+    const loaded = await loadMinCostByProduct(supabase, settings, productIdsFilter);
+    minCostByProduct = loaded.minCostByProduct;
+    winnerByProduct = loaded.winnerByProduct;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return { updated: 0, batches: 0, error: message, warnings: settingWarnings };
@@ -292,6 +312,39 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
     }
     updatedCount += batch.length;
     batches += 1;
+  }
+
+  const sourceEntries: {
+    id: string;
+    price_source_region: string;
+    price_source_supplier_id: string | null;
+  }[] = [];
+
+  for (const productId of productIds) {
+    const customPrice = customPriceByProduct.get(productId) ?? null;
+    const winner = winnerByProduct.get(productId);
+    const region = resolvePriceSourceRegion(customPrice, winner?.currency);
+    if (!region) continue;
+    sourceEntries.push({
+      id: productId,
+      price_source_region: region,
+      price_source_supplier_id: region === "custom" ? null : (winner?.supplierId ?? null)
+    });
+  }
+
+  for (let i = 0; i < sourceEntries.length; i += UPDATE_BATCH_SIZE) {
+    const batch = sourceEntries.slice(i, i + UPDATE_BATCH_SIZE);
+    const { error: sourceRpcError } = await supabase.rpc("update_products_price_sources", {
+      entries: batch
+    });
+    if (sourceRpcError) {
+      return {
+        updated: updatedCount,
+        batches,
+        error: `update_products_price_sources RPC failed: ${sourceRpcError.message}`,
+        warnings: settingWarnings
+      };
+    }
   }
 
   let warnings: string[] | undefined = settingWarnings;

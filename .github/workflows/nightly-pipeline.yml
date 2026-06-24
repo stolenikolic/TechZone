@@ -206,6 +206,24 @@ jobs:
       - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
       - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-aggregate-prices.ts
 
+  olx_feed_export:
+    name: "3b · OLX feed export"
+    needs: [aggregate_prices]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      JOB_TRIGGERED_BY: cron
+      JOB_TYPE: olx_feed_export
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-generate-olx-feed.ts
+
   ipon_scrape_details:
     name: "4 · iPon scrape details"
     needs: [aggregate_prices]

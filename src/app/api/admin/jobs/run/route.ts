@@ -34,7 +34,8 @@ const ALLOWED: JobType[] = [
   "auto_match",
   "enrichment",
   "apply_value_aliases",
-  "ai_descriptions"
+  "ai_descriptions",
+  "olx_feed_export"
 ];
 
 /** Same UUIDs as importer scripts — only for `job_runs.supplier_id` / admin UI join. */
@@ -150,6 +151,10 @@ async function runJob(
   if (jobType === "aggregate_prices") {
     const { aggregatePrices, wrapAggregatePricesJobResult } = await import("lib/pricing");
     return wrapAggregatePricesJobResult(await aggregatePrices());
+  }
+  if (jobType === "olx_feed_export") {
+    const { generateAndStoreOlxFeed } = await import("lib/feeds/generate-and-store");
+    return generateAndStoreOlxFeed();
   }
   if (jobType === "auto_match") {
     const { runAutoMatch } = await import("lib/auto-match/runAutoMatch");

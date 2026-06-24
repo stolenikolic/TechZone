@@ -41,7 +41,8 @@ const JOB_TYPES = [
   "auto_match",
   "enrichment",
   "apply_value_aliases",
-  "ai_descriptions"
+  "ai_descriptions",
+  "olx_feed_export"
 ] as const;
 
 const STATUSES = ["running", "success", "failed", "partial"] as const;

@@ -30,7 +30,8 @@ export type JobType =
   | "auto_match"
   | "enrichment"
   | "apply_value_aliases"
-  | "ai_descriptions";
+  | "ai_descriptions"
+  | "olx_feed_export";
 
 export type JobStatus = "running" | "success" | "failed" | "partial";
 

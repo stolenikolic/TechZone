@@ -40,6 +40,7 @@
     "avtera:import": "tsx scripts/run-avtera-import-products.ts",
     "avtera:price-sync": "tsx scripts/run-avtera-price-sync.ts",
     "aggregate-prices": "tsx scripts/run-aggregate-prices.ts",
+    "olx:generate-feed": "tsx scripts/run-generate-olx-feed.ts",
     "auto-match": "tsx scripts/run-auto-match.ts",
     "ai-descriptions": "tsx scripts/run-ai-descriptions.ts",
     "test:auto-link": "tsx scripts/test-match-supplier-product.ts && tsx scripts/test-auto-link-import-integration.ts",
