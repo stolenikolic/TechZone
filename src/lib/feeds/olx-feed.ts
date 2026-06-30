@@ -1,17 +1,29 @@
 import { createSupabaseServiceClient } from "utils/supabase";
 import { getEffectivePrice } from "lib/effective-price";
-import type { PriceSourceRegion } from "lib/pricing/price-source-region";
+import { resolvePricingSettingsRow } from "lib/pricing/resolve-settings";
+import type { PricingSettingsRow } from "lib/pricing/types";
+import {
+  buildRegionalOffers,
+  type FeedRegionalOffer,
+  type SupplierOfferInput
+} from "./acquisition-price";
 
 const PRODUCTS_PAGE_SIZE = 1000;
 const ATTRIBUTES_CHUNK_SIZE = 200;
+const OFFERS_CHUNK_SIZE = 200;
 
-export const OLX_FEED_SCHEMA_VERSION = 1;
+export const OLX_FEED_SCHEMA_VERSION = 3;
+
+export type OlxFeedRegionalOffers = {
+  HU?: FeedRegionalOffer;
+  BA?: FeedRegionalOffer;
+};
 
 export type OlxFeedProduct = {
   id: string;
   title: string;
   shop_price: number;
-  price_source_region: PriceSourceRegion;
+  offers: OlxFeedRegionalOffers;
   category: { name: string; slug: string };
   main_image: string | null;
   specs: Record<string, string>;
@@ -34,10 +46,20 @@ type ProductRow = {
   main_image: string | null;
   price: number | null;
   custom_price: number | null;
-  price_source_region: string | null;
   categories:
     | { name: string; slug: string }
     | { name: string; slug: string }[]
+    | null;
+};
+
+type SupplierProductRow = {
+  product_id: string;
+  supplier_id: string;
+  price_amount: number;
+  currency: string;
+  suppliers:
+    | { code: string; pricing_formula: string | null }
+    | { code: string; pricing_formula: string | null }[]
     | null;
 };
 
@@ -50,8 +72,22 @@ function firstCategory(
   return { name: c.name, slug: c.slug };
 }
 
-function isValidRegion(value: string | null): value is PriceSourceRegion {
-  return value === "HU" || value === "BA" || value === "custom";
+function firstSupplier(raw: SupplierProductRow["suppliers"]) {
+  if (raw == null) return null;
+  return Array.isArray(raw) ? raw[0] ?? null : raw;
+}
+
+async function loadPricingAlzaTax(): Promise<number> {
+  const supabase = createSupabaseServiceClient();
+  const { data, error } = await supabase.from("pricing_settings").select("*").limit(1);
+  if (error) throw new Error(`pricing_settings fetch failed: ${error.message}`);
+  const { settings } = resolvePricingSettingsRow((data?.[0] ?? null) as PricingSettingsRow | null);
+  if (!Number.isFinite(settings.alza_tax) || settings.alza_tax <= 0) {
+    throw new Error(
+      "pricing_settings.alza_tax is missing or invalid (required for HU non-iPon offers)."
+    );
+  }
+  return settings.alza_tax;
 }
 
 async function loadSpecsByProductId(
@@ -94,6 +130,52 @@ async function loadSpecsByProductId(
   return specsByProduct;
 }
 
+function toSupplierOfferInput(row: SupplierProductRow): SupplierOfferInput | null {
+  const supplier = firstSupplier(row.suppliers);
+  const code = supplier?.code?.trim();
+  if (!code) return null;
+  return {
+    supplier_id: row.supplier_id,
+    price_amount: Number(row.price_amount),
+    currency: row.currency ?? "",
+    supplier_code: code,
+    pricing_formula: supplier.pricing_formula
+  };
+}
+
+async function loadSupplierOffersByProductId(
+  productIds: string[]
+): Promise<Map<string, SupplierOfferInput[]>> {
+  const offersByProduct = new Map<string, SupplierOfferInput[]>();
+  if (productIds.length === 0) return offersByProduct;
+
+  const supabase = createSupabaseServiceClient();
+
+  for (let i = 0; i < productIds.length; i += OFFERS_CHUNK_SIZE) {
+    const chunk = productIds.slice(i, i + OFFERS_CHUNK_SIZE);
+    const { data, error } = await supabase
+      .from("supplier_products")
+      .select(
+        "product_id, supplier_id, price_amount, currency, suppliers(code, pricing_formula)"
+      )
+      .in("product_id", chunk)
+      .eq("is_active", true)
+      .order("supplier_id", { ascending: true });
+
+    if (error) throw new Error(`supplier_products fetch failed: ${error.message}`);
+
+    for (const row of (data ?? []) as SupplierProductRow[]) {
+      const input = toSupplierOfferInput(row);
+      if (!input) continue;
+      const list = offersByProduct.get(row.product_id) ?? [];
+      list.push(input);
+      offersByProduct.set(row.product_id, list);
+    }
+  }
+
+  return offersByProduct;
+}
+
 async function loadStorefrontProducts(limit?: number): Promise<ProductRow[]> {
   const supabase = createSupabaseServiceClient();
   const rows: ProductRow[] = [];
@@ -106,9 +188,7 @@ async function loadStorefrontProducts(limit?: number): Promise<ProductRow[]> {
 
     const { data, error } = await supabase
       .from("products")
-      .select(
-        "id, name, main_image, price, custom_price, price_source_region, categories(name, slug)"
-      )
+      .select("id, name, main_image, price, custom_price, categories(name, slug)")
       .eq("is_active", true)
       .eq("publish_locked", false)
       .or("price.gt.0,custom_price.gt.0")
@@ -133,14 +213,17 @@ export type BuildOlxFeedOptions = {
 };
 
 /**
- * Build OLX JSON feed from storefront-visible products.
- * Skips items without valid shop_price or price_source_region.
+ * Build OLX JSON feed (v3): per-region best offers HU + BA from all active supplier_products.
  */
 export async function buildOlxFeed(options?: BuildOlxFeedOptions): Promise<BuildOlxFeedResult> {
   const startedAt = Date.now();
+  const alzaTax = await loadPricingAlzaTax();
   const productRows = await loadStorefrontProducts(options?.limit);
   const productIds = productRows.map((row) => row.id);
-  const specsByProduct = await loadSpecsByProductId(productIds);
+  const [specsByProduct, supplierOffersByProduct] = await Promise.all([
+    loadSpecsByProductId(productIds),
+    loadSupplierOffersByProductId(productIds)
+  ]);
 
   const products: OlxFeedProduct[] = [];
   let skipped = 0;
@@ -153,13 +236,6 @@ export async function buildOlxFeed(options?: BuildOlxFeedOptions): Promise<Build
       continue;
     }
 
-    const region = row.price_source_region;
-    if (!isValidRegion(region)) {
-      skipped += 1;
-      console.warn(`[olx-feed] skipped ${row.id}: missing or invalid price_source_region`);
-      continue;
-    }
-
     const category = firstCategory(row.categories);
     if (!category) {
       skipped += 1;
@@ -167,11 +243,19 @@ export async function buildOlxFeed(options?: BuildOlxFeedOptions): Promise<Build
       continue;
     }
 
+    const supplierOffers = supplierOffersByProduct.get(row.id) ?? [];
+    const offers = buildRegionalOffers(supplierOffers, alzaTax);
+    if (!offers.HU && !offers.BA) {
+      skipped += 1;
+      console.warn(`[olx-feed] skipped ${row.id}: no HU or BA regional offer`);
+      continue;
+    }
+
     products.push({
       id: row.id,
       title: row.name,
       shop_price: shopPrice,
-      price_source_region: region,
+      offers,
       category,
       main_image: row.main_image,
       specs: specsByProduct.get(row.id) ?? {}

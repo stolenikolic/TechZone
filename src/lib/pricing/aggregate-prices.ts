@@ -328,7 +328,7 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
     sourceEntries.push({
       id: productId,
       price_source_region: region,
-      price_source_supplier_id: region === "custom" ? null : (winner?.supplierId ?? null)
+      price_source_supplier_id: winner?.supplierId ?? null
     });
   }
 
