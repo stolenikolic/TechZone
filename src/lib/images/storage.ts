@@ -4,25 +4,36 @@ import {
   HOMEPAGE_IMAGES_BUCKET,
   PRODUCT_IMAGES_BUCKET
 } from "lib/images/constants";
+import {
+  deleteR2ObjectPaths,
+  getR2PublicBaseUrl,
+  getR2PublicUrl,
+  listR2ObjectPaths,
+  uploadR2Object
+} from "lib/storage/r2";
 
 const STORAGE_PUBLIC_SEGMENT = "/storage/v1/object/public/";
 
-export function getStoragePublicUrl(supabase: SupabaseClient, bucket: string, path: string): string {
-  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-  return data.publicUrl;
+export function getStoragePublicUrl(_supabase: SupabaseClient, bucket: string, path: string): string {
+  return getR2PublicUrl(bucket, path);
 }
 
-/** Parse `products/{id}/0.webp` from a Supabase public object URL. */
-export function storagePathFromPublicUrl(
-  publicUrl: string,
-  bucket: string
-): string | null {
+/** Parse object path from a hosted public URL (R2 or legacy Supabase). */
+export function storagePathFromPublicUrl(publicUrl: string, bucket: string): string | null {
   try {
-    const marker = `${STORAGE_PUBLIC_SEGMENT}${bucket}/`;
-    const idx = publicUrl.indexOf(marker);
-    if (idx === -1) return null;
-    const path = publicUrl.slice(idx + marker.length).split("?")[0];
-    return path || null;
+    const markers = [
+      `${STORAGE_PUBLIC_SEGMENT}${bucket}/`,
+      `${getR2PublicBaseUrl()}/${bucket}/`
+    ];
+
+    for (const marker of markers) {
+      const idx = publicUrl.indexOf(marker);
+      if (idx === -1) continue;
+      const objectPath = publicUrl.slice(idx + marker.length).split("?")[0];
+      return objectPath || null;
+    }
+
+    return null;
   } catch {
     return null;
   }
@@ -57,7 +68,7 @@ export function newHomepageImageStoragePath(blockId: string): string {
 
 /** Remove legacy `{id}.webp` and all versioned files under `{id}/`. */
 export async function removeHomepageImage(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   blockId: string,
   currentImageUrl: string | null | undefined
 ): Promise<void> {
@@ -68,16 +79,10 @@ export async function removeHomepageImage(
     if (parsed) paths.push(parsed);
   }
 
-  const { data, error } = await supabase.storage.from(HOMEPAGE_IMAGES_BUCKET).list(blockId, {
-    limit: 100
-  });
-  if (!error) {
-    for (const file of data ?? []) {
-      if (file.name) paths.push(`${blockId}/${file.name}`);
-    }
-  }
+  const listed = await listR2ObjectPaths(HOMEPAGE_IMAGES_BUCKET, blockId);
+  paths.push(...listed);
 
-  await removeStoragePaths(supabase, HOMEPAGE_IMAGES_BUCKET, paths);
+  await removeStoragePaths(_supabase, HOMEPAGE_IMAGES_BUCKET, paths);
 }
 
 export async function uploadWebp(
@@ -86,45 +91,34 @@ export async function uploadWebp(
   path: string,
   buffer: Buffer
 ): Promise<string> {
-  const { error } = await supabase.storage.from(bucket).upload(path, buffer, {
-    contentType: "image/webp",
-    upsert: true
-  });
-  if (error) throw new Error(`Storage upload failed (${bucket}/${path}): ${error.message}`);
+  try {
+    await uploadR2Object(bucket, path, buffer, "image/webp");
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Storage upload failed (${bucket}/${path}): ${message}`);
+  }
   return getStoragePublicUrl(supabase, bucket, path);
 }
 
 export async function removeStoragePaths(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   bucket: string,
   paths: string[]
 ): Promise<void> {
-  const unique = Array.from(new Set(paths.filter(Boolean)));
-  if (unique.length === 0) return;
-  const { error } = await supabase.storage.from(bucket).remove(unique);
-  if (error) {
-    console.warn(`[images] remove ${bucket}:`, error.message);
-  }
+  await deleteR2ObjectPaths(bucket, paths);
 }
 
 /** Remove all objects under `products/{productId}/`. */
 export async function removeProductImageFolder(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   productId: string
 ): Promise<void> {
-  const { data, error } = await supabase.storage.from(PRODUCT_IMAGES_BUCKET).list(productId, {
-    limit: 100
-  });
-  if (error) {
-    console.warn(`[images] list products/${productId}:`, error.message);
-    return;
-  }
-  const paths = (data ?? []).map((f) => `${productId}/${f.name}`);
-  await removeStoragePaths(supabase, PRODUCT_IMAGES_BUCKET, paths);
+  const paths = await listR2ObjectPaths(PRODUCT_IMAGES_BUCKET, productId);
+  await removeStoragePaths(_supabase, PRODUCT_IMAGES_BUCKET, paths);
 }
 
 export async function removeCategoryImage(
-  supabase: SupabaseClient,
+  _supabase: SupabaseClient,
   categoryId: string,
   currentImageUrl: string | null | undefined
 ): Promise<void> {
@@ -133,13 +127,9 @@ export async function removeCategoryImage(
     const parsed = storagePathFromPublicUrl(currentImageUrl, CATEGORY_IMAGES_BUCKET);
     if (parsed) paths.push(parsed);
   }
-  const { data, error } = await supabase.storage.from(CATEGORY_IMAGES_BUCKET).list(categoryId, {
-    limit: 100
-  });
-  if (!error) {
-    for (const file of data ?? []) {
-      if (file.name) paths.push(`${categoryId}/${file.name}`);
-    }
-  }
-  await removeStoragePaths(supabase, CATEGORY_IMAGES_BUCKET, paths);
+
+  const listed = await listR2ObjectPaths(CATEGORY_IMAGES_BUCKET, categoryId);
+  paths.push(...listed);
+
+  await removeStoragePaths(_supabase, CATEGORY_IMAGES_BUCKET, paths);
 }

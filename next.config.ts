@@ -4,6 +4,8 @@ import { fileURLToPath } from "url";
 
 const appRoot = path.dirname(fileURLToPath(import.meta.url));
 
+const r2Hostname = process.env.R2_PUBLIC_URL?.replace(/^https?:\/\//, "").split("/")[0];
+
 const nextConfig: NextConfig = {
   // Avoid picking parent package-lock.json (TechZone-main/) as workspace root on CI/Netlify.
   turbopack: {
@@ -26,6 +28,15 @@ const nextConfig: NextConfig = {
         hostname: "bxicebgwhwgtofdxnkks.supabase.co",
         pathname: "/storage/v1/object/public/**"
       },
+      ...(r2Hostname
+        ? [
+            {
+              protocol: "https" as const,
+              hostname: r2Hostname,
+              pathname: "/**"
+            }
+          ]
+        : []),
       {
         protocol: "https",
         hostname: "www.gigabyte.com",

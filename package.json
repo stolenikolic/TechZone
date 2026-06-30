@@ -46,9 +46,13 @@
     "test:auto-link": "tsx scripts/test-match-supplier-product.ts && tsx scripts/test-auto-link-import-integration.ts",
     "test:ipon-xml-feed": "tsx scripts/test-ipon-xml-feed.ts",
     "test:avtera-xml-feed": "tsx scripts/test-avtera-xml-feed.ts",
-    "test:pricing": "tsx scripts/test-pricing-engine.ts"
+    "test:pricing": "tsx scripts/test-pricing-engine.ts",
+    "storage:migrate-to-r2": "tsx scripts/migrate-supabase-storage-to-r2.ts",
+    "storage:update-urls-to-r2": "tsx scripts/update-storage-urls-to-r2.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1077.0",
+    "@aws-sdk/s3-request-presigner": "^3.1077.0",
     "@emotion/cache": "^11.14.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",

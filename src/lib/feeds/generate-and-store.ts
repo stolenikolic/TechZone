@@ -1,4 +1,5 @@
-import { createSupabaseServiceClient } from "utils/supabase";
+import { FEEDS_BUCKET } from "lib/images/constants";
+import { uploadR2Object } from "lib/storage/r2";
 import { buildOlxFeed } from "./olx-feed";
 
 export const OLX_FEED_STORAGE_PATH = "olx.json";
@@ -31,15 +32,16 @@ export async function generateAndStoreOlxFeed(): Promise<GenerateAndStoreOlxFeed
   });
   const bytes = Buffer.byteLength(body, "utf8");
 
-  const supabase = createSupabaseServiceClient();
-  const { error } = await supabase.storage.from("feeds").upload(OLX_FEED_STORAGE_PATH, body, {
-    contentType: "application/json",
-    upsert: true,
-    cacheControl: "300"
-  });
-
-  if (error) {
-    const message = `storage upload failed: ${error.message}`;
+  try {
+    await uploadR2Object(
+      FEEDS_BUCKET,
+      OLX_FEED_STORAGE_PATH,
+      Buffer.from(body, "utf8"),
+      "application/json",
+      "max-age=300"
+    );
+  } catch (error) {
+    const message = `storage upload failed: ${error instanceof Error ? error.message : String(error)}`;
     console.error(`[olx-feed] ${message}`);
     return {
       success: false,

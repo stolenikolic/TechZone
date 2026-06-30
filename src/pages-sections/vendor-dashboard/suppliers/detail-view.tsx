@@ -367,12 +367,13 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
           activated?: number;
           deactivated?: number;
           upserted?: number;
+          skippedExisting?: number;
           skippedNoPrice?: number;
           skippedNoSupplierProductId?: number;
           skippedDuplicateCikkszam?: number;
           skippedDuplicateId?: number;
           staleDeactivated?: number;
-          summary?: { category_name?: string };
+          summary?: { category_name?: string; skipped_existing?: number };
         };
       };
       if (!res.ok || json.error) throw new Error(json.error ?? "Import nije uspio.");

@@ -352,7 +352,9 @@ export async function listSupplierOffers(
 
   if (error) throw new Error(error.message);
 
-  const items = ((data ?? []) as DbSupplierProduct[]).map((row) => toRow(row, settings, tiers));
+  const items = ((data ?? []) as unknown as DbSupplierProduct[]).map((row) =>
+    toRow(row, settings, tiers)
+  );
   return buildPaginatedResult(items, total, params.page, params.limit);
 }
 

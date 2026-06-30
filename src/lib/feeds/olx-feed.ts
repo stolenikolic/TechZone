@@ -133,7 +133,7 @@ async function loadSpecsByProductId(
 function toSupplierOfferInput(row: SupplierProductRow): SupplierOfferInput | null {
   const supplier = firstSupplier(row.suppliers);
   const code = supplier?.code?.trim();
-  if (!code) return null;
+  if (!supplier || !code) return null;
   return {
     supplier_id: row.supplier_id,
     price_amount: Number(row.price_amount),
