@@ -47,7 +47,11 @@ export function CategoryList({ categories, position = "absolute" }: Props) {
             icon={item.icon}
             title={item.title}
             caret={!!item.children}
-            render={item.component ? <MegaMenu data={item.children!} banner={item.offer} /> : null}
+            render={
+              item.component && item.children?.length ? (
+                <MegaMenu data={item.children} banner={item.offer} />
+              ) : null
+            }
           />
         );
       })}

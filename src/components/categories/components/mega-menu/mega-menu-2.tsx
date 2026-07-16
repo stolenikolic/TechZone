@@ -10,7 +10,7 @@ import { CategoryMenuItem } from "models/Category.model";
 type Props = { data: CategoryMenuItem[] };
 // =======================================================================
 
-export default function MegaMenu2({ data }: Props) {
+export default function MegaMenu2({ data = [] }: Props) {
   return (
     <StyledRoot elevation={5}>
       {data.map((item) => (

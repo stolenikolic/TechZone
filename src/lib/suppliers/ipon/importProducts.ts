@@ -24,6 +24,7 @@ import {
   IPON_BEFORE_LIST_API_MS,
   IPON_PAGE_DELAY_MS,
   isIponDiscoveryImportMode,
+  listingUrlHasFilterParams,
   looksLikeCaptchaOrBlock,
   numEnv,
   sleep,
@@ -1030,6 +1031,11 @@ async function importIponCategory(
   let deactivated = 0;
   if (fetchedIds.size === 0) {
     console.warn("[iPon import] Nema artikala u odgovoru — preskačem deaktivaciju za", cat.name);
+  } else if (listingUrlHasFilterParams(cat.url)) {
+    console.log(
+      "[iPon import] Filtrirani listing URL — preskačem deaktivaciju (podskup kategorije):",
+      cat.name
+    );
   } else {
     deactivated = await deactivateInactiveIponInCategory(supabase, cat.internalCategoryId, fetchedIds);
     const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);

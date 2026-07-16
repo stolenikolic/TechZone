@@ -234,6 +234,10 @@ jobs:
     needs: [aggregate_prices]
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    # Isti group kao ipon-scrape-details.yml — ne jure paralelno isti iPon red.
+    concurrency:
+      group: ipon-scrape-details
+      cancel-in-progress: false
     env:
       JOB_TRIGGERED_BY: cron
       JOB_TYPE: ipon_scrape_details

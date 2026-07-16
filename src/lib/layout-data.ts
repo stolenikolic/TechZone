@@ -14,7 +14,9 @@ type TreeNode = DbCategory & { children: TreeNode[] };
 
 const CATEGORY_ICON_BY_SLUG: Record<string, string> = {
   "racunarske-komponente": "Microchip",
-  "racunarska-periferija": "Headset"
+  "racunarska-periferija": "Headset",
+  "televizori-projektori-vr": "Desktop",
+  "mreza-serveri-sigurnost": "HouseSignal"
 };
 
 const MAIN_NAVIGATION: Menu[] = [
@@ -138,10 +140,13 @@ export async function getLayoutData(): Promise<LayoutModel> {
 
     const rows = (allCategories ?? []) as DbCategory[];
     const treeRoots = buildCategoryTree(rows);
-    const builtMenu: CategoryMenuItem[] = treeRoots.map((root) => ({
-      ...toCategoryMenuItem(root),
-      component: "List"
-    }));
+    const builtMenu: CategoryMenuItem[] = treeRoots.map((root) => {
+      const item = toCategoryMenuItem(root);
+      return {
+        ...item,
+        ...(item.children?.length ? { component: "List" as const } : {})
+      };
+    });
 
     return createLayout(mappedCategories, builtMenu);
   } catch (error) {

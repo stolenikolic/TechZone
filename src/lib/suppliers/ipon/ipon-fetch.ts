@@ -119,8 +119,39 @@ export async function warmupIponSessionForListing(
   await sleep(gapMs);
 }
 
-export function productDataUrl(origin: string, groupId: number, page: number): string {
-  return `${origin}/shop/group/${groupId}/product/data?page=${page}`;
+/** iPon product/data default page size (matches browser Network tab). */
+export const IPON_PRODUCT_DATA_LIMIT = 36;
+
+/** True when listing URL carries facet filters (e.g. ?12=3632), not just pagination. */
+export function listingUrlHasFilterParams(listingUrl: string): boolean {
+  const params = new URL(listingUrl).searchParams;
+  for (const key of params.keys()) {
+    if (key !== "page" && key !== "limit") return true;
+  }
+  return false;
+}
+
+export function productDataUrl(
+  origin: string,
+  groupId: number,
+  page: number,
+  listingUrl?: string
+): string {
+  const url = new URL(`${origin}/shop/group/${groupId}/product/data`);
+
+  if (listingUrl) {
+    const listing = new URL(listingUrl);
+    listing.searchParams.forEach((value, key) => {
+      url.searchParams.set(key, value);
+    });
+  }
+
+  if (!url.searchParams.has("limit")) {
+    url.searchParams.set("limit", String(IPON_PRODUCT_DATA_LIMIT));
+  }
+  url.searchParams.set("page", String(page));
+
+  return url.toString();
 }
 
 export async function fetchIponProductDataPage(
@@ -130,7 +161,7 @@ export async function fetchIponProductDataPage(
   page: number
 ): Promise<Response> {
   const origin = getIponOrigin(listingUrl);
-  const url = productDataUrl(origin, groupId, page);
+  const url = productDataUrl(origin, groupId, page, listingUrl);
   return fetchIponWithRetry(
     `product/data page=${page} group=${groupId}`,
     url,
