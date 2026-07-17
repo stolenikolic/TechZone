@@ -100,6 +100,7 @@ export default function ProductsPageView() {
 
   const [stats, setStats] = useState<ProductsStats>(EMPTY_STATS);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
   const [filterOptions, setFilterOptions] = useState<ProductsFilterOptions>({
     categoryTree: {},
     priceSources: [{ value: "manual", label: "manual" }]
@@ -153,7 +154,9 @@ export default function ProductsPageView() {
       [product.id]: { loading: true, error: null, rows: prev[product.id]?.rows ?? [] }
     }));
     try {
-      const response = await fetch(`/api/admin/products/${product.id}/offers`, { cache: "no-store" });
+      const response = await fetch(`/api/admin/products/${product.id}/offers`, {
+        cache: "no-store"
+      });
       const data = (await response.json()) as
         | { error?: string }
         | {
@@ -200,23 +203,38 @@ export default function ProductsPageView() {
     let cancelled = false;
     (async () => {
       setStatsLoading(true);
-      try {
-        const [statsRes, optionsRes] = await Promise.all([
-          fetch("/api/admin/products/stats", { cache: "no-store" }),
-          fetch("/api/admin/products/filter-options", { cache: "no-store" })
-        ]);
-        if (!statsRes.ok || !optionsRes.ok) throw new Error("Failed to load product stats.");
-        const statsJson = (await statsRes.json()) as ProductsStats;
-        const optionsJson = (await optionsRes.json()) as ProductsFilterOptions;
-        if (!cancelled) {
-          setStats(statsJson);
-          setFilterOptions(optionsJson);
+      setStatsError(null);
+
+      const statsRequest = (async () => {
+        try {
+          const response = await fetch("/api/admin/products/stats", { cache: "no-store" });
+          const json = (await response.json()) as ProductsStats | { error?: string };
+          const errorMessage = "error" in json ? json.error : undefined;
+          if (!response.ok || errorMessage) {
+            throw new Error(errorMessage ?? "Failed to load product stats.");
+          }
+          if (!cancelled) setStats(json as ProductsStats);
+        } catch (err) {
+          if (!cancelled) {
+            setStatsError(err instanceof Error ? err.message : "Failed to load product stats.");
+          }
+        } finally {
+          if (!cancelled) setStatsLoading(false);
         }
-      } catch {
-        if (!cancelled) setStats(EMPTY_STATS);
-      } finally {
-        if (!cancelled) setStatsLoading(false);
-      }
+      })();
+
+      const optionsRequest = (async () => {
+        try {
+          const response = await fetch("/api/admin/products/filter-options", { cache: "no-store" });
+          if (!response.ok) throw new Error("Failed to load product filters.");
+          const json = (await response.json()) as ProductsFilterOptions;
+          if (!cancelled) setFilterOptions(json);
+        } catch {
+          // Product counters and the product list remain usable if filter metadata fails.
+        }
+      })();
+
+      await Promise.allSettled([statsRequest, optionsRequest]);
     })();
     return () => {
       cancelled = true;
@@ -240,7 +258,9 @@ export default function ProductsPageView() {
       if (priceMin.trim()) params.set("priceMin", priceMin.trim());
       if (priceMax.trim()) params.set("priceMax", priceMax.trim());
 
-      const response = await fetch(`/api/admin/products?${params.toString()}`, { cache: "no-store" });
+      const response = await fetch(`/api/admin/products?${params.toString()}`, {
+        cache: "no-store"
+      });
       const data = (await response.json()) as PaginatedResult<AdminProduct> & { error?: string };
       if (!response.ok || data.error) {
         throw new Error(data.error ?? "Failed to load products.");
@@ -341,7 +361,7 @@ export default function ProductsPageView() {
         category:
           item.parentCategory && item.category
             ? `${item.parentCategory.name} / ${item.category.name}`
-            : item.categories[0] ?? "-",
+            : (item.categories[0] ?? "-"),
         masterStatus: item.masterStatus,
         masterStatusSort: item.masterStatus?.label ?? ""
       };
@@ -379,10 +399,14 @@ export default function ProductsPageView() {
                 {item.label}
               </Typography>
               <Typography variant="h4">
-                {statsLoading ? <CircularProgress size={22} /> : item.count}
+                {statsLoading ? <CircularProgress size={22} /> : statsError ? "—" : item.count}
               </Typography>
               {item.countHint ? (
-                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.25 }}>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: "block", mt: 0.25 }}
+                >
                   {item.countHint} — each row counts once
                 </Typography>
               ) : null}
@@ -390,6 +414,11 @@ export default function ProductsPageView() {
           </Grid>
         ))}
       </Grid>
+      {statsError ? (
+        <Typography color="error" variant="body2" sx={{ mb: 2 }}>
+          Product counters could not be loaded: {statsError}
+        </Typography>
+      ) : null}
 
       <Card sx={{ p: 2, mb: 2 }}>
         <Stack
@@ -541,7 +570,11 @@ export default function ProductsPageView() {
                       />
                       <TableRow>
                         <TableCell colSpan={tableHeading.length} sx={{ py: 0 }}>
-                          <Collapse in={expandedProductId === product.id} timeout="auto" unmountOnExit>
+                          <Collapse
+                            in={expandedProductId === product.id}
+                            timeout="auto"
+                            unmountOnExit
+                          >
                             <Box sx={{ p: 2 }}>
                               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                                 Linked supplier offers
@@ -549,7 +582,9 @@ export default function ProductsPageView() {
                               {offersByProduct[product.id]?.loading ? (
                                 <Typography>Loading offers...</Typography>
                               ) : offersByProduct[product.id]?.error ? (
-                                <Typography color="error">{offersByProduct[product.id]?.error}</Typography>
+                                <Typography color="error">
+                                  {offersByProduct[product.id]?.error}
+                                </Typography>
                               ) : (offersByProduct[product.id]?.rows ?? []).length === 0 ? (
                                 <Typography>No linked offers for this product.</Typography>
                               ) : (
@@ -577,7 +612,11 @@ export default function ProductsPageView() {
                                       >
                                         <TableCell>
                                           {row.supplierName}
-                                          <Typography variant="caption" display="block" color="text.secondary">
+                                          <Typography
+                                            variant="caption"
+                                            display="block"
+                                            color="text.secondary"
+                                          >
                                             {row.supplierCode}
                                           </Typography>
                                         </TableCell>
@@ -595,14 +634,20 @@ export default function ProductsPageView() {
                                         >
                                           {row.supplierProductId}
                                         </TableCell>
-                                        <TableCell align="right">{huf(row.priceAmountHuf)}</TableCell>
                                         <TableCell align="right">
-                                          {row.acquisitionKm != null ? currency(row.acquisitionKm) : "-"}
+                                          {huf(row.priceAmountHuf)}
+                                        </TableCell>
+                                        <TableCell align="right">
+                                          {row.acquisitionKm != null
+                                            ? currency(row.acquisitionKm)
+                                            : "-"}
                                         </TableCell>
                                         <TableCell align="right">
                                           {row.sellingKm != null ? currency(row.sellingKm) : "-"}
                                         </TableCell>
-                                        <TableCell align="right">{formatDate(row.updatedAt)}</TableCell>
+                                        <TableCell align="right">
+                                          {formatDate(row.updatedAt)}
+                                        </TableCell>
                                       </TableRow>
                                     ))}
                                   </TableBody>

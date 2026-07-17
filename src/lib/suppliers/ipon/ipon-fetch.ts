@@ -125,7 +125,7 @@ export const IPON_PRODUCT_DATA_LIMIT = 36;
 /** True when listing URL carries facet filters (e.g. ?12=3632), not just pagination. */
 export function listingUrlHasFilterParams(listingUrl: string): boolean {
   const params = new URL(listingUrl).searchParams;
-  for (const key of params.keys()) {
+  for (const key of Array.from(params.keys())) {
     if (key !== "page" && key !== "limit") return true;
   }
   return false;

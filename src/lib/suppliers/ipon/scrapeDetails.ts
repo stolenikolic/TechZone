@@ -11,7 +11,11 @@ import { normalizeEan, normalizeMpn } from "lib/suppliers/normalizeProductIdenti
 import { createSupabaseServiceClient } from "utils/supabase";
 import { fetchWithSession } from "lib/suppliers/shared/http-session";
 import { buildAttributeSlugResolver, loadAttributeMappings } from "lib/suppliers/registry";
-import { IPON_SUPPLIER_ID, getDefaultIponListingUrl, getIponListingUrlByInternalCategoryId } from "./categories";
+import {
+  IPON_SUPPLIER_ID,
+  getDefaultIponListingUrl,
+  getIponListingUrlByInternalCategoryId
+} from "./categories";
 import {
   IPON_ACCEPT_LANGUAGE,
   IPON_IMPORT_USER_AGENT,
@@ -25,7 +29,10 @@ import type { IponProductItem } from "./transformProduct";
 import { getIponProductDetailUrl } from "./transformProduct";
 import { getRandomReferer, randomDelay } from "./scrape-config";
 import { withPostgrestTransientRetry } from "./transient-retry";
-import { extractWarrantyMonthsFromHtml, extractWarrantyMonthsFromSpecRows } from "./warranty-from-specs";
+import {
+  extractWarrantyMonthsFromHtml,
+  extractWarrantyMonthsFromSpecRows
+} from "./warranty-from-specs";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,6 +59,16 @@ type QueueRow = {
     raw_json: unknown;
     spec_snapshot: unknown;
   }[];
+};
+
+type QueueOfferRow = {
+  supplier_product_id: string;
+  raw_json: unknown;
+  spec_snapshot: unknown;
+  products:
+    | { id: string; category_id: string | null }
+    | { id: string; category_id: string | null }[]
+    | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -132,7 +149,8 @@ function schemaTypeIsProduct(typeVal: unknown): boolean {
     const s = typeVal.trim();
     if (s === "Product") return true;
     const lower = s.toLowerCase();
-    if (lower === "https://schema.org/product" || lower === "http://schema.org/product") return true;
+    if (lower === "https://schema.org/product" || lower === "http://schema.org/product")
+      return true;
     if (/\/Product$/i.test(s)) return true;
   }
   return false;
@@ -183,7 +201,10 @@ function decodeHtmlEntitiesInUrl(url: string): string {
 }
 
 function stripHtmlTags(s: string): string {
-  return s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  return s
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /**
@@ -369,17 +390,15 @@ export function mapSpecNameToSlug(name: string): string | null {
     (n.includes("socket") || n.includes("slot") || n.includes("sockets") || n.includes("slots"))
   )
     return "memory_sockets";
-  if (
-    n.includes("m.2") ||
-    n.includes("m2") ||
-    (n.includes("m-key") && n.includes("connector"))
-  )
+  if (n.includes("m.2") || n.includes("m2") || (n.includes("m-key") && n.includes("connector")))
     return "m2_connectors";
   return null;
 }
 
 function splitIntegratedVga(props: SpecRow[]): { vga: string | null; chip: string | null } {
-  const vgas = props.filter((p) => normSpec(p.name).includes("integrated") && normSpec(p.name).includes("vga"));
+  const vgas = props.filter(
+    (p) => normSpec(p.name).includes("integrated") && normSpec(p.name).includes("vga")
+  );
   if (vgas.length === 0) return { vga: null, chip: null };
   if (vgas.length === 1) {
     const v = vgas[0].value.trim();
@@ -448,7 +467,10 @@ async function saveSpecSnapshot(
       console.warn("[iPon] saveSpecSnapshot update failed:", error.message);
     }
   } catch (err) {
-    console.warn("[iPon] saveSpecSnapshot unexpected error:", err instanceof Error ? err.message : String(err));
+    console.warn(
+      "[iPon] saveSpecSnapshot unexpected error:",
+      err instanceof Error ? err.message : String(err)
+    );
   }
 }
 
@@ -494,7 +516,10 @@ async function syncIdentifiers(
     if (Object.keys(prodUpdate).length > 0)
       console.log(`[iPon][dry-run] products.${productId}: would write identifiers`, prodUpdate);
     if (Object.keys(spUpdate).length > 0)
-      console.log(`[iPon][dry-run] supplier_products.${supplierProductId}: would write identifiers`, spUpdate);
+      console.log(
+        `[iPon][dry-run] supplier_products.${supplierProductId}: would write identifiers`,
+        spUpdate
+      );
     return;
   }
 
@@ -531,47 +556,52 @@ async function fetchIponScrapeQueueBatch(
   batchSize: number
 ): Promise<QueueRow[]> {
   const sel = `
-    id,
-    category_id,
-    supplier_products!inner (
-      supplier_id,
-      supplier_product_id,
-      raw_json,
-      spec_snapshot
+    supplier_product_id,
+    raw_json,
+    spec_snapshot,
+    products!inner (
+      id,
+      category_id
     )
   `;
 
-  const scanPageSize = Math.max(batchSize * 20, 50);
-  const maxScan = iponNumEnv("IPON_SCRAPE_QUEUE_SCAN_LIMIT", 500);
-  const out: QueueRow[] = [];
-  let offset = 0;
+  let q = supabase
+    .from("supplier_products")
+    .select(sel)
+    .eq("supplier_id", IPON_SUPPLIER_ID)
+    .is("spec_snapshot", null)
+    .not("product_id", "is", null)
+    .order("updated_at", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(batchSize);
 
-  while (out.length < batchSize && offset < maxScan) {
-    let q = supabase
-      .from("products")
-      .select(sel)
-      .eq("supplier_products.supplier_id", IPON_SUPPLIER_ID)
-      .is("supplier_products.spec_snapshot", null);
+  if (categoryId) q = q.eq("products.category_id", categoryId);
 
-    if (categoryId) q = q.eq("category_id", categoryId);
-    q = q.order("updated_at", { ascending: true }).range(offset, offset + scanPageSize - 1);
+  const { data, error } = await withPostgrestTransientRetry(
+    "supplier_products.scrape-queue",
+    async () => await q
+  );
+  if (error) throw new Error(`scrape queue: ${error.message}`);
 
-    const { data, error } = await withPostgrestTransientRetry("products.scrape-queue", async () => await q);
-    if (error) throw new Error(`scrape queue: ${error.message}`);
+  const rows = (data ?? []) as unknown as QueueOfferRow[];
+  return rows.flatMap((row) => {
+    const product = Array.isArray(row.products) ? row.products[0] : row.products;
+    if (!product) return [];
 
-    const rows = ((data as unknown as QueueRow[]) ?? []).filter((r) => r.supplier_products?.[0]?.supplier_product_id);
-    if (rows.length === 0) break;
-
-    for (const r of rows) {
-      out.push(r);
-      if (out.length >= batchSize) break;
-    }
-
-    offset += rows.length;
-    if (rows.length < scanPageSize) break;
-  }
-
-  return out;
+    return [
+      {
+        id: product.id,
+        category_id: product.category_id,
+        supplier_products: [
+          {
+            supplier_product_id: row.supplier_product_id,
+            raw_json: row.raw_json,
+            spec_snapshot: row.spec_snapshot
+          }
+        ]
+      }
+    ];
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -605,7 +635,8 @@ function responseLooksLikeCaptchaChallenge(html: string, httpStatus: number): bo
   if (h.includes("checking your browser before accessing")) return true;
   if (h.includes("just a moment") && h.includes("enable javascript")) return true;
   if (h.includes("attention required") && h.includes("cloudflare")) return true;
-  if (h.includes("access denied") && (h.includes("cloudflare") || h.includes("forbidden"))) return true;
+  if (h.includes("access denied") && (h.includes("cloudflare") || h.includes("forbidden")))
+    return true;
   return false;
 }
 
@@ -738,7 +769,10 @@ export async function runIponScrapeDetails(
 
       // Try extracting from raw_json first (avoids HTTP)
       const rawParsed = parseIponProductDetailsFromRawJson(raw);
-      if (rawParsed.productEntityCount > 0 && (rawParsed.mpn || rawParsed.ean || rawParsed.specRows.length > 0)) {
+      if (
+        rawParsed.productEntityCount > 0 &&
+        (rawParsed.mpn || rawParsed.ean || rawParsed.specRows.length > 0)
+      ) {
         if (dryRun) {
           console.log(`[iPon scrape][dry-run] raw_json covers data for: ${url}`);
           skipped += 1;
@@ -761,7 +795,9 @@ export async function runIponScrapeDetails(
       }
 
       if (detailRequests >= maxDetailRequests) {
-        console.log(`[iPon scrape] Zaustavljeno: dostignut HTML request budget (${maxDetailRequests}).`);
+        console.log(
+          `[iPon scrape] Zaustavljeno: dostignut HTML request budget (${maxDetailRequests}).`
+        );
         stoppedForRisk = true;
         break;
       }
@@ -805,7 +841,11 @@ export async function runIponScrapeDetails(
 
       // Build nameToSlug for enrichment hint (resolver used only by enrichment job now,
       // but we keep the attribute mappings call to verify DB config is healthy)
-      const _nameToSlug = buildAttributeSlugResolver(supplierAttributeMappings, r.category_id, mapSpecNameToSlug);
+      const _nameToSlug = buildAttributeSlugResolver(
+        supplierAttributeMappings,
+        r.category_id,
+        mapSpecNameToSlug
+      );
       void _nameToSlug;
 
       await saveSpecSnapshot(supabase, sp.supplier_product_id, parsed, res.html);

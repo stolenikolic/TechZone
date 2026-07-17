@@ -2,7 +2,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type Product from "models/Product.model";
 import { getEffectivePrice, toNumberOrNull } from "lib/effective-price";
 import { resolveEffectivePriceSource } from "lib/effective-price-source";
-import { computeAcquisitionKm, resolvePricingSettingsRow, type PricingSettingsRow } from "lib/pricing";
+import {
+  computeAcquisitionKm,
+  resolvePricingSettingsRow,
+  type PricingSettingsRow
+} from "lib/pricing";
 import {
   buildPaginatedResult,
   slicePage,
@@ -74,7 +78,7 @@ function escapeIlike(value: string): string {
 
 function firstSupplier<T>(raw: T | T[] | null): T | null {
   if (raw == null) return null;
-  return Array.isArray(raw) ? raw[0] ?? null : raw;
+  return Array.isArray(raw) ? (raw[0] ?? null) : raw;
 }
 
 function toProduct(
@@ -108,7 +112,11 @@ function toProduct(
     basePrice: row.price != null ? Number(row.price) : null,
     customPrice: row.custom_price != null ? Number(row.custom_price) : null,
     effectivePrice,
-    effectivePriceSource: resolveEffectivePriceSource(row.custom_price, row.price, engineSupplierName),
+    effectivePriceSource: resolveEffectivePriceSource(
+      row.custom_price,
+      row.price,
+      engineSupplierName
+    ),
     linkedSuppliers
   };
 }
@@ -167,7 +175,11 @@ async function resolveCategoryIds(
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applySqlProductFilters(query: any, params: ProductsListParams, categoryIds: string[] | null) {
+function applySqlProductFilters(
+  query: any,
+  params: ProductsListParams,
+  categoryIds: string[] | null
+) {
   let q = query;
 
   if (categoryIds) {
@@ -190,7 +202,12 @@ function applySqlProductFilters(query: any, params: ProductsListParams, category
   if (search) {
     const pattern = `%${escapeIlike(search)}%`;
     q = q.or(
-      [`name.ilike.${pattern}`, `brand.ilike.${pattern}`, `mpn.ilike.${pattern}`, `ean.ilike.${pattern}`].join(",")
+      [
+        `name.ilike.${pattern}`,
+        `brand.ilike.${pattern}`,
+        `mpn.ilike.${pattern}`,
+        `ean.ilike.${pattern}`
+      ].join(",")
     );
   }
 
@@ -207,7 +224,9 @@ async function loadListContext(supabase: SupabaseClient): Promise<{
     .select("*")
     .limit(1);
   if (settingsError) throw new Error(settingsError.message);
-  const { settings } = resolvePricingSettingsRow((settingsRows?.[0] ?? null) as PricingSettingsRow | null);
+  const { settings } = resolvePricingSettingsRow(
+    (settingsRows?.[0] ?? null) as PricingSettingsRow | null
+  );
 
   const { data: allCategories, error: categoriesError } = await supabase
     .from("categories")
@@ -237,7 +256,7 @@ async function loadListContext(supabase: SupabaseClient): Promise<{
       const cid = r.category_id as string;
       const aid = r.attribute_id as string;
       const attrs = r.attributes as { slug: string } | { slug: string }[] | null;
-      const slug = Array.isArray(attrs) ? attrs[0]?.slug ?? "" : attrs?.slug ?? "";
+      const slug = Array.isArray(attrs) ? (attrs[0]?.slug ?? "") : (attrs?.slug ?? "");
       if (!cid || !aid || !slug) continue;
       if (!categoryReqByCategoryId.has(cid)) categoryReqByCategoryId.set(cid, []);
       categoryReqByCategoryId.get(cid)!.push({ attributeId: aid, slug });
@@ -384,7 +403,11 @@ async function resolveSupplierIdByCode(
 ): Promise<string | null> {
   const code = supplierCode.trim().toLowerCase();
   if (!code) return null;
-  const { data, error } = await supabase.from("suppliers").select("id").eq("code", code).maybeSingle();
+  const { data, error } = await supabase
+    .from("suppliers")
+    .select("id")
+    .eq("code", code)
+    .maybeSingle();
   if (error) throw new Error(error.message);
   return data?.id ? (data.id as string) : null;
 }
@@ -472,7 +495,10 @@ async function loadFilteredProductCandidates(
   const rows: DbProduct[] = [];
   let offset = 0;
   for (;;) {
-    let query = supabase.from("products").select(PRODUCT_SELECT).order("created_at", { ascending: false });
+    let query = supabase
+      .from("products")
+      .select(PRODUCT_SELECT)
+      .order("created_at", { ascending: false });
     query = applySqlProductFilters(query, params, categoryIds);
     const { data, error } = await query.range(offset, offset + PRODUCT_SCAN_PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
@@ -494,10 +520,18 @@ function matchesComputedFilters(
   if (quick !== "all" && masterStatusValue !== quick) return false;
 
   const effectivePrice = getEffectivePrice(row.custom_price, row.price);
-  if (params.priceMin != null && Number.isFinite(params.priceMin) && effectivePrice < params.priceMin) {
+  if (
+    params.priceMin != null &&
+    Number.isFinite(params.priceMin) &&
+    effectivePrice < params.priceMin
+  ) {
     return false;
   }
-  if (params.priceMax != null && Number.isFinite(params.priceMax) && effectivePrice > params.priceMax) {
+  if (
+    params.priceMax != null &&
+    Number.isFinite(params.priceMax) &&
+    effectivePrice > params.priceMax
+  ) {
     return false;
   }
 
@@ -521,7 +555,7 @@ function enrichRows(
     );
     const category = firstCategory(row);
     const parent =
-      category?.parent_id != null ? ctx.parentCategoryById.get(category.parent_id) ?? null : null;
+      category?.parent_id != null ? (ctx.parentCategoryById.get(category.parent_id) ?? null) : null;
     return toProduct(
       row,
       masterStatus,
@@ -663,7 +697,10 @@ async function listProductsViaSql(
   const { count, error: countError } = await countQuery;
   if (countError) throw new Error(countError.message);
 
-  let dataQuery = supabase.from("products").select(PRODUCT_SELECT).order("created_at", { ascending: false });
+  let dataQuery = supabase
+    .from("products")
+    .select(PRODUCT_SELECT)
+    .order("created_at", { ascending: false });
   dataQuery = applySqlProductFilters(dataQuery, params, categoryIds);
   const { data, error } = await dataQuery.range(offset, offset + params.limit - 1);
   if (error) throw new Error(error.message);
@@ -710,56 +747,30 @@ export async function listAdminProducts(
 }
 
 export async function getProductsStats(supabase: SupabaseClient): Promise<ProductsStats> {
-  const { settings, categoryReqByCategoryId } = await loadListContext(supabase);
+  const { data, error } = await supabase.rpc("get_admin_product_stats");
+  if (error) throw new Error(error.message);
 
-  const rows: DbProduct[] = [];
-  const pageSize = 1000;
-  let offset = 0;
-  for (;;) {
-    const { data, error } = await supabase
-      .from("products")
-      .select(PRODUCT_SELECT)
-      .order("created_at", { ascending: false })
-      .range(offset, offset + pageSize - 1);
-    if (error) throw new Error(error.message);
-    const page = (data ?? []) as DbProduct[];
-    if (page.length === 0) break;
-    rows.push(...page);
-    offset += page.length;
-    if (page.length < pageSize) break;
-  }
+  const row = (Array.isArray(data) ? data[0] : data) as {
+    all_count: number | null;
+    ready: number | null;
+    unlinked: number | null;
+    linked: number | null;
+    needs_attributes: number | null;
+  } | null;
+  if (!row) throw new Error("Product stats query returned no result.");
 
-  const allIds = rows.map((row) => row.id);
-  const { productAttributeIds, productAttributeValues } = await loadAttributesForProducts(
-    supabase,
-    allIds
-  );
-  const supplierAgg = await loadSupplierAggregatesForProducts(supabase, allIds, settings);
-
-  const counts: ProductsStats = {
-    all: 0,
-    ready: 0,
-    unlinked: 0,
-    linked: 0,
-    needs_attributes: 0
+  return {
+    all: Number(row.all_count ?? 0),
+    ready: Number(row.ready ?? 0),
+    unlinked: Number(row.unlinked ?? 0),
+    linked: Number(row.linked ?? 0),
+    needs_attributes: Number(row.needs_attributes ?? 0)
   };
-
-  for (const row of rows) {
-    const status = getMasterStatus(
-      row,
-      supplierAgg.supplierCountByProduct.get(row.id) ?? 0,
-      categoryReqByCategoryId,
-      productAttributeIds,
-      productAttributeValues
-    );
-    counts.all += 1;
-    counts[status.value] += 1;
-  }
-
-  return counts;
 }
 
-export async function getProductsFilterOptions(supabase: SupabaseClient): Promise<ProductsFilterOptions> {
+export async function getProductsFilterOptions(
+  supabase: SupabaseClient
+): Promise<ProductsFilterOptions> {
   const { data: categories, error: categoriesError } = await supabase
     .from("categories")
     .select("id, name, slug, parent_id")
@@ -798,9 +809,13 @@ export async function getProductsFilterOptions(supabase: SupabaseClient): Promis
     .order("name", { ascending: true });
   if (suppliersError) throw new Error(suppliersError.message);
 
-  const priceSources: ProductsFilterOptions["priceSources"] = [{ value: "manual", label: "manual" }];
+  const priceSources: ProductsFilterOptions["priceSources"] = [
+    { value: "manual", label: "manual" }
+  ];
   for (const row of suppliers ?? []) {
-    const code = String(row.code ?? "").trim().toLowerCase();
+    const code = String(row.code ?? "")
+      .trim()
+      .toLowerCase();
     const name = String(row.name ?? "").trim();
     if (!code || !name) continue;
     priceSources.push({ value: code, label: name });
