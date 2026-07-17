@@ -1,0 +1,43 @@
+# OLX feed export — samostalan dnevni workflow, odvojen od nightly pipeline-a.
+
+name: OLX feed export
+
+on:
+  schedule:
+    # Jednom dnevno u 20:30 UTC.
+    - cron: "30 20 * * *"
+  workflow_dispatch:
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+  SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  R2_ACCESS_KEY: ${{ secrets.R2_ACCESS_KEY }}
+  R2_SECRET_KEY: ${{ secrets.R2_SECRET_KEY }}
+  R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+  R2_BUCKET: ${{ secrets.R2_BUCKET }}
+  R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
+  JOB_TRIGGERED_BY: cron
+  JOB_TYPE: olx_feed_export
+
+concurrency:
+  group: olx-feed-export
+  cancel-in-progress: false
+
+jobs:
+  export:
+    name: OLX feed export
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: echo "Triggered by ${{ github.event_name }} at $(date -u)"
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - run: npx tsx -r ./scripts/register-ws.cjs scripts/run-generate-olx-feed.ts
