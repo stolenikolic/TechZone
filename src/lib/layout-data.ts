@@ -16,7 +16,9 @@ const CATEGORY_ICON_BY_SLUG: Record<string, string> = {
   "racunarske-komponente": "Microchip",
   "racunarska-periferija": "Headset",
   "televizori-projektori-vr": "Desktop",
-  "mreza-serveri-sigurnost": "HouseSignal"
+  "mreza-serveri-sigurnost": "HouseSignal",
+  "konzole-i-gaming": "Robot",
+  "audio-i-multimedija": "MicrophoneLines"
 };
 
 const MAIN_NAVIGATION: Menu[] = [
