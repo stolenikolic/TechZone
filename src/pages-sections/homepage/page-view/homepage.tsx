@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, Suspense } from "react";
 //GLOBAL CUSTOM COMPONENTS
 import Setting from "components/settings";
 import Newsletter from "components/newsletter";
@@ -18,34 +18,54 @@ export default function HomepageView() {
   return (
     <Fragment>
       {/* HERO SECTION */}
-      <Section1 />
+      <Suspense fallback={null}>
+        <Section1 />
+      </Suspense>
 
       {/* SERVICES SECTION */}
-      <Section2 />
+      <Suspense fallback={null}>
+        <Section2 />
+      </Suspense>
 
       {/* CATEGORIES SECTION */}
-      <Section3 />
+      <Suspense fallback={null}>
+        <Section3 />
+      </Suspense>
 
       {/* FLASH DEALS SECTION */}
-      <Section4 />
+      <Suspense fallback={null}>
+        <Section4 />
+      </Suspense>
 
       {/* PROMO OFFERS SECTION */}
-      <Section5 />
+      <Suspense fallback={null}>
+        <Section5 />
+      </Suspense>
 
       {/* TOP RATED PRODUCTS SECTION */}
-      <Section6 />
+      <Suspense fallback={null}>
+        <Section6 />
+      </Suspense>
 
       {/* GRID PRODUCTS SECTION */}
-      <Section7 />
+      <Suspense fallback={null}>
+        <Section7 />
+      </Suspense>
 
       {/* NEWSLETTER SECTION */}
-      <Section9 />
+      <Suspense fallback={null}>
+        <Section9 />
+      </Suspense>
 
       {/* READ OUR BLOG SECTION */}
-      <Section10 />
+      <Suspense fallback={null}>
+        <Section10 />
+      </Suspense>
 
       {/*  CLIENTS SECTION */}
-      <Section8 />
+      <Suspense fallback={null}>
+        <Section8 />
+      </Suspense>
 
       {/* POPUP NEWSLETTER FORM */}
       <Newsletter />

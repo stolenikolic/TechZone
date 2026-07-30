@@ -15,6 +15,11 @@ import {
 } from "lib/product-jsonld/build-product-jsonld";
 import { ogPageTitle, pageTitle, SITE_NAME } from "lib/site-metadata";
 
+// Product/related/offers data is Data-Cached (unstable_cache, 60s) — admin edits
+// call revalidatePath(`/products/:slug`) on save, so this stays fresh on change
+// while avoiding a fresh DB round trip on every single visit.
+export const revalidate = 60;
+
 /** Base URL for canonical and OG URLs (server-only). Set NEXT_PUBLIC_SITE_URL in production. */
 function getBaseUrl(): string {
   const url = process.env.NEXT_PUBLIC_SITE_URL;

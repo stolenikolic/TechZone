@@ -87,29 +87,32 @@ async function loadTopPickMapForRows(
   supabase: ReturnType<typeof createSupabaseServiceClient>,
   rows: Array<{ id: string; category_id?: string | null }>
 ): Promise<Map<string, { productId: string; priority: number; createdAt: string }>> {
-  const idsByCategory = new Map<string, string[]>();
+  const expectedCategoryByProduct = new Map<string, string>();
   rows.forEach((row) => {
-    const categoryId = row.category_id;
-    if (!categoryId) return;
-    const list = idsByCategory.get(categoryId) ?? [];
-    list.push(row.id);
-    idsByCategory.set(categoryId, list);
+    if (row.category_id) expectedCategoryByProduct.set(row.id, row.category_id);
   });
+
   const topPickMap = new Map<string, { productId: string; priority: number; createdAt: string }>();
-  for (const [categoryId, ids] of Array.from(idsByCategory.entries())) {
-    const { data } = await supabase
-      .from("category_featured_products")
-      .select("product_id, priority, created_at")
-      .eq("category_id", categoryId)
-      .in("product_id", ids);
-    (data ?? []).forEach((row) =>
-      topPickMap.set(row.product_id, {
-        productId: row.product_id,
-        priority: row.priority ?? 100,
-        createdAt: row.created_at ?? ""
-      })
-    );
-  }
+  if (expectedCategoryByProduct.size === 0) return topPickMap;
+
+  // Single batched lookup instead of one round trip per distinct category —
+  // each extra round trip is costly when the app server and DB are in
+  // different regions.
+  const { data } = await supabase
+    .from("category_featured_products")
+    .select("product_id, category_id, priority, created_at")
+    .in("category_id", Array.from(new Set(expectedCategoryByProduct.values())))
+    .in("product_id", Array.from(expectedCategoryByProduct.keys()));
+
+  (data ?? []).forEach((row) => {
+    // Only count it as a top pick for the category actually shown on this card.
+    if (expectedCategoryByProduct.get(row.product_id) !== row.category_id) return;
+    topPickMap.set(row.product_id, {
+      productId: row.product_id,
+      priority: row.priority ?? 100,
+      createdAt: row.created_at ?? ""
+    });
+  });
   return topPickMap;
 }
 

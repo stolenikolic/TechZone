@@ -146,12 +146,21 @@ export function normalizeCategorySlugParam(slugOrPath: string): string {
   return slugParamToSegments(slugOrPath).join("/");
 }
 
-export const resolveCategoryBySlugPathCached = cache(async (normalizedPath: string) => {
-  const segments = slugParamToSegments(normalizedPath);
-  if (!segments.length) return null;
-  const supabase = createSupabaseServiceClient();
-  return resolveCategoryBySlugPath(supabase, segments);
-});
+// Cross-request cached (not just per-request deduped) — category id/name/slug
+// rarely changes, so avoid re-walking the path segment-by-segment against the DB
+// on every request.
+export const resolveCategoryBySlugPathCached = cache(
+  unstable_cache(
+    async (normalizedPath: string) => {
+      const segments = slugParamToSegments(normalizedPath);
+      if (!segments.length) return null;
+      const supabase = createSupabaseServiceClient();
+      return resolveCategoryBySlugPath(supabase, segments);
+    },
+    ["category-slug-resolve"],
+    { revalidate: CATEGORY_LISTING_REVALIDATE_SECONDS }
+  )
+);
 
 function resolveCategoryCached(slugOrPath: string) {
   return resolveCategoryBySlugPathCached(normalizeCategorySlugParam(slugOrPath));

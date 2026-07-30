@@ -1,8 +1,11 @@
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { getEffectivePrice, getOriginalPriceForDisplay } from "lib/effective-price";
 import { applyStorefrontProductVisibility } from "lib/storefront-product-visibility";
 import Product from "models/Product.model";
+
+const SIDEBAR_PRODUCTS_REVALIDATE_SECONDS = 60;
 
 type DbRow = {
   id: string;
@@ -62,11 +65,15 @@ async function fetchActiveProducts(limit: number, offset: number): Promise<Produ
   }
 }
 
-/** Server-only: reads DB directly (no axios hop to /api/* during RSC). */
-export const getRelatedProducts = cache(async (): Promise<Product[]> => {
-  return fetchActiveProducts(3, 0);
-});
+/** Server-only: reads DB directly (no axios hop to /api/* during RSC). Data-Cached 60s. */
+export const getRelatedProducts = cache(
+  unstable_cache(() => fetchActiveProducts(3, 0), ["sidebar-related-products"], {
+    revalidate: SIDEBAR_PRODUCTS_REVALIDATE_SECONDS
+  })
+);
 
-export const getFrequentlyBought = cache(async (): Promise<Product[]> => {
-  return fetchActiveProducts(3, 3);
-});
+export const getFrequentlyBought = cache(
+  unstable_cache(() => fetchActiveProducts(3, 3), ["sidebar-frequently-bought"], {
+    revalidate: SIDEBAR_PRODUCTS_REVALIDATE_SECONDS
+  })
+);

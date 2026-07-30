@@ -6,27 +6,9 @@ import {
   formatCategorySlugsParam,
   parseCategorySlugsParam
 } from "lib/search/product-search-tokens";
-import { mapProductPriceFields } from "lib/effective-price";
-import { getServerBaseUrl } from "utils/site-url";
-
-type SearchResultItem = {
-  id: string;
-  name: string;
-  brand: string | null;
-  slug: string;
-  main_image: string | null;
-  price: number | null;
-  originalPrice?: number;
-  topPick?: boolean;
-  topPickLabel?: string;
-};
+import { resolveSearchResults, type SearchResultItem } from "lib/search/resolve-search-results";
 
 const PER_PAGE = 30;
-
-function getFetchBaseUrl(): string {
-  if (typeof window !== "undefined") return "";
-  return getServerBaseUrl();
-}
 
 const PLACEHOLDER_IMAGE = "/assets/images/placeholder.png";
 
@@ -50,31 +32,6 @@ function searchResultToProduct(row: SearchResultItem): Product {
   };
 }
 
-function buildSearchApiUrl(params: {
-  query: string;
-  pageNum: number;
-  category?: string;
-  brands?: string;
-  prices?: string;
-  sort?: string;
-}): string {
-  const base = getFetchBaseUrl();
-  const searchParams = new URLSearchParams({
-    q: params.query,
-    page: String(params.pageNum)
-  });
-
-  const slugs = parseCategorySlugsParam(params.category);
-  if (slugs.length > 0) {
-    searchParams.set("category", formatCategorySlugsParam(slugs));
-  }
-  if (params.brands?.trim()) searchParams.set("brands", params.brands.trim());
-  if (params.prices?.trim()) searchParams.set("prices", params.prices.trim());
-  if (params.sort?.trim()) searchParams.set("sort", params.sort.trim());
-
-  return `${base}/api/search?${searchParams.toString()}`;
-}
-
 export type SearchPageData = {
   products: Product[];
   pageCount: number;
@@ -95,6 +52,12 @@ interface Params {
   brands?: string;
   rating?: string;
   category?: string;
+}
+
+/** Normalize the category param the same way the API route's URL query used to. */
+function normalizeCategoryParam(category?: string): string | undefined {
+  const slugs = parseCategorySlugsParam(category);
+  return slugs.length > 0 ? formatCategorySlugsParam(slugs) : undefined;
 }
 
 export const getSearchPageData = cache(async (params: Params): Promise<SearchPageData> => {
@@ -121,31 +84,24 @@ export const getSearchPageData = cache(async (params: Params): Promise<SearchPag
   }
 
   try {
-    const url = buildSearchApiUrl({
-      query,
-      pageNum,
-      category: params.category,
-      brands: params.brands,
+    // Resolve in-process instead of doing a self HTTP fetch to our own /api/search
+    // route — avoids an extra network hop (and a second function invocation on
+    // Netlify) on every search render.
+    const result = await resolveSearchResults({
+      q: query,
+      page: pageNum,
+      sort: params.sort,
       prices: params.prices,
-      sort: params.sort
+      brands: params.brands,
+      category: normalizeCategoryParam(params.category)
     });
-    const res = await fetch(url, { next: { revalidate: 60 } });
 
-    if (!res.ok) {
-      if (res.status === 400) return empty;
-      throw new Error(`Search failed: ${res.status}`);
+    if (!result.ok) {
+      if (result.status === 400) return empty;
+      throw new Error(`Search failed: ${result.status} ${result.error}`);
     }
 
-    const data = (await res.json()) as {
-      products: SearchResultItem[];
-      totalResults: number;
-      totalPages: number;
-      currentPage: number;
-      categoryFacets?: SearchCategoryFacet[];
-      priceRange?: { min: number; max: number };
-      filters?: SearchPageFilters["filters"];
-    };
-
+    const data = result.data;
     const categoryFacets = data.categoryFacets ?? [];
     const products: Product[] = (data.products ?? []).map(searchResultToProduct);
     const totalProducts = Number(data.totalResults ?? 0);

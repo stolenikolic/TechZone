@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
+import { SEARCH_RESULTS_CACHE_TAG } from "lib/search/resolve-search-results";
 import {
   computeAcquisitionKm,
   computeFinalSellingKm,
@@ -473,6 +474,7 @@ export async function PATCH(
     revalidatePath(`/categories`, "layout");
     revalidatePath(`/api/categories`);
     revalidatePath(`/api/search`);
+    revalidateTag(SEARCH_RESULTS_CACHE_TAG, "max");
     revalidatePath(`/api/homepage/products`);
     revalidatePath(`/api/homepage/flash-deals`);
     revalidatePath(`/api/homepage/top-rated`);

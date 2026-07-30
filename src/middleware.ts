@@ -38,7 +38,18 @@ function resolvePostLoginDestination(
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (!hasSupabasePublicConfig()) {
+  const isAdminApi = pathname.startsWith("/api/admin");
+  const isAdminRoute = isAdminPath(pathname);
+  const isCustomerRoute = matchesPrefix(pathname, CUSTOMER_PROTECTED_PREFIXES);
+  const isAuthPage = AUTH_PAGES.includes(pathname as (typeof AUTH_PAGES)[number]);
+
+  // Public pages (shop, categories, products, cart, etc.) never need an auth
+  // decision here, so skip the Supabase round trip entirely — this avoids an
+  // extra cross-region network hop (Netlify function region vs. Supabase
+  // region) on every single request to the storefront.
+  const needsAuthCheck = isAdminApi || isAdminRoute || isCustomerRoute || isAuthPage;
+
+  if (!needsAuthCheck || !hasSupabasePublicConfig()) {
     return NextResponse.next();
   }
 
@@ -48,8 +59,13 @@ export async function middleware(request: NextRequest) {
     data: { user }
   } = await supabase.auth.getUser();
 
+  const isAuthenticated = Boolean(user);
+
+  // The admin role only affects the outcome for admin routes/APIs and the
+  // post-login redirect on auth pages — skip the extra `profiles` query
+  // otherwise (e.g. plain customer-route access checks).
   let profileRole: "customer" | "admin" | null = null;
-  if (user) {
+  if (user && (isAdminApi || isAdminRoute || isAuthPage)) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -59,9 +75,8 @@ export async function middleware(request: NextRequest) {
   }
 
   const isAdmin = isAdminRole(profileRole);
-  const isAuthenticated = Boolean(user);
 
-  if (pathname.startsWith("/api/admin")) {
+  if (isAdminApi) {
     if (!isAuthenticated) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -71,7 +86,7 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  if (matchesPrefix(pathname, ADMIN_PROTECTED_PREFIXES)) {
+  if (isAdminRoute) {
     if (!isAuthenticated) {
       return NextResponse.redirect(loginUrl(request, pathname));
     }
@@ -82,14 +97,14 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  if (matchesPrefix(pathname, CUSTOMER_PROTECTED_PREFIXES)) {
+  if (isCustomerRoute) {
     if (!isAuthenticated) {
       return NextResponse.redirect(loginUrl(request, pathname));
     }
     return response;
   }
 
-  if (AUTH_PAGES.includes(pathname as (typeof AUTH_PAGES)[number]) && isAuthenticated) {
+  if (isAuthPage && isAuthenticated) {
     const next = request.nextUrl.searchParams.get("next");
     const dest = resolvePostLoginDestination(next, isAdmin);
     return NextResponse.redirect(new URL(dest, request.url));

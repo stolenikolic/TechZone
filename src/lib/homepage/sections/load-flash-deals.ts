@@ -90,28 +90,32 @@ async function loadTopPickIds(
   supabase: ReturnType<typeof createSupabaseServiceClient>,
   rows: Array<{ id: string; categoryId: string | null }>
 ): Promise<Map<string, { productId: string; priority: number; createdAt: string }>> {
-  const map = new Map<string, string[]>();
+  const expectedCategoryByProduct = new Map<string, string>();
   rows.forEach((row) => {
-    if (!row.categoryId) return;
-    const list = map.get(row.categoryId) ?? [];
-    list.push(row.id);
-    map.set(row.categoryId, list);
+    if (row.categoryId) expectedCategoryByProduct.set(row.id, row.categoryId);
   });
+
   const ids = new Map<string, { productId: string; priority: number; createdAt: string }>();
-  for (const [categoryId, productIds] of Array.from(map.entries())) {
-    const { data } = await supabase
-      .from("category_featured_products")
-      .select("product_id, priority, created_at")
-      .eq("category_id", categoryId)
-      .in("product_id", productIds);
-    (data ?? []).forEach((row) =>
-      ids.set(row.product_id, {
-        productId: row.product_id,
-        priority: row.priority ?? 100,
-        createdAt: row.created_at ?? ""
-      })
-    );
-  }
+  if (expectedCategoryByProduct.size === 0) return ids;
+
+  // Single batched lookup instead of one round trip per distinct category —
+  // each extra round trip is costly when the app server and DB are in
+  // different regions.
+  const { data } = await supabase
+    .from("category_featured_products")
+    .select("product_id, category_id, priority, created_at")
+    .in("category_id", Array.from(new Set(expectedCategoryByProduct.values())))
+    .in("product_id", Array.from(expectedCategoryByProduct.keys()));
+
+  (data ?? []).forEach((row) => {
+    // Only count it as a top pick for the category actually shown on this card.
+    if (expectedCategoryByProduct.get(row.product_id) !== row.category_id) return;
+    ids.set(row.product_id, {
+      productId: row.product_id,
+      priority: row.priority ?? 100,
+      createdAt: row.created_at ?? ""
+    });
+  });
   return ids;
 }
 
