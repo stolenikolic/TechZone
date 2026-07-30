@@ -42,6 +42,21 @@ function getCategoryChildHref(child: string | { title: string; href: string }) {
   return typeof child === "string" ? undefined : child.href;
 }
 
+/** True when pathname is under this parent's /categories/{slug} (from any child href). */
+function isCategoryActiveFromChildren(
+  children: Array<string | { title: string; href: string }>,
+  pathname: string
+) {
+  return children.some((child) => {
+    const href = getCategoryChildHref(child);
+    if (!href) return false;
+    const parts = href.split("/").filter(Boolean);
+    if (parts.length < 2) return false;
+    const parentPath = `/${parts[0]}/${parts[1]}`;
+    return pathname === parentPath || pathname.startsWith(`${parentPath}/`);
+  });
+}
+
 function formatFilterValue(slug: string, value: string) {
   if (slug === "heatsink" && (value === "true" || value === "false")) {
     return value === "true" ? "Yes" : "No";
@@ -87,10 +102,17 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
   const searchParams = useSearchParams();
   const [openFilterSlugs, setOpenFilterSlugs] = useState<Record<string, boolean>>({ brand: true });
   const [expandedFilterSlugs, setExpandedFilterSlugs] = useState<Record<string, boolean>>({});
+  const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
+    if (!isCategorySidebarFilters(filters)) return {};
+    const initial: Record<string, boolean> = {};
+    for (const item of filters.categories) {
+      if (!item.children) continue;
+      initial[item.title] = isCategoryActiveFromChildren(item.children, pathname);
+    }
+    return initial;
+  });
 
   const {
-    collapsed,
-    setCollapsed,
     debouncedApplyPriceWithValues,
     basePathForParams,
     hasSeoFilterInPath,
@@ -133,13 +155,22 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
           item.children ? (
             <Fragment key={item.title}>
               <AccordionHeader
-                open={collapsed}
-                onClick={() => setCollapsed((s) => !s)}
+                open={!!openCategories[item.title]}
+                onClick={() =>
+                  setOpenCategories((prev) => {
+                    const nextOpen = !prev[item.title];
+                    const next: Record<string, boolean> = {};
+                    for (const cat of CATEGORIES) {
+                      if (cat.children) next[cat.title] = cat.title === item.title ? nextOpen : false;
+                    }
+                    return next;
+                  })
+                }
                 sx={FILTER_ACCORDION_HEADER_SX}
               >
                 <Typography component="span">{item.title}</Typography>
               </AccordionHeader>
-              <Collapse in={collapsed}>
+              <Collapse in={!!openCategories[item.title]}>
                 {item.children.map((child) => {
                   const title = getCategoryChildTitle(child);
                   const href = getCategoryChildHref(child);

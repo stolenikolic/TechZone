@@ -39,7 +39,6 @@ function normalizeBrandValue(value: string): string {
 export default function useProductFilterCard(filters?: ProductFilterCardFilters) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [collapsed, setCollapsed] = useState(true);
   const navigation = usePendingFilterNavigation();
   const {
     pendingSnapshot,
@@ -212,8 +211,6 @@ export default function useProductFilterCard(filters?: ProductFilterCardFilters)
     applyPrice,
     applyPriceWithValues,
     debouncedApplyPriceWithValues,
-    collapsed,
-    setCollapsed,
     basePathForParams,
     hasSeoFilterInPath
   };
