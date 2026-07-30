@@ -70,20 +70,18 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "internalCategoryId is required" }, { status: 400 });
     }
     const supabase = createSupabaseServiceClient();
+    // Insert (ne upsert po internoj): više source keyeva može dijeliti istu internu kategoriju.
     const { data, error } = await supabase
       .from("supplier_categories")
-      .upsert(
-        {
-          supplier_id: supplierId,
-          internal_category_id: body.internalCategoryId,
-          supplier_category_key: body.supplierCategoryKey ?? null,
-          listing_url: body.listingUrl ?? null,
-          is_active: body.isActive ?? true,
-          sort_order: body.sortOrder ?? 0,
-          updated_at: new Date().toISOString()
-        },
-        { onConflict: "supplier_id,internal_category_id" }
-      )
+      .insert({
+        supplier_id: supplierId,
+        internal_category_id: body.internalCategoryId,
+        supplier_category_key: body.supplierCategoryKey ?? null,
+        listing_url: body.listingUrl ?? null,
+        is_active: body.isActive ?? true,
+        sort_order: body.sortOrder ?? 0,
+        updated_at: new Date().toISOString()
+      })
       .select("id")
       .maybeSingle();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });

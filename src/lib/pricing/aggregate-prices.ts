@@ -11,13 +11,21 @@ import { reconcileProductsIsActiveFromSupplierOffers } from "./reconcile-product
 import { computeOriginalPriceKm } from "./original-price";
 import { getEffectivePrice } from "lib/effective-price";
 import { resolvePriceSourceRegion } from "./price-source-region";
+import { withPostgrestTransientRetry } from "lib/suppliers/ipon/transient-retry";
 
 /** Number of supplier_products rows to fetch per query. Keep at 1000 to stay under PostgREST default row limit. */
 const FETCH_PAGE_SIZE = 1000;
 /** PostgREST .in(product_id) chunk size for scoped aggregation. */
 const PRODUCT_IDS_IN_CHUNK = 100;
-/** Number of products to update per RPC call. */
+/** Number of products to update per RPC call (price/original_price are unindexed → cheap HOT updates). */
 const UPDATE_BATCH_SIZE = 2500;
+/**
+ * update_products_price_sources also writes price_source_region, which is indexed
+ * (idx_products_price_source_region). That disables HOT updates and forces every
+ * index on the row to be rewritten, making this RPC much more expensive per row
+ * than update_products_prices — keep its batches smaller to avoid statement timeouts.
+ */
+const SOURCE_UPDATE_BATCH_SIZE = 500;
 
 type SupplierProductRow = {
   product_id: string;
@@ -298,9 +306,9 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
 
   for (let i = 0; i < entries.length; i += UPDATE_BATCH_SIZE) {
     const batch = entries.slice(i, i + UPDATE_BATCH_SIZE);
-    const { error: rpcError } = await supabase.rpc("update_products_prices", {
-      entries: batch
-    });
+    const { error: rpcError } = await withPostgrestTransientRetry("aggregatePrices.updatePrices", async () =>
+      supabase.rpc("update_products_prices", { entries: batch })
+    );
 
     if (rpcError) {
       return {
@@ -332,11 +340,12 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
     });
   }
 
-  for (let i = 0; i < sourceEntries.length; i += UPDATE_BATCH_SIZE) {
-    const batch = sourceEntries.slice(i, i + UPDATE_BATCH_SIZE);
-    const { error: sourceRpcError } = await supabase.rpc("update_products_price_sources", {
-      entries: batch
-    });
+  for (let i = 0; i < sourceEntries.length; i += SOURCE_UPDATE_BATCH_SIZE) {
+    const batch = sourceEntries.slice(i, i + SOURCE_UPDATE_BATCH_SIZE);
+    const { error: sourceRpcError } = await withPostgrestTransientRetry(
+      "aggregatePrices.updatePriceSources",
+      async () => supabase.rpc("update_products_price_sources", { entries: batch })
+    );
     if (sourceRpcError) {
       return {
         updated: updatedCount,
