@@ -5,7 +5,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
-import { mergeMatchAudit, resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
+import { mergeMatchAudit, resolveSupplierProductMatchSafe } from "lib/suppliers/matchSupplierProduct";
 import { normalizeEan, normalizeMpn, mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
 import { getSupplierCategories } from "lib/suppliers/registry";
@@ -158,7 +158,7 @@ async function importCategoryGroup(
 
     const mpnN = normalizeMpn(productNo);
     const eanN = normalizeEan(item.barCode || detail?.barCode);
-    const match = await resolveSupplierProductMatch(supabase, { ean: eanN, mpn: mpnN });
+    const match = await resolveSupplierProductMatchSafe(supabase, { ean: eanN, mpn: mpnN });
     const productId = match.productId;
 
     let resolvedMpn = mpnN;

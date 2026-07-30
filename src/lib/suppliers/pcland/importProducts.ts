@@ -4,7 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
+import { resolveSupplierProductMatchSafe } from "lib/suppliers/matchSupplierProduct";
 import { normalizeEan, normalizeMpn, mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
 import { aggregatePrices, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
@@ -549,7 +549,7 @@ export async function importCategory(category: PclandCategory): Promise<PclandCa
 
       seenIdsThisCategory.add(supplierProductId);
 
-      const match = await resolveSupplierProductMatch(supabase, { ean: eanN, mpn: mpnN });
+      const match = await resolveSupplierProductMatchSafe(supabase, { ean: eanN, mpn: mpnN });
       const productId = match.productId;
       let resolvedMpn = mpnN;
       let resolvedEan = eanN;

@@ -1,4 +1,5 @@
 import { createSupabaseServiceClient } from "utils/supabase";
+import { isTransientNetworkError } from "./ipon/transient-retry";
 import {
   eanFromMpnField,
   normalizeEan,
@@ -19,7 +20,8 @@ export type MatchSkipReason =
   | "missing_identifiers"
   | "ambiguous_ean"
   | "ambiguous_mpn"
-  | "no_unique_match";
+  | "no_unique_match"
+  | "lookup_error";
 
 export type MatchMethod =
   | "ean"
@@ -391,4 +393,64 @@ export async function resolveSupplierProductMatch(
   });
   if (tier2.productId) return tier2;
   return tier1;
+}
+
+const RESOLVE_MATCH_RETRY_ATTEMPTS = 3;
+const RESOLVE_MATCH_RETRY_BASE_DELAY_MS = 1000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function unmatchedFallback(identifiers: { ean?: string | null; mpn?: string | null }): MatchResolution {
+  const ean = normalizeEan(identifiers.ean);
+  const mpn = normalizeMpn(identifiers.mpn);
+  return {
+    productId: null,
+    method: "none",
+    audit: {
+      result: "skipped",
+      method: "none",
+      reason: "lookup_error",
+      candidateCount: 0,
+      normalized: { ean, mpn }
+    }
+  };
+}
+
+/**
+ * Wraps `resolveSupplierProductMatch`: retries transient DB/network errors
+ * (e.g. `canceling statement due to statement timeout` under load) with
+ * backoff, then degrades to an unmatched ("lookup_error") result instead of
+ * throwing. Import/cron jobs call this per-article in a loop — without this,
+ * a single transient failure kills the entire run. Prefer this over the raw
+ * function in any import/auto-match pipeline.
+ */
+export async function resolveSupplierProductMatchSafe(
+  supabase: SupabaseClient,
+  identifiers: { ean?: string | null; mpn?: string | null }
+): Promise<MatchResolution> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < RESOLVE_MATCH_RETRY_ATTEMPTS; attempt++) {
+    try {
+      return await resolveSupplierProductMatch(supabase, identifiers);
+    } catch (err) {
+      lastError = err;
+      const message = err instanceof Error ? err.message : String(err);
+      if (attempt < RESOLVE_MATCH_RETRY_ATTEMPTS - 1 && isTransientNetworkError(err)) {
+        const delay = RESOLVE_MATCH_RETRY_BASE_DELAY_MS * (attempt + 1);
+        console.warn(
+          `[matchSupplierProduct] resolveSupplierProductMatch transient error — retry ${attempt + 2}/${RESOLVE_MATCH_RETRY_ATTEMPTS} in ${delay}ms: ${message}`
+        );
+        await sleep(delay);
+        continue;
+      }
+      break;
+    }
+  }
+
+  const message = lastError instanceof Error ? lastError.message : String(lastError);
+  console.error(`[matchSupplierProduct] resolveSupplierProductMatch failed — skipping match: ${message}`);
+  return unmatchedFallback(identifiers);
 }

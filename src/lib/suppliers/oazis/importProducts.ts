@@ -4,7 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
+import { resolveSupplierProductMatchSafe } from "lib/suppliers/matchSupplierProduct";
 import { normalizeMpn, mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
 import { aggregatePrices, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
@@ -582,7 +582,7 @@ export async function importCategory(category: OazisCategory): Promise<OazisCate
 
       seenIdsThisCategory.add(supplierProductId);
 
-      const match = await resolveSupplierProductMatch(supabase, { ean: null, mpn: mpnN });
+      const match = await resolveSupplierProductMatchSafe(supabase, { ean: null, mpn: mpnN });
       const productId = match.productId;
       let resolvedMpn = mpnN;
       if (productId) {

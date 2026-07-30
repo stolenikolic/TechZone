@@ -18,7 +18,9 @@ const CATEGORY_ICON_BY_SLUG: Record<string, string> = {
   "televizori-projektori-vr": "Desktop",
   "mreza-serveri-sigurnost": "HouseSignal",
   "konzole-i-gaming": "Robot",
-  "audio-i-multimedija": "MicrophoneLines"
+  "audio-i-multimedija": "MicrophoneLines",
+  "telefoni-tableti-pametni-uredjaji": "MobileNotch",
+  "foto-video-dronovi": "Camera"
 };
 
 const MAIN_NAVIGATION: Menu[] = [

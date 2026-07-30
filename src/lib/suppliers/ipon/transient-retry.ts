@@ -1,6 +1,7 @@
 /**
- * Kratki retry za privremene mrežne greške (Supabase PostgREST i iPon HTTP).
- * Koristi se u import/sync skriptama; nije za poslovnu logiku (RLS, validacija).
+ * Kratki retry za privremene mrežne i DB greške (Supabase PostgREST/statement
+ * timeout i iPon HTTP). Koristi se u import/sync skriptama; nije za poslovnu
+ * logiku (RLS, validacija).
  */
 
 function sleep(ms: number): Promise<void> {
@@ -8,7 +9,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 const TRANSIENT =
-  /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|socket hang up|EAI_AGAIN|getaddrinfo|certificate|TLS|SSL|other side closed|UND_ERR_SOCKET|UND_ERR_CONNECT_TIMEOUT|ECONNABORTED/i;
+  /fetch failed|ECONNRESET|ETIMEDOUT|ENOTFOUND|ECONNREFUSED|socket hang up|EAI_AGAIN|getaddrinfo|certificate|TLS|SSL|other side closed|UND_ERR_SOCKET|UND_ERR_CONNECT_TIMEOUT|ECONNABORTED|statement timeout|canceling statement|deadlock detected|too many connections|connection.*closed/i;
 
 /** Poruke iz Error lanca (message + cause + code) za detekciju privremenih grešaka. */
 export function errorMessageChain(error: unknown): string {

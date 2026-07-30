@@ -10,7 +10,7 @@
 
 import { aggregatePrices } from "lib/pricing";
 import { logEvent, type JobRunHandle } from "lib/jobs/job-runner";
-import { mergeMatchAudit, resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
+import { mergeMatchAudit, resolveSupplierProductMatchSafe } from "lib/suppliers/matchSupplierProduct";
 import { mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
 import { createSupabaseServiceClient } from "utils/supabase";
@@ -127,7 +127,7 @@ export async function runAutoMatch(jobHandle?: JobRunHandle): Promise<AutoMatchR
 
     for (const row of page) {
       scanned += 1;
-      const match = await resolveSupplierProductMatch(supabase, {
+      const match = await resolveSupplierProductMatchSafe(supabase, {
         ean: row.ean,
         mpn: row.mpn
       });

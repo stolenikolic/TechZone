@@ -14,7 +14,7 @@ import {
   aggregatePricesForProductIds,
   reconcileProductsIsActiveFromSupplierOffers
 } from "lib/pricing";
-import { mergeMatchAudit, resolveSupplierProductMatch } from "lib/suppliers/matchSupplierProduct";
+import { mergeMatchAudit, resolveSupplierProductMatchSafe } from "lib/suppliers/matchSupplierProduct";
 import { normalizeEan, normalizeMpn, mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
 import { getSupplierCategories } from "lib/suppliers/registry";
@@ -587,7 +587,7 @@ async function insertOrLinkIponListItem(
   const offerIndex = ctx?.offerIndex;
 
   const { mpn: offerMpn, ean: offerEan } = extractIponIdentifiers(item);
-  const match = await resolveSupplierProductMatch(supabase, { ean: offerEan, mpn: offerMpn });
+  const match = await resolveSupplierProductMatchSafe(supabase, { ean: offerEan, mpn: offerMpn });
   if (match.productId) {
     const { data: masterIdentifiers, error: masterIdentifiersError } = await withPostgrestTransientRetry(
       "products.identifiers-autolink",
