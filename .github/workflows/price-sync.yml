@@ -1,0 +1,76 @@
+# iPon XML, Avtera i ComTrade price sync — jedan sekvencijalni job svaka 4h.
+# Prije je svaki supplier imao svoj workflow na istom cronu (0 */2 * * *), pa su sva tri
+# istovremeno radila pun aggregatePrices() + reconcile_products_is_active_from_supplier_offers()
+# nad cijelim katalogom (~56k products) — otuda redovan "statement timeout" na reconcile-u i
+# na update_products_prices. Sada svaki supplier korak agregira/reconcile-uje samo proizvode
+# koje je taj run dirnuo (vidi aggregatePricesForProductIds(..., { reconcile: true })).
+
+name: Price sync (iPon, Avtera, ComTrade)
+
+on:
+  schedule:
+    - cron: "0 */4 * * *"
+  workflow_dispatch:
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+  SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  JOB_TRIGGERED_BY: cron
+  IPON_XML_FEED_URL: ${{ secrets.IPON_XML_FEED_URL }}
+  AVTERA_XML_FEED_URL: ${{ secrets.AVTERA_XML_FEED_URL }}
+  COMTRADE_USERNAME: ${{ secrets.COMTRADE_USERNAME }}
+  COMTRADE_PASSWORD: ${{ secrets.COMTRADE_PASSWORD }}
+
+concurrency:
+  group: price-sync
+  cancel-in-progress: false
+
+jobs:
+  price_sync:
+    name: Price sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 200
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: echo "Triggered by ${{ github.event_name }} at $(date -u)"
+
+      # --- iPon XML ---
+      - name: Check paused (iPon XML sync)
+        id: check_ipon
+        continue-on-error: true
+        run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+        env:
+          JOB_TYPE: ipon_xml_sync
+      - name: iPon XML sync
+        if: steps.check_ipon.outcome == 'success'
+        run: npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-xml-sync.ts
+
+      # --- Avtera ---
+      - name: Check paused (Avtera price sync)
+        id: check_avtera
+        continue-on-error: true
+        run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+        env:
+          JOB_TYPE: avtera_price_sync
+      - name: Avtera price sync
+        if: steps.check_avtera.outcome == 'success'
+        run: npx tsx -r ./scripts/register-ws.cjs scripts/run-avtera-price-sync.ts
+
+      # --- ComTrade ---
+      - name: Check paused (ComTrade price sync)
+        id: check_comtrade
+        continue-on-error: true
+        run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+        env:
+          JOB_TYPE: comtrade_price_sync
+      - name: ComTrade price sync
+        if: steps.check_comtrade.outcome == 'success'
+        run: npx tsx -r ./scripts/register-ws.cjs scripts/run-comtrade-price-sync.ts

@@ -1,10 +1,10 @@
 /**
- * ComTrade price sync — /Price/items cijene, qty, globalna deaktivacija, aggregatePrices.
+ * ComTrade price sync — /Price/items cijene, qty, globalna deaktivacija, scoped price aggregation.
  * Run: npx tsx scripts/run-comtrade-price-sync.ts
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { aggregatePrices, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
+import { aggregatePricesForProductIds } from "lib/pricing";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { createComtradeApiClient } from "./api-client";
 import { clearComtradeTokenCache } from "./auth";
@@ -21,6 +21,7 @@ const DEACTIVATE_CHUNK = 100;
 
 type DbOfferRow = {
   supplier_product_id: string;
+  product_id: string | null;
   price_amount: number | null;
   delivery_days: number | null;
   is_active: boolean;
@@ -61,7 +62,7 @@ async function fetchAllComtradeOffers(supabase: SupabaseClient): Promise<DbOffer
     const { data, error } = await withPostgrestTransientRetry("comtradePrice.fetchOffers", async () =>
       supabase
         .from("supplier_products")
-        .select("supplier_product_id, price_amount, delivery_days, is_active")
+        .select("supplier_product_id, product_id, price_amount, delivery_days, is_active")
         .eq("supplier_id", COMTRADE_SUPPLIER_ID)
         .order("supplier_product_id", { ascending: true })
         .range(offset, offset + POSTGREST_MAX_ROWS - 1)
@@ -80,32 +81,37 @@ async function fetchAllComtradeOffers(supabase: SupabaseClient): Promise<DbOffer
 async function deactivateInactiveComtradeGlobally(
   supabase: SupabaseClient,
   fetchedIds: Set<string>
-): Promise<number> {
-  const staleIds: string[] = [];
+): Promise<{ deactivated: number; productIds: string[] }> {
+  const staleRows: Array<{ supplier_product_id: string; product_id: string | null }> = [];
   let offset = 0;
 
   for (;;) {
     const { data, error } = await withPostgrestTransientRetry("comtradePrice.activeOffers", async () =>
       supabase
         .from("supplier_products")
-        .select("supplier_product_id")
+        .select("supplier_product_id, product_id")
         .eq("supplier_id", COMTRADE_SUPPLIER_ID)
         .eq("is_active", true)
         .order("supplier_product_id", { ascending: true })
         .range(offset, offset + POSTGREST_MAX_ROWS - 1)
     );
     if (error) throw new Error(`ComTrade price sync deactivate scan: ${error.message}`);
-    const page = (data ?? []) as Array<{ supplier_product_id: string }>;
+    const page = (data ?? []) as Array<{ supplier_product_id: string; product_id: string | null }>;
     if (page.length === 0) break;
     for (const row of page) {
       const id = String(row.supplier_product_id);
-      if (!fetchedIds.has(id)) staleIds.push(id);
+      if (!fetchedIds.has(id)) staleRows.push(row);
     }
     offset += page.length;
     if (page.length < POSTGREST_MAX_ROWS) break;
   }
 
-  if (staleIds.length === 0) return 0;
+  if (staleRows.length === 0) return { deactivated: 0, productIds: [] };
+
+  const staleIds = staleRows.map((r) => r.supplier_product_id);
+  const productIds = Array.from(
+    new Set(staleRows.map((r) => r.product_id).filter((id): id is string => id != null))
+  );
 
   const updatedAt = new Date().toISOString();
   let deactivated = 0;
@@ -125,7 +131,7 @@ async function deactivateInactiveComtradeGlobally(
   if (deactivated > 0) {
     console.log(`${LOG} Deaktivirano ${deactivated} ponuda (nema u listi).`);
   }
-  return deactivated;
+  return { deactivated, productIds };
 }
 
 export type ComtradePriceSyncResult = {
@@ -139,8 +145,11 @@ export type ComtradePriceSyncResult = {
     deactivated: number;
     reactivated: number;
     unchanged: number;
+    changed_product_ids: number;
     prices_aggregated: number;
+    aggregate_batches?: number;
     aggregate_error?: string;
+    aggregate_warnings?: string[];
   };
 };
 
@@ -171,6 +180,7 @@ export async function runComtradePriceSync(): Promise<ComtradePriceSyncResult> {
     let unchanged = 0;
     let reactivated = 0;
     let deactivatedInLoop = 0;
+    const changedProductIds = new Set<string>();
 
     for (const row of dbOffers) {
       const id = String(row.supplier_product_id);
@@ -188,6 +198,7 @@ export async function runComtradePriceSync(): Promise<ComtradePriceSyncResult> {
           if (error) throw new Error(`ComTrade deactivate ${id}: ${error.message}`);
           updated += 1;
           deactivatedInLoop += 1;
+          if (row.product_id) changedProductIds.add(row.product_id);
           console.log(`${LOG} Deaktivirano ${id} (nema u feedu)`);
         } else {
           unchanged += 1;
@@ -223,6 +234,7 @@ export async function runComtradePriceSync(): Promise<ComtradePriceSyncResult> {
       if (error) throw new Error(`ComTrade update ${id}: ${error.message}`);
       updated += 1;
       if (wasReactivated) reactivated += 1;
+      if (row.product_id) changedProductIds.add(row.product_id);
 
       const changes: string[] = [];
       if (priceChanged) changes.push(`price ${prevPrice}→${feed.price}`);
@@ -231,11 +243,15 @@ export async function runComtradePriceSync(): Promise<ComtradePriceSyncResult> {
       console.log(`${LOG} Ažurirano ${id}: ${changes.join(", ")}`);
     }
 
-    const deactivated = await deactivateInactiveComtradeGlobally(supabase, fetchedIds);
-    const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
-    if (rec.error) console.warn(`${LOG} reconcile:`, rec.error);
+    const { deactivated, productIds: deactivatedProductIds } = await deactivateInactiveComtradeGlobally(
+      supabase,
+      fetchedIds
+    );
+    for (const id of deactivatedProductIds) changedProductIds.add(id);
 
-    const agg = await aggregatePrices();
+    // Scoped: only the masters this run touched, not the full catalog — avoids the
+    // full-table UPDATE that used to hit `statement timeout` on every cron run.
+    const agg = await aggregatePricesForProductIds(Array.from(changedProductIds), { reconcile: true });
     if (agg.error) console.warn(`${LOG} aggregate:`, agg.error);
 
     const summary = {
@@ -246,8 +262,11 @@ export async function runComtradePriceSync(): Promise<ComtradePriceSyncResult> {
       deactivated: deactivated + deactivatedInLoop,
       reactivated,
       unchanged,
+      changed_product_ids: changedProductIds.size,
       prices_aggregated: agg.updated,
-      ...(agg.error ? { aggregate_error: agg.error } : {})
+      aggregate_batches: agg.batches,
+      ...(agg.error ? { aggregate_error: agg.error } : {}),
+      ...(agg.warnings?.length ? { aggregate_warnings: agg.warnings } : {})
     };
     console.log(`${LOG} Završeno.`, summary);
 

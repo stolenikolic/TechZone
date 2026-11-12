@@ -1,11 +1,11 @@
 /**
- * iPon XML sync — cijene, delivery, globalna deaktivacija, aggregatePrices.
+ * iPon XML sync — cijene, delivery, globalna deaktivacija, scoped price aggregation.
  * Run: npx tsx scripts/run-ipon-xml-sync.ts
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceClient } from "utils/supabase";
-import { aggregatePrices, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
+import { aggregatePricesForProductIds } from "lib/pricing";
 import { IPON_SUPPLIER_ID } from "./categories";
 import { parseIponXmlFeed, peekIponXmlFeedCreatedAt, type IponXmlFeedEntry } from "./xmlFeed";
 import { withPostgrestTransientRetry } from "./transient-retry";
@@ -27,6 +27,7 @@ const MIN_ITEMS = numEnv("IPON_XML_MIN_ITEMS", 100_000);
 
 type DbOfferRow = {
   supplier_product_id: string;
+  product_id: string | null;
   price_amount: number | null;
   delivery_days: number | null;
   is_active: boolean;
@@ -34,6 +35,7 @@ type DbOfferRow = {
 
 type PendingUpdate = {
   supplier_product_id: string;
+  product_id: string | null;
   price_amount: number;
   delivery_days: number | null;
   reactivated: boolean;
@@ -48,7 +50,7 @@ async function fetchAllIponOffers(supabase: SupabaseClient): Promise<DbOfferRow[
     const { data, error } = await withPostgrestTransientRetry("xmlSync.fetchOffers", async () =>
       supabase
         .from("supplier_products")
-        .select("supplier_product_id, price_amount, delivery_days, is_active")
+        .select("supplier_product_id, product_id, price_amount, delivery_days, is_active")
         .eq("supplier_id", IPON_SUPPLIER_ID)
         .order("supplier_product_id", { ascending: true })
         .range(offset, offset + DB_PAGE_SIZE - 1)
@@ -142,15 +144,15 @@ async function applyUpdates(supabase: SupabaseClient, updates: PendingUpdate[]):
 async function deactivateInactiveIponGlobally(
   supabase: SupabaseClient,
   fetchedIds: Set<string>
-): Promise<number> {
-  const staleIds: string[] = [];
+): Promise<{ deactivated: number; productIds: string[] }> {
+  const staleRows: Array<{ supplier_product_id: string; product_id: string | null }> = [];
   let offset = 0;
 
   for (;;) {
     const { data, error } = await withPostgrestTransientRetry("xmlSync.activeOffers", async () =>
       supabase
         .from("supplier_products")
-        .select("supplier_product_id")
+        .select("supplier_product_id, product_id")
         .eq("supplier_id", IPON_SUPPLIER_ID)
         .eq("is_active", true)
         .order("supplier_product_id", { ascending: true })
@@ -159,19 +161,24 @@ async function deactivateInactiveIponGlobally(
 
     if (error) throw new Error(`xmlSync deactivate scan: ${error.message}`);
 
-    const page = (data ?? []) as Array<{ supplier_product_id: string }>;
+    const page = (data ?? []) as Array<{ supplier_product_id: string; product_id: string | null }>;
     if (page.length === 0) break;
 
     for (const row of page) {
       const id = String(row.supplier_product_id);
-      if (!fetchedIds.has(id)) staleIds.push(id);
+      if (!fetchedIds.has(id)) staleRows.push(row);
     }
 
     offset += page.length;
     if (page.length < DB_PAGE_SIZE) break;
   }
 
-  if (staleIds.length === 0) return 0;
+  if (staleRows.length === 0) return { deactivated: 0, productIds: [] };
+
+  const staleIds = staleRows.map((r) => r.supplier_product_id);
+  const productIds = Array.from(
+    new Set(staleRows.map((r) => r.product_id).filter((id): id is string => id != null))
+  );
 
   const updatedAt = new Date().toISOString();
   let deactivated = 0;
@@ -193,7 +200,7 @@ async function deactivateInactiveIponGlobally(
     console.log(`[iPon XML] Deaktivirano ${deactivated} ponuda (nema u feedu).`);
   }
 
-  return deactivated;
+  return { deactivated, productIds };
 }
 
 export type IponXmlSyncResult = {
@@ -260,6 +267,7 @@ export async function runIponXmlSync(): Promise<IponXmlSyncResult> {
 
   const updates: PendingUpdate[] = [];
   let reactivated = 0;
+  const changedProductIds = new Set<string>();
 
   for (const row of dbOffers) {
     const feed = feedMap.get(String(row.supplier_product_id));
@@ -269,8 +277,10 @@ export async function runIponXmlSync(): Promise<IponXmlSyncResult> {
     if (!changed) continue;
 
     if (wasInactive) reactivated += 1;
+    if (row.product_id) changedProductIds.add(row.product_id);
     updates.push({
       supplier_product_id: String(row.supplier_product_id),
+      product_id: row.product_id,
       price_amount: feed.price,
       delivery_days: feed.deliveryDays,
       reactivated: wasInactive
@@ -278,14 +288,15 @@ export async function runIponXmlSync(): Promise<IponXmlSyncResult> {
   }
 
   const updated = await applyUpdates(supabase, updates);
-  const deactivated = await deactivateInactiveIponGlobally(supabase, new Set(feedMap.keys()));
+  const { deactivated, productIds: deactivatedProductIds } = await deactivateInactiveIponGlobally(
+    supabase,
+    new Set(feedMap.keys())
+  );
+  for (const id of deactivatedProductIds) changedProductIds.add(id);
 
-  const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
-  if (rec.error) {
-    console.warn("[iPon XML] reconcile_products_is_active_from_supplier_offers:", rec.error);
-  }
-
-  const agg = await aggregatePrices();
+  // Scoped: only the masters this run touched, not the full catalog — avoids the
+  // full-table UPDATE that used to hit `statement timeout` on every cron run.
+  const agg = await aggregatePricesForProductIds(Array.from(changedProductIds), { reconcile: true });
 
   const result: IponXmlSyncResult = {
     success: !agg.error,
@@ -303,6 +314,7 @@ export async function runIponXmlSync(): Promise<IponXmlSyncResult> {
       reactivated,
       deactivated,
       feed_not_in_db: feedNotInDb,
+      changed_product_ids: changedProductIds.size,
       prices_aggregated: agg.updated,
       aggregate_batches: agg.batches,
       ...(agg.error ? { aggregate_error: agg.error } : {}),

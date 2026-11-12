@@ -228,7 +228,7 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
 
   if (minCostByProduct.size === 0) {
     if (shouldReconcile) {
-      const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
+      const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase, productIdsFilter ?? undefined);
       const warnings = mergeWarnings(
         settingWarnings,
         rec.error ? [`reconcile_products_is_active_from_supplier_offers: ${rec.error}`] : undefined
@@ -358,7 +358,7 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
 
   let warnings: string[] | undefined = settingWarnings;
   if (shouldReconcile) {
-    const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
+    const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase, productIdsFilter ?? undefined);
     warnings = mergeWarnings(
       settingWarnings,
       rec.error ? [`reconcile_products_is_active_from_supplier_offers: ${rec.error}`] : undefined
@@ -380,12 +380,20 @@ export async function aggregatePrices(): Promise<AggregatePricesResult> {
   return aggregatePricesCore();
 }
 
-/** Aggregate selling price only for given master product IDs (e.g. after iPon discovery import). */
+/**
+ * Aggregate selling price only for given master product IDs (e.g. after iPon discovery import,
+ * or the handful of masters a 2h/4h supplier price-sync just touched).
+ *
+ * `reconcile` defaults to `false` to preserve existing callers that run their own reconcile
+ * separately. Price-sync jobs should pass `{ reconcile: true }` to also sync `products.is_active`
+ * for just these IDs — scoped, so it never scans the full `products` table.
+ */
 export async function aggregatePricesForProductIds(
-  productIds: string[]
+  productIds: string[],
+  options?: { reconcile?: boolean }
 ): Promise<AggregatePricesResult> {
   if (productIds.length === 0) return { updated: 0, batches: 0 };
-  return aggregatePricesCore({ productIds, reconcile: false });
+  return aggregatePricesCore({ productIds, reconcile: options?.reconcile ?? false });
 }
 
 /** Shape for `withJobRun` / admin APIs: flat fields + nested `summary` for `job_runs`. */
