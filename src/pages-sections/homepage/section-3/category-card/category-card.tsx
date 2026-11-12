@@ -7,12 +7,13 @@ interface Props {
   image: string | null;
   title: string;
   slug: string;
+  href?: string;
 }
 
-export default function CategoryCard({ image, title, slug }: Props) {
+export default function CategoryCard({ image, title, slug, href }: Props) {
   const hasImage = image && image.trim() !== "";
   return (
-    <Link href={`/categories/${slug}`}>
+    <Link href={href ?? `/categories/${slug}`}>
       <StyledRoot>
         <ImageContainer>
           {hasImage ? (

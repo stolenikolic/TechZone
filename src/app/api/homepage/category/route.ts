@@ -1,4 +1,9 @@
 import { NextResponse } from "next/server";
+import {
+  categoryPublicHref,
+  indexCategoryLinks,
+  type CategoryLinkRow
+} from "lib/shop/category-view-href";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 /** Homepage category item (top-level only in this API). */
@@ -8,15 +13,13 @@ export type HomepageCategoryItem = {
   icon: null;
   image: null;
   slug: string;
+  href: string;
   parent: HomepageCategoryItem[];
   description: null;
 };
 
-type DbCategory = {
-  id: string;
+type DbCategory = CategoryLinkRow & {
   name: string;
-  slug: string;
-  parent_id: string | null;
 };
 
 /**
@@ -48,15 +51,19 @@ function buildCategoryTree(rows: DbCategory[]): DbCategory[] {
   return roots;
 }
 
-function toHomepageCategoryItem(category: DbCategory): HomepageCategoryItem {
+function toHomepageCategoryItem(
+  category: DbCategory,
+  byId: Map<string, CategoryLinkRow>
+): HomepageCategoryItem {
   return {
     id: category.id,
     name: category.name,
     icon: null,
     image: null,
     slug: category.slug,
+    href: categoryPublicHref(category, byId),
     parent: [],
-    description: null,
+    description: null
   };
 }
 
@@ -66,7 +73,9 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("categories")
-      .select("id, name, slug, parent_id")
+      .select(
+        "id, name, slug, parent_id, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+      )
       .order("name");
 
     if (error) {
@@ -77,8 +86,11 @@ export async function GET() {
     }
 
     const rows = (data ?? []) as DbCategory[];
+    const linkById = indexCategoryLinks(rows);
     const treeRoots = buildCategoryTree(rows);
-    const body: HomepageCategoryItem[] = treeRoots.map(toHomepageCategoryItem);
+    const body: HomepageCategoryItem[] = treeRoots.map((root) =>
+      toHomepageCategoryItem(root, linkById)
+    );
 
     return NextResponse.json(body);
   } catch (err) {

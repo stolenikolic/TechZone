@@ -21,6 +21,7 @@ export default async function Section3() {
               image={item.image ?? "/assets/images/categories/default-category.jpg"}
               title={item.name}
               slug={item.slug}
+              href={item.href}
             />
           </Grid>
         ))}

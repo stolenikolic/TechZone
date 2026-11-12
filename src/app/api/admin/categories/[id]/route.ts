@@ -3,6 +3,11 @@ import { processCategoryImageFromUrl } from "lib/images/process-category-image";
 import { isHostedCategoryImage, removeCategoryImage } from "lib/images/storage";
 import { normalizeCategorySlug } from "lib/normalize-slug";
 import { revalidateCategorySurfaces } from "lib/revalidate-categories";
+import {
+  categoryParentChildError,
+  readCategoryViewInput,
+  resolveCategoryViewWrite
+} from "lib/shop/category-view-admin";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { guardAdminApi } from "lib/auth/admin-route";
 
@@ -16,7 +21,9 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const supabase = createSupabaseServiceClient();
     const { data, error } = await supabase
       .from("categories")
-      .select("id, name, slug, parent_id, image_url, selling_margin_default, created_at")
+      .select(
+        "id, name, slug, parent_id, image_url, selling_margin_default, created_at, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+      )
       .eq("id", id)
       .maybeSingle();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
@@ -36,6 +43,9 @@ type PatchBody = {
   sellingMarginDefault?: number | null;
   selling_margin_default?: number | null;
   attributeIds?: string[];
+  viewSourceCategoryId?: string | null;
+  viewFilterAttributeSlug?: string | null;
+  viewFilterValue?: string | null;
 };
 
 /** PATCH /api/admin/categories/:id */
@@ -46,6 +56,19 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     const { id } = await context.params;
     const body = (await request.json()) as PatchBody;
     const patch: Record<string, unknown> = {};
+    const supabase = createSupabaseServiceClient();
+
+    const viewInput = readCategoryViewInput(body);
+    if (viewInput.present) {
+      const resolved = await resolveCategoryViewWrite(supabase, id, viewInput.input);
+      if (!resolved.ok) return NextResponse.json({ error: resolved.error }, { status: 400 });
+      Object.assign(patch, resolved.columns);
+    }
+
+    if ("parentId" in body) {
+      const parentError = await categoryParentChildError(supabase, body.parentId ?? null);
+      if (parentError) return NextResponse.json({ error: parentError }, { status: 400 });
+    }
 
     if ("name" in body) {
       const name = body.name?.trim() ?? "";
@@ -58,8 +81,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       patch.slug = slug;
     }
     if ("parentId" in body) patch.parent_id = body.parentId ?? null;
-
-    const supabase = createSupabaseServiceClient();
 
     if ("imageUrl" in body) {
       const { data: currentCategory } = await supabase

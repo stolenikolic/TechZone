@@ -3,6 +3,11 @@ import { processCategoryImageFromUrl } from "lib/images/process-category-image";
 import { isHostedCategoryImage } from "lib/images/storage";
 import { normalizeCategorySlug } from "lib/normalize-slug";
 import { revalidateCategorySurfaces } from "lib/revalidate-categories";
+import {
+  categoryParentChildError,
+  readCategoryViewInput,
+  resolveCategoryViewWrite
+} from "lib/shop/category-view-admin";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { guardAdminApi } from "lib/auth/admin-route";
 
@@ -23,7 +28,9 @@ export async function GET() {
     const supabase = createSupabaseServiceClient();
     const { data, error } = await supabase
       .from("categories")
-      .select("id, name, slug, parent_id, image_url, selling_margin_default, created_at")
+      .select(
+        "id, name, slug, parent_id, image_url, selling_margin_default, created_at, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+      )
       .order("name", { ascending: true });
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -76,6 +83,9 @@ type CreateBody = {
   imageUrl?: string | null;
   sellingMarginDefault?: number | null;
   attributeIds?: string[];
+  viewSourceCategoryId?: string | null;
+  viewFilterAttributeSlug?: string | null;
+  viewFilterValue?: string | null;
 };
 
 export async function POST(request: Request) {
@@ -102,6 +112,22 @@ export async function POST(request: Request) {
     }
 
     const supabase = createSupabaseServiceClient();
+    const parentError = await categoryParentChildError(supabase, parentId);
+    if (parentError) return NextResponse.json({ error: parentError }, { status: 400 });
+
+    const viewInput = readCategoryViewInput(body);
+    const resolvedView = viewInput.present
+      ? await resolveCategoryViewWrite(supabase, null, viewInput.input)
+      : {
+          ok: true as const,
+          columns: {
+            view_source_category_id: null,
+            view_filter_attribute_slug: null,
+            view_filter_value: null
+          }
+        };
+    if (!resolvedView.ok) return NextResponse.json({ error: resolvedView.error }, { status: 400 });
+
     const { data: created, error } = await supabase
       .from("categories")
       .insert({
@@ -109,7 +135,8 @@ export async function POST(request: Request) {
         slug,
         parent_id: parentId,
         image_url: imageUrl,
-        selling_margin_default: sellingMarginDefault
+        selling_margin_default: sellingMarginDefault,
+        ...resolvedView.columns
       })
       .select("id")
       .maybeSingle();

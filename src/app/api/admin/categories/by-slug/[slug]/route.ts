@@ -9,6 +9,9 @@ type CategoryRow = {
   parent_id: string | null;
   image_url: string | null;
   selling_margin_default: number | null;
+  view_source_category_id: string | null;
+  view_filter_attribute_slug: string | null;
+  view_filter_value: string | null;
   created_at: string;
 };
 
@@ -66,7 +69,9 @@ export async function GET(
     const supabase = createSupabaseServiceClient();
     const { data: category, error } = await supabase
       .from("categories")
-      .select("id, name, slug, parent_id, image_url, selling_margin_default, created_at")
+      .select(
+        "id, name, slug, parent_id, image_url, selling_margin_default, created_at, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+      )
       .eq("slug", slug)
       .maybeSingle();
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
@@ -76,7 +81,9 @@ export async function GET(
       await Promise.all([
       supabase
         .from("categories")
-        .select("id, name, slug, parent_id, image_url, selling_margin_default, created_at")
+        .select(
+          "id, name, slug, parent_id, image_url, selling_margin_default, created_at, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+        )
         .order("name", { ascending: true }),
       supabase
         .from("attributes")

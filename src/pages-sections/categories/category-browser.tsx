@@ -49,6 +49,7 @@ export default function CategoryBrowser({
                 image={item.image ?? "/assets/images/categories/default-category.jpg"}
                 title={item.name}
                 slug={categoryPath}
+                href={item.href}
               />
             </Grid>
           );

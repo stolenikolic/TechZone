@@ -47,6 +47,7 @@ type CategoryOption = {
   name: string;
   slug: string;
   parent_id: string | null;
+  view_source_category_id?: string | null;
 };
 
 type AttributeOption = {
@@ -165,6 +166,10 @@ export default function CategoryForm({ mode }: Props) {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [parentId, setParentId] = useState("");
+  const [viewSourceId, setViewSourceId] = useState("");
+  const [viewAttributeSlug, setViewAttributeSlug] = useState("");
+  const [viewFilterValue, setViewFilterValue] = useState("");
+  const [sourceAttributes, setSourceAttributes] = useState<AttributeOption[]>([]);
   const [imageUrl, setImageUrl] = useState("");
   const [sellingMarginDefault, setSellingMarginDefault] = useState("");
   const [products, setProducts] = useState<CategoryProductRow[]>([]);
@@ -176,9 +181,32 @@ export default function CategoryForm({ mode }: Props) {
     () =>
       categories.filter(
         (item) =>
-          item.parent_id == null && (mode === "edit" && categoryId ? item.id !== categoryId : true)
+          item.parent_id == null &&
+          !item.view_source_category_id &&
+          (mode === "edit" && categoryId ? item.id !== categoryId : true)
       ),
     [categories, mode, categoryId]
+  );
+
+  const sourceOptions = useMemo(() => {
+    return categories
+      .filter((item) => item.id !== categoryId && !item.view_source_category_id)
+      .map((item) => {
+        const parent = item.parent_id
+          ? categories.find((candidate) => candidate.id === item.parent_id)
+          : null;
+        return {
+          id: item.id,
+          slug: item.slug,
+          label: parent ? `${parent.name} / ${item.name}` : item.name
+        };
+      })
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [categories, categoryId]);
+
+  const hasChildren = useMemo(
+    () => Boolean(categoryId) && categories.some((item) => item.parent_id === categoryId),
+    [categories, categoryId]
   );
 
   const sortedCategoryProducts = useMemo(() => {
@@ -286,7 +314,13 @@ export default function CategoryForm({ mode }: Props) {
     });
     const data = (await response.json()) as
       | {
-          category: CategoryOption & { image_url: string | null; selling_margin_default: number | null };
+          category: CategoryOption & {
+            image_url: string | null;
+            selling_margin_default: number | null;
+            view_source_category_id: string | null;
+            view_filter_attribute_slug: string | null;
+            view_filter_value: string | null;
+          };
           categories: CategoryOption[];
           attributes: AttributeOption[];
           categoryAttributes: CategoryAttributeRow[];
@@ -318,6 +352,9 @@ export default function CategoryForm({ mode }: Props) {
     setName(data.category.name);
     setSlug(data.category.slug);
     setParentId(data.category.parent_id ?? "");
+    setViewSourceId(data.category.view_source_category_id ?? "");
+    setViewAttributeSlug(data.category.view_filter_attribute_slug ?? "");
+    setViewFilterValue(data.category.view_filter_value ?? "");
     setImageUrl(data.category.image_url ?? "");
     setSellingMarginDefault(
       data.category.selling_margin_default != null
@@ -392,6 +429,40 @@ export default function CategoryForm({ mode }: Props) {
     void loadSuppliers();
   }, [mode, categorySlug, loadSuppliers]);
 
+  useEffect(() => {
+    if (!viewSourceId) {
+      setSourceAttributes([]);
+      return;
+    }
+    const source = categories.find((item) => item.id === viewSourceId);
+    if (!source) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch(
+          `/api/admin/categories/by-slug/${encodeURIComponent(source.slug)}`,
+          { cache: "no-store" }
+        );
+        const data = (await response.json()) as {
+          categoryAttributes?: AttributeOption[];
+          error?: string;
+        };
+        if (!response.ok || data.error) {
+          throw new Error(data.error ?? "Atributi izvora nisu učitani.");
+        }
+        if (!cancelled) setSourceAttributes(data.categoryAttributes ?? []);
+      } catch (err) {
+        if (!cancelled) {
+          setSourceAttributes([]);
+          setError(err instanceof Error ? err.message : "Atributi izvora nisu učitani.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [viewSourceId, categories]);
+
   const uploadCategoryImageFile = async (id: string, file: File): Promise<string> => {
     const formData = new FormData();
     formData.append("file", file);
@@ -410,6 +481,10 @@ export default function CategoryForm({ mode }: Props) {
       setError("Name is required.");
       return;
     }
+    if (viewSourceId && (!viewAttributeSlug.trim() || !viewFilterValue.trim())) {
+      setError("Pokazivač traži izvornu kategoriju, slug atributa i tačnu vrijednost.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setNotice(null);
@@ -420,7 +495,14 @@ export default function CategoryForm({ mode }: Props) {
         slug: slug.trim(),
         parentId: parentId || null,
         imageUrl: resolvedImageUrl,
-        sellingMarginDefault: sellingMarginDefault.trim() ? Number(sellingMarginDefault) : null
+        sellingMarginDefault: sellingMarginDefault.trim() ? Number(sellingMarginDefault) : null,
+        ...(hasChildren
+          ? {}
+          : {
+              viewSourceCategoryId: viewSourceId || null,
+              viewFilterAttributeSlug: viewAttributeSlug.trim() || null,
+              viewFilterValue: viewFilterValue.trim() || null
+            })
       };
 
       if (mode === "create") {
@@ -902,6 +984,75 @@ export default function CategoryForm({ mode }: Props) {
               value={sellingMarginDefault}
               onChange={(e) => setSellingMarginDefault(e.target.value)}
             />
+          </Grid>
+          <Grid size={12}>
+            <Divider />
+            <Typography variant="h6" mt={2}>
+              Pokazivač
+            </Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Meni otvara izvornu kategoriju sa već uključenim filterom. Artikli ostaju na izvoru.
+            </Typography>
+            {hasChildren ? (
+              <Alert severity="info">Kategorija ima djecu, pa ne može biti pokazivač.</Alert>
+            ) : (
+              <Grid container spacing={3}>
+                <Grid size={{ sm: 6, xs: 12 }}>
+                  <TextField
+                    select
+                    fullWidth
+                    label="Izvorna kategorija"
+                    value={viewSourceId}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      setViewSourceId(next);
+                      if (!next || next !== viewSourceId) {
+                        setViewAttributeSlug("");
+                        if (!next) setViewFilterValue("");
+                      }
+                    }}
+                  >
+                    <MenuItem value="">Nije pokazivač</MenuItem>
+                    {sourceOptions.map((option) => (
+                      <MenuItem key={option.id} value={option.id}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid size={{ sm: 6, xs: 12 }}>
+                  <TextField
+                    select
+                    fullWidth
+                    label="Slug atributa"
+                    value={viewAttributeSlug}
+                    disabled={!viewSourceId}
+                    onChange={(e) => setViewAttributeSlug(e.target.value)}
+                  >
+                    <MenuItem value="">Izaberi atribut</MenuItem>
+                    {viewAttributeSlug &&
+                    !sourceAttributes.some((item) => item.slug === viewAttributeSlug) ? (
+                      <MenuItem value={viewAttributeSlug}>{viewAttributeSlug}</MenuItem>
+                    ) : null}
+                    {sourceAttributes.map((attribute) => (
+                      <MenuItem key={attribute.id} value={attribute.slug}>
+                        {attribute.name} ({attribute.slug})
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid size={12}>
+                  <TextField
+                    fullWidth
+                    label="Vrijednost"
+                    value={viewFilterValue}
+                    disabled={!viewSourceId}
+                    onChange={(e) => setViewFilterValue(e.target.value)}
+                    helperText="Tačna vrijednost atributa, ista kao na artiklu."
+                  />
+                </Grid>
+              </Grid>
+            )}
           </Grid>
           <Grid size={12}>
             <TextField

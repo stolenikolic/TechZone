@@ -1,21 +1,24 @@
 import { categoryImageDisplayUrl } from "lib/images/category-display-url";
+import {
+  categoryPublicHref,
+  indexCategoryLinks,
+  type CategoryLinkRow
+} from "lib/shop/category-view-href";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 export type HomepageCategoryItem = {
   id: string;
   name: string;
   slug: string;
+  href: string;
   icon: null;
   image: string;
   description: null;
   parent: HomepageCategoryItem[];
 };
 
-type DbCategory = {
-  id: string;
+type DbCategory = CategoryLinkRow & {
   name: string;
-  slug: string;
-  parent_id: string | null;
   image_url: string | null;
 };
 
@@ -46,15 +49,19 @@ function buildCategoryTree(rows: DbCategory[]): TreeNode[] {
 
 const DEFAULT_CATEGORY_IMAGE = "/assets/images/categories/default-category.jpg";
 
-function toHomepageCategoryItem(node: TreeNode): HomepageCategoryItem {
+function toHomepageCategoryItem(
+  node: TreeNode,
+  byId: Map<string, CategoryLinkRow>
+): HomepageCategoryItem {
   return {
     id: node.id,
     name: node.name,
     slug: node.slug,
+    href: categoryPublicHref(node, byId),
     icon: null,
     image: categoryImageDisplayUrl(node.image_url?.trim() || DEFAULT_CATEGORY_IMAGE),
     description: null,
-    parent: node.children.map(toHomepageCategoryItem)
+    parent: node.children.map((child) => toHomepageCategoryItem(child, byId))
   };
 }
 
@@ -62,7 +69,9 @@ export async function loadHomepageCategories(): Promise<HomepageCategoryItem[]> 
   const supabase = createSupabaseServiceClient();
   const { data, error } = await supabase
     .from("categories")
-    .select("id, name, slug, parent_id, image_url")
+    .select(
+      "id, name, slug, parent_id, image_url, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+    )
     .order("name");
 
   if (error) {
@@ -71,5 +80,6 @@ export async function loadHomepageCategories(): Promise<HomepageCategoryItem[]> 
   }
 
   const rows = (data ?? []) as DbCategory[];
-  return buildCategoryTree(rows).map(toHomepageCategoryItem);
+  const linkById = indexCategoryLinks(rows);
+  return buildCategoryTree(rows).map((root) => toHomepageCategoryItem(root, linkById));
 }

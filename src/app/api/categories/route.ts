@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { categoryImageDisplayUrl } from "lib/images/category-display-url";
+import {
+  categoryPublicHref,
+  indexCategoryLinks,
+  type CategoryLinkRow
+} from "lib/shop/category-view-href";
 import { createSupabaseServiceClient } from "utils/supabase";
 
 /** Category tree item: nested children in `parent`. Same shape as homepage categories for navbar compatibility. */
@@ -7,17 +12,15 @@ export type CategoryTreeItem = {
   id: string;
   name: string;
   slug: string;
+  href: string;
   icon: null;
   image: string;
   description: null;
   parent: CategoryTreeItem[];
 };
 
-type DbCategory = {
-  id: string;
+type DbCategory = CategoryLinkRow & {
   name: string;
-  slug: string;
-  parent_id: string | null;
   image_url: string | null;
 };
 
@@ -60,15 +63,16 @@ function buildCategoryTree(rows: DbCategory[]): TreeNode[] {
 
 const DEFAULT_CATEGORY_IMAGE = "/assets/images/categories/default-category.jpg";
 
-function toTreeItem(node: TreeNode): CategoryTreeItem {
+function toTreeItem(node: TreeNode, byId: Map<string, CategoryLinkRow>): CategoryTreeItem {
   return {
     id: node.id,
     name: node.name,
     slug: node.slug,
+    href: categoryPublicHref(node, byId),
     icon: null,
     image: categoryImageDisplayUrl(node.image_url?.trim() || DEFAULT_CATEGORY_IMAGE),
     description: null,
-    parent: node.children.map(toTreeItem),
+    parent: node.children.map((child) => toTreeItem(child, byId))
   };
 }
 
@@ -83,7 +87,9 @@ export async function GET() {
 
     const { data, error } = await supabase
       .from("categories")
-      .select("id, name, slug, parent_id, image_url")
+      .select(
+        "id, name, slug, parent_id, image_url, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+      )
       .order("name");
 
     if (error) {
@@ -92,8 +98,9 @@ export async function GET() {
     }
 
     const rows = (data ?? []) as DbCategory[];
+    const linkById = indexCategoryLinks(rows);
     const treeRoots = buildCategoryTree(rows);
-    const body: CategoryTreeItem[] = treeRoots.map(toTreeItem);
+    const body: CategoryTreeItem[] = treeRoots.map((root) => toTreeItem(root, linkById));
 
     return NextResponse.json(body);
   } catch (err) {

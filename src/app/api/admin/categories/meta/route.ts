@@ -11,7 +11,9 @@ export async function GET() {
       await Promise.all([
         supabase
           .from("categories")
-          .select("id, name, slug, parent_id")
+          .select(
+            "id, name, slug, parent_id, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+          )
           .order("name", { ascending: true }),
         supabase
           .from("attributes")

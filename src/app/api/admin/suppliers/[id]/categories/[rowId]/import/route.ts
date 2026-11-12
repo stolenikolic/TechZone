@@ -67,6 +67,22 @@ export async function POST(
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     if (!row) return NextResponse.json({ error: "Category row not found." }, { status: 404 });
 
+    const { data: targetCategory, error: targetError } = await supabase
+      .from("categories")
+      .select("view_source_category_id")
+      .eq("id", row.internal_category_id)
+      .maybeSingle();
+    if (targetError) return NextResponse.json({ error: targetError.message }, { status: 400 });
+    if (targetCategory?.view_source_category_id) {
+      return NextResponse.json(
+        {
+          error:
+            "Pokazivačka kategorija ne prima artikle. Import ide u izvornu kategoriju."
+        },
+        { status: 400 }
+      );
+    }
+
     const isComtrade = supplierId === COMTRADE_SUPPLIER_ID;
     const isAvtera = supplierId === AVTERA_SUPPLIER_ID;
     const listingUrl = row.listing_url?.trim() ?? "";

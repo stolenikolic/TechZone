@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Container from "@mui/material/Container";
 import CategoryProductsSection from "components/products-view/category-products-section";
 import CategoryBrowser, { type CategoryTreeNode } from "pages-sections/categories";
@@ -15,6 +15,7 @@ import { absoluteOgImageUrl } from "lib/og-image-url";
 import { ogPageTitle, SITE_NAME } from "lib/site-metadata";
 import { getCategoryBreadcrumbTrail } from "lib/shop/category-breadcrumb-trail";
 import type { Category, CategorySidebarFilters } from "models/Filters";
+import { pointerRedirectHrefForPath } from "lib/shop/category-view-redirect";
 import { seoFilterSegmentsToParams } from "utils/seo-filter-slug";
 
 interface CategoryPageParams {
@@ -64,7 +65,11 @@ function buildCategoryBreadcrumbItems(
 
 /** Map homepage category tree to Filters.categories shape for ProductFilters sidebar. */
 function buildFiltersCategories(
-  categories: { name: string; slug: string; parent?: Array<{ name: string; slug: string } | string> }[] | null
+  categories: {
+    name: string;
+    slug: string;
+    parent?: Array<{ name: string; slug: string; href?: string } | string>;
+  }[] | null
 ): Category[] {
   if (!categories || !Array.isArray(categories)) return [];
   return categories.map((item) => {
@@ -75,7 +80,7 @@ function buildFiltersCategories(
               ? c
               : {
                   title: c.name,
-                  href: `/categories/${item.slug}/${c.slug}`
+                  href: c.href ?? `/categories/${item.slug}/${c.slug}`
                 })
         : undefined;
     return { title: item.name, ...(children?.length ? { children } : {}) };
@@ -104,6 +109,11 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePar
   const { categoryPath, filterSegments, filterParams } = resolvePathAndFilter(slugParts);
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const pageNum = Math.max(1, parseInt(String(resolvedSearchParams?.page ?? "1"), 10) || 1);
+
+  if (categoryPath) {
+    const pointerHref = await pointerRedirectHrefForPath(categoryPath);
+    if (pointerHref) redirect(pointerHref);
+  }
 
   const queryParams = resolvedSearchParams as Record<string, string>;
   const effectiveParams = { ...filterParams, ...queryParams };
@@ -163,6 +173,9 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   const effectiveFilterParams = { ...filterParams, ...queryParams };
 
   if (!categoryPath) notFound();
+
+  const pointerHref = await pointerRedirectHrefForPath(categoryPath);
+  if (pointerHref) redirect(pointerHref);
 
   const categories = (await api.getCategories()) as unknown as CategoryTreeNode[];
   const categoryPathSegments = categoryPath.split("/").filter(Boolean);

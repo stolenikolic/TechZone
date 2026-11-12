@@ -3,13 +3,18 @@ import type { CategoryMenuItem } from "models/Category.model";
 import type { Menu } from "models/Navigation.model";
 import { mobileNavigation as mobileNavigationItems } from "data/layout-data";
 import {
+  categoryPublicHref,
+  indexCategoryLinks,
+  type CategoryLinkRow
+} from "lib/shop/category-view-href";
+import {
   createSupabaseClient,
   createSupabaseServiceClient,
   hasSupabasePublicConfig,
   hasSupabaseServerConfig
 } from "utils/supabase";
 
-type DbCategory = { id: string; name: string; slug: string; parent_id: string | null };
+type DbCategory = CategoryLinkRow & { name: string };
 type TreeNode = DbCategory & { children: TreeNode[] };
 
 const CATEGORY_ICON_BY_SLUG: Record<string, string> = {
@@ -57,16 +62,16 @@ function buildCategoryTree(rows: DbCategory[]): TreeNode[] {
   return roots;
 }
 
-function toCategoryMenuItem(node: TreeNode, pathPrefix: string[] = []): CategoryMenuItem {
-  const pathSegments = [...pathPrefix, node.slug];
-  const href = `/categories/${pathSegments.join("/")}`;
-
+function toCategoryMenuItem(
+  node: TreeNode,
+  byId: Map<string, CategoryLinkRow>
+): CategoryMenuItem {
   return {
-    href,
+    href: categoryPublicHref(node, byId),
     title: node.name,
     ...(CATEGORY_ICON_BY_SLUG[node.slug] ? { icon: CATEGORY_ICON_BY_SLUG[node.slug] } : {}),
     ...(node.children.length > 0
-      ? { children: node.children.map((child) => toCategoryMenuItem(child, pathSegments)) }
+      ? { children: node.children.map((child) => toCategoryMenuItem(child, byId)) }
       : {})
   };
 }
@@ -139,13 +144,16 @@ export async function getLayoutData(): Promise<LayoutModel> {
 
     const { data: allCategories } = await supabase
       .from("categories")
-      .select("id, name, slug, parent_id")
+      .select(
+        "id, name, slug, parent_id, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+      )
       .order("name");
 
     const rows = (allCategories ?? []) as DbCategory[];
+    const linkById = indexCategoryLinks(rows);
     const treeRoots = buildCategoryTree(rows);
     const builtMenu: CategoryMenuItem[] = treeRoots.map((root) => {
-      const item = toCategoryMenuItem(root);
+      const item = toCategoryMenuItem(root, linkById);
       return {
         ...item,
         ...(item.children?.length ? { component: "List" as const } : {})

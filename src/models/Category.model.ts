@@ -5,6 +5,7 @@ export default interface Category {
   icon?: string;
   image?: string;
   parent: string[];
+  href?: string;
   featured?: boolean;
   description?: string;
 }
