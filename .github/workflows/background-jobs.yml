@@ -28,6 +28,11 @@ on:
           - ipon_scrape_details
           - enrichment
           - ai_descriptions
+      dry_run:
+        description: "iPon import dry-run (no DB writes). Ignored for other jobs."
+        required: false
+        type: boolean
+        default: false
 
 env:
   NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -58,6 +63,7 @@ jobs:
       JOB_TRIGGERED_BY: manual
       JOB_TYPE: ${{ inputs.job }}
       IPON_SCRAPE_UNTIL_EMPTY: ${{ inputs.job == 'ipon_scrape_details' && '1' || '' }}
+      IPON_IMPORT_DRY_RUN: ${{ inputs.job == 'ipon_import' && inputs.dry_run && '1' || '' }}
       PCX_MAX_PRODUCTS_PER_RUN: ${{ inputs.job == 'pcx_import' && '0' || '' }}
       FIRSTSHOP_MAX_PRODUCTS_PER_RUN: ${{ inputs.job == 'firstshop_import' && '0' || '' }}
       PCLAND_MAX_PRODUCTS_PER_RUN: ${{ inputs.job == 'pcland_import' && '0' || '' }}

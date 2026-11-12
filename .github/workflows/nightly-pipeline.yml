@@ -31,7 +31,7 @@ jobs:
   ipon_import:
     name: "1a · iPon import"
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 360
     env:
       JOB_TRIGGERED_BY: cron
       JOB_TYPE: ipon_import

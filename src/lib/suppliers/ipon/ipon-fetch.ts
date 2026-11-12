@@ -177,6 +177,13 @@ export async function fetchIponProductDataPage(
   );
 }
 
+export class IponCaptchaError extends Error {
+  constructor(message = "iPon captcha / blokada") {
+    super(message);
+    this.name = "IponCaptchaError";
+  }
+}
+
 export function looksLikeCaptchaOrBlock(text: string, status: number): boolean {
   if (status === 429) return true;
   const s = text.slice(0, 500).toLowerCase();

@@ -1,7 +1,9 @@
 /**
- * iPon: API import proizvoda (discovery mod — novi artikli, detekcija slike).
- * Discovery: globalni preload indeksa, brzi skip postojećih, paralelno N novih artikala.
- * Cijene i deaktivacija: `xmlSync.ts` (XML feed, cron svakih 2h).
+ * iPon: API import proizvoda.
+ * Discovery (default): Árukereső feed diff + tracking API + filter membership.
+ * `IPON_IMPORT_MODE=full` i legacy category rute i dalje idu preko product/data.
+ * Admin „Import sada” ide preko list + tracking (`manualListImport.ts`).
+ * Cijene i deaktivacija: `xmlSync.ts`.
  *
  * Pokretanje: npx tsx scripts/run-ipon-import-products.ts
  * Cijene: npx tsx scripts/run-ipon-xml-sync.ts
@@ -121,6 +123,7 @@ type UpsertIponListItemResult =
       activated: boolean;
       imageChanged?: boolean;
       rescrapeQueued?: boolean;
+      productId?: string;
     };
 
 type DiscoveryPriceAggregateResult = {
@@ -130,7 +133,7 @@ type DiscoveryPriceAggregateResult = {
   aggWarnings?: string[];
 };
 
-async function aggregateDiscoveryNewProductPrices(
+export async function aggregateDiscoveryNewProductPrices(
   discoveryMode: boolean,
   newProductIds: string[]
 ): Promise<DiscoveryPriceAggregateResult> {
@@ -310,7 +313,7 @@ function getFirstPictureUrlFromItem(item: IponProductItem | Record<string, unkno
   return getFirstPictureUrl(item);
 }
 
-async function queueRescrapeAfterImageChange(
+export async function queueRescrapeAfterImageChange(
   supabase: SupabaseClient,
   productId: string,
   supplierProductId: string,
@@ -441,11 +444,11 @@ function iponOfferActivated(before: OfferSnapshot | null | undefined): boolean {
   return before.is_active === false;
 }
 
-async function deactivateInactiveIponInCategory(
+export async function deactivateInactiveIponInCategory(
   supabase: SupabaseClient,
   internalCategoryId: string,
   fetchedSupplierIds: Set<string>
-): Promise<number> {
+): Promise<{ deactivated: number; productIds: string[] }> {
   const { data: catProducts, error: cErr } = await supabase
     .from("products")
     .select("id")
@@ -453,7 +456,7 @@ async function deactivateInactiveIponInCategory(
 
   if (cErr || !catProducts?.length) {
     if (cErr) console.error("[iPon] category products:", cErr.message);
-    return 0;
+    return { deactivated: 0, productIds: [] };
   }
 
   const productIds = catProducts.map((p) => p.id);
@@ -473,7 +476,7 @@ async function deactivateInactiveIponInCategory(
 
     if (sErr) {
       console.error("[iPon] supplier_products (deactivate scan):", sErr.message);
-      return 0;
+      return { deactivated: 0, productIds: [] };
     }
     if (data?.length) {
       sprows.push(
@@ -486,17 +489,17 @@ async function deactivateInactiveIponInCategory(
     }
   }
 
-  const staleSupplierProductIds = sprows
-    .filter(
-      (row) =>
-        row.is_active === true && !fetchedSupplierIds.has(String(row.supplier_product_id))
-    )
-    .map((row) => row.supplier_product_id);
+  const staleRows = sprows.filter(
+    (row) => row.is_active === true && !fetchedSupplierIds.has(String(row.supplier_product_id))
+  );
+  const staleSupplierProductIds = staleRows.map((row) => row.supplier_product_id);
+  const productIdBySupplierId = new Map(staleRows.map((row) => [row.supplier_product_id, row.product_id]));
 
-  if (staleSupplierProductIds.length === 0) return 0;
+  if (staleSupplierProductIds.length === 0) return { deactivated: 0, productIds: [] };
 
   const updatedAt = new Date().toISOString();
   let deactivated = 0;
+  const appliedProductIds: string[] = [];
 
   for (let i = 0; i < staleSupplierProductIds.length; i += SUPPLIER_PRODUCTS_IN_CHUNK) {
     const chunk = staleSupplierProductIds.slice(i, i + SUPPLIER_PRODUCTS_IN_CHUNK);
@@ -508,9 +511,13 @@ async function deactivateInactiveIponInCategory(
 
     if (uErr) {
       console.error("[iPon] deactivate offers:", uErr.message);
-      return deactivated;
+      return { deactivated, productIds: Array.from(new Set(appliedProductIds)) };
     }
     deactivated += chunk.length;
+    for (const id of chunk) {
+      const productId = productIdBySupplierId.get(id);
+      if (productId) appliedProductIds.push(productId);
+    }
   }
 
   if (deactivated > 0) {
@@ -519,11 +526,11 @@ async function deactivateInactiveIponInCategory(
     );
   }
 
-  return deactivated;
+  return { deactivated, productIds: Array.from(new Set(appliedProductIds)) };
 }
 
 /** Jedan aktivan iPon offer po masteru — stari supplier_product_id ostaje ako se iPon ID promijeni. */
-async function deactivateOtherIponOffersForProduct(
+export async function deactivateOtherIponOffersForProduct(
   supabase: SupabaseClient,
   productId: string,
   keepSupplierProductId: string
@@ -576,7 +583,7 @@ function normalizeListItem(raw: Record<string, unknown>): IponProductItem | null
   } as IponProductItem;
 }
 
-async function insertOrLinkIponListItem(
+export async function insertOrLinkIponListItem(
   supabase: SupabaseClient,
   item: IponProductItem,
   internalCategoryId: string,
@@ -638,7 +645,7 @@ async function insertOrLinkIponListItem(
             product_id: match.productId,
             price_amount: item.grossPrice,
             currency: "HUF",
-            is_active: true,
+            is_active: item.isBuyable !== false,
             delivery_days: parseIponDeliveryDays(item),
             warranty_months: parseIponWarrantyMonths(item),
             mpn: identifierSync.update.mpn ?? offerMpn,
@@ -662,7 +669,7 @@ async function insertOrLinkIponListItem(
     });
 
     await deactivateOtherIponOffersForProduct(supabase, match.productId, supplierProductId);
-    return { outcome: "succeeded", priceChanged, activated };
+    return { outcome: "succeeded", priceChanged, activated, productId: match.productId };
   }
 
   const baseSlug = slugify(item.displayName);
@@ -705,7 +712,7 @@ async function insertOrLinkIponListItem(
         supplier_product_id: supplierProductId,
         price_amount: item.grossPrice,
         currency: "HUF",
-        is_active: true,
+        is_active: item.isBuyable !== false,
         delivery_days: parseIponDeliveryDays(item),
         warranty_months: parseIponWarrantyMonths(item),
         mpn: offerMpn,
@@ -1037,7 +1044,7 @@ async function importIponCategory(
       cat.name
     );
   } else {
-    deactivated = await deactivateInactiveIponInCategory(supabase, cat.internalCategoryId, fetchedIds);
+    deactivated = (await deactivateInactiveIponInCategory(supabase, cat.internalCategoryId, fetchedIds)).deactivated;
     const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
     if (rec.error) {
       console.warn("[iPon] reconcile_products_is_active_from_supplier_offers:", rec.error);
@@ -1095,6 +1102,25 @@ export type IponImportProductsResult = {
     internal_category_id?: string;
     aggregate_error?: string;
     aggregate_warnings?: string[];
+    /** Manual list import stopped before a full pass. Deactivation was skipped. */
+    incomplete?: boolean;
+    feed_items?: number;
+    missing?: number;
+    inserted?: number;
+    linked?: number;
+    deferred_by_reason?: Record<string, number>;
+    membership_rows_synced?: number;
+    membership_incomplete?: number;
+    tracking_captcha?: boolean;
+    dry_run?: boolean;
+    paths_learned?: number;
+    groups_learned?: number;
+    groups_skipped_empty?: number;
+    learn_only?: boolean;
+    list_captcha?: boolean;
+    images_retried?: number;
+    images_hosted?: number;
+    unknown_groups?: Array<{ product_group: string; count: number; names: string[] }>;
   };
 };
 
@@ -1129,7 +1155,7 @@ export async function runIponImportFromFixtureFile(
 
   let deactivated = 0;
   if (fetchedIds.size > 0) {
-    deactivated = await deactivateInactiveIponInCategory(supabase, cat.internalCategoryId, fetchedIds);
+    deactivated = (await deactivateInactiveIponInCategory(supabase, cat.internalCategoryId, fetchedIds)).deactivated;
     const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
     if (rec.error) {
       console.warn("[iPon] reconcile_products_is_active_from_supplier_offers:", rec.error);
@@ -1203,8 +1229,18 @@ export async function runIponImportFromFixtureFile(
 export async function runIponImportProducts(
   categoriesOverride?: IponCategory[]
 ): Promise<IponImportProductsResult> {
-  const categories = categoriesOverride ?? (await resolveIponCategoriesFromRegistry());
   const fixture = process.env.IPON_IMPORT_FIXTURE?.trim();
+  if (!fixture && isIponDiscoveryImportMode()) {
+    console.log("[iPon import] Feed discovery — diff feeda, tracking API, bez product/data liste.");
+    const { runIponFeedDiscovery } = await import("./discoverFromFeed");
+    const budgetRaw = process.env.IPON_DISCOVERY_BUDGET?.trim();
+    return runIponFeedDiscovery({
+      dryRun: process.env.IPON_IMPORT_DRY_RUN?.trim() === "1",
+      budget: budgetRaw ? numEnv("IPON_DISCOVERY_BUDGET", 0) : 0
+    });
+  }
+
+  const categories = categoriesOverride ?? (await resolveIponCategoriesFromRegistry());
   if (fixture) {
     return runIponImportFromFixtureFile(fixture, categories);
   }
@@ -1383,10 +1419,10 @@ export function buildIponCategoryFromSupplierRow(input: SupplierCategoryImportIn
 }
 
 /**
- * Ručni import jedne kategorije (jedan red supplier_categories).
- * Ne mijenja ponašanje `runIponImportProducts` (pun sync svih aktivnih redova).
+ * Legacy product/data import for one category. Kept for the old category API routes.
+ * Admin „Import sada” uses `runIponImportForSupplierCategory` (list + tracking).
  */
-export async function runIponImportForSupplierCategory(
+async function runIponProductDataCategoryImport(
   input: SupplierCategoryImportInput
 ): Promise<IponImportProductsResult> {
   const cat = buildIponCategoryFromSupplierRow(input);
@@ -1466,13 +1502,24 @@ export async function runIponImportForSupplierCategory(
   };
 }
 
-/** Za API rute — jedna kategorija, isti HTTP import kao `runIponImportProducts`. */
+/**
+ * Ručni import jedne kategorije (dugme Import sada).
+ * Lista `/api/shop/lists/{id}/products` plus tracking. Ne dira feed discovery.
+ */
+export async function runIponImportForSupplierCategory(
+  input: SupplierCategoryImportInput
+): Promise<IponImportProductsResult> {
+  const { runIponManualListImport } = await import("./manualListImport");
+  return runIponManualListImport(input);
+}
+
+/** Za API rute — jedna kategorija, stari product/data import. */
 export async function importCategory(
   supplierCategoryId: number,
   internalCategoryId: string
 ): Promise<ImportCategoryResult> {
   const url = resolveListingUrlForSupplierGroup(supplierCategoryId);
-  const result = await runIponImportForSupplierCategory({
+  const result = await runIponProductDataCategoryImport({
     internalCategoryId,
     listingUrl: url,
     supplierCategoryKey: String(supplierCategoryId),

@@ -19,6 +19,12 @@ async function main() {
   );
 
   console.log("iPon importProducts finished:", JSON.stringify(value, null, 2));
+  if (value.summary?.import_mode === "feed-discovery") {
+    if (!value.success) {
+      console.log("iPon feed discovery partial — exit 0 so the nightly chain continues.");
+    }
+    return;
+  }
   if (!value.success) process.exit(1);
 }
 

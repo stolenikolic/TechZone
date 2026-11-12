@@ -27,6 +27,7 @@ import {
 } from "./ipon-fetch";
 import type { IponProductItem } from "./transformProduct";
 import { getIponProductDetailUrl } from "./transformProduct";
+import { ingestIponGalleryImages } from "./galleryImages";
 import { getRandomReferer, randomDelay } from "./scrape-config";
 import { withPostgrestTransientRetry } from "./transient-retry";
 import {
@@ -838,6 +839,16 @@ export async function runIponScrapeDetails(
       const mpnN = normalizeMpn(parsed.mpn);
       const eanN = normalizeEan(parsed.ean);
       await syncIdentifiers(supabase, r.id, sp.supplier_product_id, mpnN, eanN, dryRun);
+
+      try {
+        const added = await ingestIponGalleryImages(supabase, r.id, sp.supplier_product_id, res.html, raw);
+        if (added > 0) console.log(`[iPon scrape] Galerija +${added} (${sp.supplier_product_id})`);
+      } catch (galleryError) {
+        console.warn(
+          "[iPon scrape] Galerija:",
+          galleryError instanceof Error ? galleryError.message : String(galleryError)
+        );
+      }
 
       // Build nameToSlug for enrichment hint (resolver used only by enrichment job now,
       // but we keep the attribute mappings call to verify DB config is healthy)

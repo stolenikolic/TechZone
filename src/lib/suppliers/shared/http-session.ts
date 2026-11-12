@@ -12,6 +12,8 @@ export type FetchWithSessionOptions = {
   /** Podrazumevano: en-US,en;q=0.9,hu;q=0.8 */
   acceptLanguage?: string;
   origin?: string;
+  /** Extra request headers (e.g. iPon X-Ipon-Xhr). Empty values are skipped. */
+  extraHeaders?: Record<string, string>;
 };
 
 function mergeSetCookieIntoJar(res: Response, jar: Map<string, string>): void {
@@ -43,7 +45,8 @@ export async function fetchWithSession(
   options: FetchWithSessionOptions,
   init?: Omit<RequestInit, "headers">
 ): Promise<Response> {
-  const { jar, userAgent, referer, acceptJson = false, acceptOverride, acceptLanguage, origin } = options;
+  const { jar, userAgent, referer, acceptJson = false, acceptOverride, acceptLanguage, origin, extraHeaders } =
+    options;
   const acceptHeader =
     acceptOverride ??
     (acceptJson ? "application/json, text/plain, */*" : "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
@@ -57,6 +60,11 @@ export async function fetchWithSession(
     "X-Requested-With": xrw
   };
   if (origin) headers.Origin = origin;
+  if (extraHeaders) {
+    for (const [key, value] of Object.entries(extraHeaders)) {
+      if (value) headers[key] = value;
+    }
+  }
   const ch = cookieHeader(jar);
   if (ch) headers.Cookie = ch;
 

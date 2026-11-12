@@ -10,6 +10,8 @@ export type IponProductItem = {
   grossPrice: number;
   /** Days until supplier can ship; 0 = in stock at iPon. */
   deliveryDays?: number | null;
+  /** List API. Missing means the offer stays active. `false` writes is_active false. */
+  isBuyable?: boolean | null;
   delivery_days?: number | null;
   pictures?: string[] | null;
   /** SEO slug from list/detail API — required for canonical product URL */
@@ -31,7 +33,11 @@ const IPON_ORIGIN = "https://iponcomp.com";
  * iPon koristi `/shop/product/{slug}/{id}` — samo `/shop/product/{id}` vraća 404.
  */
 export function getIponProductDetailUrl(item: IponProductItem): string {
-  const candidates = [item.url, item.link, item.friendlyUrl, item.productUrl];
+  const explicit =
+    typeof item.englishProductUrl === "string" && item.englishProductUrl.trim()
+      ? item.englishProductUrl.trim()
+      : null;
+  const candidates = [explicit, item.url, item.link, item.friendlyUrl, item.productUrl];
   for (const c of candidates) {
     if (typeof c === "string" && c.length > 0) {
       if (c.startsWith("http")) return c;

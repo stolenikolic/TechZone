@@ -7,6 +7,8 @@ import { removeProductImageFolder, removeStoragePaths, storagePathFromPublicUrl,
 export type ProcessProductImagesOptions = {
   /** When false (import default), skip if product_images already exist. */
   replaceExisting?: boolean;
+  /** When true, keep existing product_images and append these URLs after them. Does not change main_image. */
+  append?: boolean;
 };
 
 /**
@@ -22,6 +24,19 @@ export async function processProductImages(
   if (!imageUrls.length) return [];
 
   const replaceExisting = options?.replaceExisting ?? false;
+  const append = options?.append ?? false;
+
+  if (append) {
+    const { data: existingRows } = await supabase
+      .from("product_images")
+      .select("sort_order")
+      .eq("product_id", productId)
+      .order("sort_order", { ascending: false })
+      .limit(1);
+    const lastSort = existingRows?.[0]?.sort_order;
+    const startOrder = typeof lastSort === "number" && Number.isFinite(lastSort) ? lastSort + 1 : 0;
+    return uploadProductImageRows(supabase, productId, imageUrls, startOrder, "gallery");
+  }
 
   if (replaceExisting) {
     const { data: existingRows } = await supabase
@@ -75,6 +90,45 @@ export async function processProductImages(
       });
     } catch (err) {
       console.error(`[images] product ${productId} image ${index} (${url}):`, err);
+    }
+  }
+
+  if (rows.length > 0) {
+    const { error: insertError } = await supabase.from("product_images").insert(rows);
+    if (insertError) {
+      console.error(`[images] product_images insert ${productId}:`, insertError.message);
+    }
+  }
+
+  return rows.map((row) => row.image_url);
+}
+
+async function uploadProductImageRows(
+  supabase: SupabaseClient,
+  productId: string,
+  imageUrls: string[],
+  startOrder: number,
+  pathPrefix: "index" | "gallery"
+): Promise<string[]> {
+  const rows: { product_id: string; image_url: string; sort_order: number }[] = [];
+
+  for (let index = 0; index < imageUrls.length; index++) {
+    const url = imageUrls[index];
+    if (!url || typeof url !== "string") continue;
+    const sortOrder = startOrder + index;
+
+    try {
+      const buffer = await fetchImageBuffer(url);
+      const webpBuffer = await resizeProductToWebp(buffer);
+      const path = pathPrefix === "gallery" ? `${productId}/gallery-${sortOrder}.webp` : `${productId}/${sortOrder}.webp`;
+      const publicUrl = await uploadWebp(supabase, PRODUCT_IMAGES_BUCKET, path, webpBuffer);
+      rows.push({
+        product_id: productId,
+        image_url: publicUrl,
+        sort_order: sortOrder
+      });
+    } catch (err) {
+      console.error(`[images] product ${productId} image ${sortOrder} (${url}):`, err);
     }
   }
 

@@ -373,7 +373,7 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
           skippedDuplicateCikkszam?: number;
           skippedDuplicateId?: number;
           staleDeactivated?: number;
-          summary?: { category_name?: string; skipped_existing?: number };
+          summary?: { category_name?: string; skipped_existing?: number; incomplete?: boolean };
         };
       };
       if (!res.ok || json.error) throw new Error(json.error ?? "Import nije uspio.");
@@ -392,8 +392,11 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
           `${isComtradeSupplier ? "ComTrade" : "Avtera"} import (${label}): uvezeno ${r?.upserted ?? 0}, preskočeno postojećih ${r?.skippedExisting ?? r?.summary?.skipped_existing ?? 0}.`
         );
       } else {
+        const incompleteNote = r?.summary?.incomplete
+          ? " Deaktivacija nije rađena (lista nepotpuna)."
+          : "";
         setActionNotice(
-          `iPon import (${label}): uvezeno ${r?.imported ?? 0}, obrađeno ${r?.succeeded ?? 0}, izmijenjeno ${r?.updated ?? 0}, aktivirano ${r?.activated ?? 0}, deaktivirano ${r?.deactivated ?? 0}.`
+          `iPon import (${label}): uvezeno ${r?.imported ?? 0}, obrađeno ${r?.succeeded ?? 0}, izmijenjeno ${r?.updated ?? 0}, aktivirano ${r?.activated ?? 0}, deaktivirano ${r?.deactivated ?? 0}.${incompleteNote}`
         );
       }
     } catch (e) {

@@ -80,3 +80,54 @@ export async function reingestIponProductImages(
 
   return { ok: true, hostedUrls };
 }
+
+/** One pass over iPon offers whose source picture never made it to storage. */
+export async function retryIponPicturesMissingHosted(
+  supabase: SupabaseClient
+): Promise<{ tried: number; hosted: number }> {
+  let tried = 0;
+  let hosted = 0;
+  let offset = 0;
+  const pageSize = 200;
+
+  for (;;) {
+    const { data, error } = await supabase
+      .from("supplier_products")
+      .select("supplier_product_id, product_id, raw_json")
+      .eq("supplier_id", IPON_SUPPLIER_ID)
+      .not("product_id", "is", null)
+      .order("supplier_product_id", { ascending: true })
+      .range(offset, offset + pageSize - 1);
+    if (error) throw new Error(`image retry: ${error.message}`);
+    const page = (data ?? []) as Array<{
+      supplier_product_id: string;
+      product_id: string;
+      raw_json: unknown;
+    }>;
+    for (const row of page) {
+      const pictures = getPictureUrlsFromRawJson(row.raw_json);
+      if (!needsPicturesIngest(row.raw_json, pictures[0] ?? null)) continue;
+      tried += 1;
+      try {
+        const result = await reingestIponProductImages(supabase, row.product_id, pictures, {
+          supplierProductId: row.supplier_product_id,
+          existingRaw:
+            row.raw_json && typeof row.raw_json === "object" && !Array.isArray(row.raw_json)
+              ? (row.raw_json as Record<string, unknown>)
+              : null
+        });
+        if (result.ok) hosted += 1;
+        else console.warn(`[iPon discovery] Slika i dalje nedostaje: ${row.supplier_product_id}`);
+      } catch (error) {
+        console.warn(
+          `[iPon discovery] Slika ${row.supplier_product_id}:`,
+          error instanceof Error ? error.message : String(error)
+        );
+      }
+    }
+    if (page.length < pageSize) break;
+    offset += page.length;
+  }
+
+  return { tried, hosted };
+}
