@@ -27,7 +27,6 @@ on:
           - olx_feed_export
           - ipon_scrape_details
           - enrichment
-          - ai_descriptions
       dry_run:
         description: "iPon import dry-run (no DB writes). Ignored for other jobs."
         required: false
@@ -40,7 +39,6 @@ env:
   NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
   SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
   SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
   COMTRADE_USERNAME: ${{ secrets.COMTRADE_USERNAME }}
   COMTRADE_PASSWORD: ${{ secrets.COMTRADE_PASSWORD }}
   AVTERA_XML_FEED_URL: ${{ secrets.AVTERA_XML_FEED_URL }}
@@ -96,6 +94,5 @@ jobs:
             olx_feed_export) npx tsx -r ./scripts/register-ws.cjs scripts/run-generate-olx-feed.ts ;;
             ipon_scrape_details) npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-scrape-details.ts ;;
             enrichment) npx tsx -r ./scripts/register-ws.cjs scripts/run-enrichment.ts ;;
-            ai_descriptions) npx tsx -r ./scripts/register-ws.cjs scripts/run-ai-descriptions.ts ;;
             *) echo "Unknown job"; exit 1 ;;
           esac

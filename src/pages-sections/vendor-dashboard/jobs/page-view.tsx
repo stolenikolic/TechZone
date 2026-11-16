@@ -394,7 +394,11 @@ export default function AdminJobsPageView() {
                   </TableCell>
                   <TableCell>{sch?.notes ?? "—"}</TableCell>
                   <TableCell align="right">
-                    {jt === "ipon_scrape_details" ? (
+                    {jt === "ai_descriptions" ? (
+                      <Button size="small" variant="outlined" disabled>
+                        Ugašeno
+                      </Button>
+                    ) : jt === "ipon_scrape_details" ? (
                       <Stack direction="row" spacing={1} justifyContent="flex-end" flexWrap="wrap">
                         <Button
                           size="small"
@@ -681,7 +685,7 @@ export default function AdminJobsPageView() {
                     <Typography color="error">{detail.errorMessage}</Typography>
                   </Grid>
                 )}
-                {(detail.status === "failed" || detail.status === "partial") && (
+                {(detail.status === "failed" || detail.status === "partial") && detail.jobType !== "ai_descriptions" && (
                   <Grid size={12}>
                     <Button
                       variant="outlined"

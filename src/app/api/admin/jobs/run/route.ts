@@ -208,6 +208,12 @@ export async function POST(request: Request) {
     if (!jobType || !ALLOWED.includes(jobType)) {
       return NextResponse.json({ error: "Invalid jobType" }, { status: 400 });
     }
+    if (jobType === "ai_descriptions") {
+      return NextResponse.json(
+        { error: "AI opisi su ugašeni i ne pokreću se iz admina ni iz noćnog joba." },
+        { status: 409 }
+      );
+    }
     if (await isPaused(jobType)) {
       return NextResponse.json(
         { error: `Job '${jobType}' is paused. Unpause it in /admin/jobs first.` },
