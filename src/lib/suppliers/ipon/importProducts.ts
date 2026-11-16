@@ -1121,6 +1121,8 @@ export type IponImportProductsResult = {
     images_retried?: number;
     images_hosted?: number;
     unknown_groups?: Array<{ product_group: string; count: number; names: string[] }>;
+    unknown_paths?: Array<{ path: string; count: number; names: string[] }>;
+    menu_error?: string;
   };
 };
 

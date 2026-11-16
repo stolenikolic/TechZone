@@ -6,11 +6,14 @@ import assert from "node:assert/strict";
 import { classifyFeedProduct, type IponMappedCategory } from "../src/lib/suppliers/ipon/classifyFeedProduct";
 import { extractIcdnImageUrls, galleryUrlsExcludingMain } from "../src/lib/suppliers/ipon/icdnImages";
 import { parseIponListProductsPage } from "../src/lib/suppliers/ipon/listMembership";
+import { buildIponMenuIndex, listIdForCategoryPath, menuOwnMatchesFilterRule, resolveIponMenuUrl } from "../src/lib/suppliers/ipon/iponMenu";
 import {
   findProductOpen,
+  manualFeedPathFromInput,
   parseIponProductFeedFromString,
   parseProductBlock,
-  toIponEnglishProductUrl
+  toIponEnglishProductUrl,
+  twoLevelFeedKey
 } from "../src/lib/suppliers/ipon/productFeed";
 import {
   isManualListImportComplete,
@@ -23,32 +26,56 @@ import { getIponProductDetailUrl } from "../src/lib/suppliers/ipon/transformProd
 
 function row(partial: Partial<IponMappedCategory> & Pick<IponMappedCategory, "id" | "internalCategoryId">): IponMappedCategory {
   return {
+    categoryName: null,
     groupKey: "98",
     listingUrl: "https://iponcomp.com/shop/group/cpu/98",
-    feedCategoryPath: "Számítógép alkatrészek > Processzor",
+    feedCategoryPath: null,
+    manualFeedPath: null,
     filtered: false,
-    productGroups: ["Processors"],
+    productGroups: [],
     listReady: false,
-    productGroupLearnedAt: "2026-11-09T12:00:00.000Z",
+    productGroupLearnedAt: null,
     membershipStatus: null,
     membershipSyncedAt: null,
     ...partial
   };
 }
 
+const PSU_PATH = "Számítógép alkatrész > Tápegység > 550W > ATX";
+const SERVER_PSU_PATH = "Hálózat, szerver, biztonságtechnika > Szerver további alkatrész > Tápegység";
+const WHEEL_PATH = "Konzol, játék, gyerekjáték, iskola > Konzol tartozék > Kormány, pedál, váltó, ülés";
+
 function classify(overrides: Partial<Parameters<typeof classifyFeedProduct>[0]> = {}) {
   return classifyFeedProduct({
-    productGroup: "Processors",
+    categoryPath: PSU_PATH,
+    menuListId: "343",
     membershipCategoryIds: [],
     rows: [],
     ...overrides
   });
 }
 
-const plain = row({
-  id: "cat-plain",
-  internalCategoryId: "internal-cpu",
-  productGroups: ["Processors", "CPU"],
+assert.equal(twoLevelFeedKey(PSU_PATH), "Számítógép alkatrész > Tápegység");
+assert.equal(twoLevelFeedKey(SERVER_PSU_PATH), "Hálózat, szerver, biztonságtechnika > Szerver további alkatrész");
+assert.equal(twoLevelFeedKey("Csak jedan"), null);
+assert.equal(twoLevelFeedKey(PSU_PATH), twoLevelFeedKey("Számítógép alkatrész > Tápegység"));
+const saved = manualFeedPathFromInput("  A  >  B  >  C  ");
+assert.ok(!("error" in saved) && saved.path === "A > B > C");
+assert.ok("error" in manualFeedPathFromInput("Samo jedan"));
+assert.ok(!("error" in manualFeedPathFromInput("  ")) && manualFeedPathFromInput("  ").path === null);
+
+const psu = row({
+  id: "cat-psu",
+  internalCategoryId: "internal-psu",
+  categoryName: "Napajanja",
+  groupKey: "343",
+  listReady: true
+});
+const server = row({
+  id: "cat-server",
+  internalCategoryId: "internal-server",
+  categoryName: "Serveri",
+  groupKey: "1155",
   listReady: true
 });
 const wheel = row({
@@ -56,17 +83,18 @@ const wheel = row({
   internalCategoryId: "internal-wheel",
   filtered: true,
   listReady: true,
-  productGroups: ["Controller"],
-  listingUrl: "https://iponcomp.com/shop/group/console/40?12=1",
-  membershipStatus: "complete"
+  groupKey: "938",
+  listingUrl: "https://iponcomp.com/shop/group/console/938?730=1",
+  membershipStatus: "complete",
+  manualFeedPath: WHEEL_PATH
 });
 const stick = row({
   id: "cat-stick",
   internalCategoryId: "internal-stick",
   filtered: true,
   listReady: true,
-  productGroups: ["Controller"],
-  listingUrl: "https://iponcomp.com/shop/group/console/40?12=2",
+  groupKey: "938",
+  listingUrl: "https://iponcomp.com/shop/group/console/938?730=2",
   membershipStatus: "complete"
 });
 const remainder = row({
@@ -74,38 +102,80 @@ const remainder = row({
   internalCategoryId: "internal-rest",
   filtered: false,
   listReady: true,
-  productGroups: ["Controller"],
-  listingUrl: "https://iponcomp.com/shop/group/console/40"
+  groupKey: "938",
+  listingUrl: "https://iponcomp.com/shop/group/console/938"
 });
 const otherPlain = row({
   id: "cat-other",
   internalCategoryId: "internal-other",
   listReady: true,
-  productGroups: ["Processors"],
-  listingUrl: "https://iponcomp.com/shop/group/cpu-other/99"
+  groupKey: "343",
+  listingUrl: "https://iponcomp.com/shop/group/psu-other/343"
 });
 
-const onePlain = classify({ rows: [plain] });
+const onePlain = classify({ rows: [psu] });
 assert.equal(onePlain.kind, "assign");
-if (onePlain.kind === "assign") assert.equal(onePlain.internalCategoryId, "internal-cpu");
+if (onePlain.kind === "assign") assert.equal(onePlain.internalCategoryId, "internal-psu");
 
-const secondName = classify({ productGroup: "CPU", rows: [plain] });
-assert.equal(secondName.kind, "assign");
-if (secondName.kind === "assign") assert.equal(secondName.internalCategoryId, "internal-cpu");
+const deeperBreadcrumb = classify({
+  categoryPath: "Számítógép alkatrész > Tápegység > 750W > SFX",
+  rows: [psu]
+});
+assert.equal(deeperBreadcrumb.kind, "assign");
 
-const unknown = classify({ productGroup: "Gateway", rows: [plain] });
-assert.equal(unknown.kind, "defer");
-if (unknown.kind === "defer") assert.equal(unknown.reason, "unknown_group");
+const serverPsu = classify({
+  categoryPath: SERVER_PSU_PATH,
+  menuListId: "1155",
+  rows: [psu, server]
+});
+assert.equal(serverPsu.kind, "assign");
+if (serverPsu.kind === "assign") assert.equal(serverPsu.internalCategoryId, "internal-server");
+
+const installation = classify({
+  categoryPath: "Otthon, kert, barkács > Szerelési anyagok > Okvir",
+  menuListId: "1637",
+  rows: [psu]
+});
+assert.equal(installation.kind, "defer");
+if (installation.kind === "defer") assert.equal(installation.reason, "unknown_path");
+
+const oneLevel = classify({ categoryPath: "Számítógép alkatrész", menuListId: null, rows: [psu] });
+assert.equal(oneLevel.kind, "defer");
+if (oneLevel.kind === "defer") assert.equal(oneLevel.reason, "unknown_path");
+
+const manualWins = classify({
+  categoryPath: `${WHEEL_PATH} > 900 fok`,
+  menuListId: "938",
+  rows: [remainder, wheel]
+});
+assert.equal(manualWins.kind, "assign");
+if (manualWins.kind === "assign") assert.equal(manualWins.internalCategoryId, "internal-wheel");
+
+const sameManual = classify({
+  categoryPath: WHEEL_PATH,
+  menuListId: "938",
+  rows: [wheel, row({ ...wheel, id: "cat-wheel-2", internalCategoryId: "internal-wheel-2" })]
+});
+assert.equal(sameManual.kind, "defer");
+if (sameManual.kind === "defer") {
+  assert.equal(sameManual.reason, "ambiguous_path");
+  assert.equal(sameManual.path, WHEEL_PATH);
+}
 
 const filterHit = classify({
-  productGroup: "Controller",
-  rows: [wheel],
-  membershipCategoryIds: ["cat-wheel"]
+  categoryPath: "Konzol, játék, gyerekjáték, iskola > Konzol tartozék > Pedál",
+  menuListId: "938",
+  rows: [stick],
+  membershipCategoryIds: ["cat-stick"]
 });
 assert.equal(filterHit.kind, "assign");
-if (filterHit.kind === "assign") assert.equal(filterHit.internalCategoryId, "internal-wheel");
+if (filterHit.kind === "assign") assert.equal(filterHit.internalCategoryId, "internal-stick");
 
-const filterMiss = classify({ productGroup: "Controller", rows: [wheel] });
+const filterMiss = classify({
+  categoryPath: "Konzol, játék, gyerekjáték, iskola > Konzol tartozék > Pedál",
+  menuListId: "938",
+  rows: [stick]
+});
 assert.equal(filterMiss.kind, "defer");
 if (filterMiss.kind === "defer") {
   assert.equal(filterMiss.reason, "not_on_list");
@@ -113,24 +183,38 @@ if (filterMiss.kind === "defer") {
 }
 
 const filterInterrupted = classify({
-  productGroup: "Controller",
-  rows: [row({ ...wheel, listReady: false })],
-  membershipCategoryIds: ["cat-wheel"]
+  categoryPath: "Konzol, játék, gyerekjáték, iskola > Konzol tartozék > Pedál",
+  menuListId: "938",
+  rows: [row({ ...stick, listReady: false })],
+  membershipCategoryIds: ["cat-stick"]
 });
 assert.equal(filterInterrupted.kind, "defer");
 if (filterInterrupted.kind === "defer") assert.equal(filterInterrupted.reason, "awaiting_list");
 
 const oneOfTwo = classify({
-  productGroup: "Controller",
+  categoryPath: "Konzol, játék, gyerekjáték, iskola > Konzol tartozék > Pedál",
+  menuListId: "938",
   rows: [wheel, stick],
   membershipCategoryIds: ["cat-stick"]
 });
 assert.equal(oneOfTwo.kind, "assign");
 if (oneOfTwo.kind === "assign") assert.equal(oneOfTwo.internalCategoryId, "internal-stick");
 
+const stickOnly = row({ ...stick, manualFeedPath: null });
+const wheelPlainFilter = row({ ...wheel, manualFeedPath: null });
+const oneFilterOfTwo = classify({
+  categoryPath: "Konzol, játék, gyerekjáték, iskola > Konzol tartozék > Pedál",
+  menuListId: "938",
+  rows: [wheelPlainFilter, stickOnly],
+  membershipCategoryIds: ["cat-stick"]
+});
+assert.equal(oneFilterOfTwo.kind, "assign");
+if (oneFilterOfTwo.kind === "assign") assert.equal(oneFilterOfTwo.internalCategoryId, "internal-stick");
+
 const bothLinks = classify({
-  productGroup: "Controller",
-  rows: [wheel, stick],
+  categoryPath: "Konzol, játék, gyerekjáték, iskola > Konzol tartozék > Pedál",
+  menuListId: "938",
+  rows: [wheelPlainFilter, stickOnly],
   membershipCategoryIds: ["cat-wheel", "cat-stick"]
 });
 assert.equal(bothLinks.kind, "defer");
@@ -140,31 +224,83 @@ if (bothLinks.kind === "defer") {
 }
 
 const interruptedPair = classify({
-  productGroup: "Controller",
-  rows: [wheel, row({ ...stick, listReady: false })],
+  categoryPath: "Konzol, játék, gyerekjáték, iskola > Konzol tartozék > Pedál",
+  menuListId: "938",
+  rows: [wheelPlainFilter, row({ ...stickOnly, listReady: false })],
   membershipCategoryIds: ["cat-wheel"]
 });
 assert.equal(interruptedPair.kind, "defer");
 if (interruptedPair.kind === "defer") assert.equal(interruptedPair.reason, "awaiting_list");
 
-const remainderHit = classify({ productGroup: "Controller", rows: [wheel, stick, remainder] });
+const remainderHit = classify({
+  categoryPath: "Konzol, játék, gyerekjáték, iskola > Konzol tartozék > Pedál",
+  menuListId: "938",
+  rows: [wheelPlainFilter, stickOnly, remainder]
+});
 assert.equal(remainderHit.kind, "assign");
 if (remainderHit.kind === "assign") assert.equal(remainderHit.internalCategoryId, "internal-rest");
 
-const filtersOnlyMiss = classify({ productGroup: "Controller", rows: [wheel, stick] });
+const filtersOnlyMiss = classify({
+  categoryPath: "Konzol, játék, gyerekjáték, iskola > Konzol tartozék > Pedál",
+  menuListId: "938",
+  rows: [wheelPlainFilter, stickOnly]
+});
 assert.equal(filtersOnlyMiss.kind, "defer");
 if (filtersOnlyMiss.kind === "defer") assert.equal(filtersOnlyMiss.reason, "not_on_list");
 
 const plainOnOneUrl = classify({
-  rows: [plain, otherPlain],
-  membershipCategoryIds: ["cat-plain"]
+  rows: [psu, otherPlain],
+  membershipCategoryIds: ["cat-psu"]
 });
 assert.equal(plainOnOneUrl.kind, "assign");
-if (plainOnOneUrl.kind === "assign") assert.equal(plainOnOneUrl.internalCategoryId, "internal-cpu");
+if (plainOnOneUrl.kind === "assign") assert.equal(plainOnOneUrl.internalCategoryId, "internal-psu");
 
-const plainOnNeither = classify({ rows: [plain, otherPlain] });
+const plainOnNeither = classify({ rows: [psu, otherPlain] });
 assert.equal(plainOnNeither.kind, "defer");
 if (plainOnNeither.kind === "defer") assert.equal(plainOnNeither.reason, "not_on_list");
+
+const menuHtml = `
+  <a href="/shop/csoport/szamitogep-alkatresz/78">Számítógép alkatrész</a>
+  <a href="/shop/csoport/halozat-szerver-biztonsagtechnika/1035">Hálózat, szerver, biztonságtechnika</a>
+  <a href="/shop/csoport/halozat-szerver-biztonsagtechnika/switch/1129">ne koristi se</a>
+`;
+const menuJson = {
+  "78": [
+    { name: "Tápegység", href: "/shop/csoport/szamitogep-alkatresz/tapegyseg/343", own: true },
+    { name: "Gamer", href: "/shop/csoport/szamitogep-alkatresz/tapegyseg/343?230=1", own: true }
+  ],
+  "1035": [
+    { name: "Switch", href: "/shop/csoport/halozat-szerver-biztonsagtechnika/switch/1129", own: true },
+    { name: "Szerver további alkatrész", href: "/shop/csoport/halozat-szerver-biztonsagtechnika/szerver-tovabbi-alkatresz/1155", own: true },
+    { name: "Szerver", href: "/shop/csoport/halozat-szerver-biztonsagtechnika/szerver-tovabbi-alkatresz/1155?12=3632", own: true },
+    { name: "Joystick/Kormány", href: "/shop/csoport/konzol-jatek-gyerekjatek-iskola/konzol-tartozek/938?730=1", own: true }
+  ]
+};
+const menu = buildIponMenuIndex(menuHtml, menuJson, "abc");
+assert.equal(listIdForCategoryPath(menu, PSU_PATH), "343");
+assert.equal(listIdForCategoryPath(menu, SERVER_PSU_PATH), "1155");
+assert.equal(menu.listIdByTwoLevelKey.get("Számítógép alkatrész > Gamer"), undefined);
+assert.equal(menu.listIdByTwoLevelKey.get("Hálózat, szerver, biztonságtechnika > Szerver"), undefined);
+assert.equal(menu.ownMatchesFilterRule, false);
+assert.equal(menuOwnMatchesFilterRule({
+  "1035": [
+    { href: "/shop/csoport/halozat-szerver-biztonsagtechnika/switch/1129", own: true },
+    { href: "/shop/csoport/konzol-jatek-gyerekjatek-iskola/konzol-tartozek/938?730=1", own: false }
+  ]
+}), true);
+assert.equal(
+  resolveIponMenuUrl('{"siteId":"hu_HU","listsVersion":"7b00464a5949"}'),
+  "https://ipon.hu/api/menu/hu_HU-7b00464a5949.json"
+);
+assert.equal(
+  resolveIponMenuUrl('{\\"siteId\\":\\"hu_HU\\",\\"listsVersion\\":\\"7b00464a5949\\"}'),
+  "https://ipon.hu/api/menu/hu_HU-7b00464a5949.json"
+);
+assert.equal(
+  resolveIponMenuUrl("stari hu_HU-7c9bd250178a.json"),
+  "https://ipon.hu/api/menu/hu_HU-7c9bd250178a.json"
+);
+assert.equal(resolveIponMenuUrl("<html></html>"), null);
 
 const sourceUrl =
   "https://ipon.hu/shop/termek/epson-dfx-9000/11003?utm_source=arukereso&utm_medium=referral&utm_campaign=arukereso&utm_content=11003";
@@ -199,6 +335,29 @@ assert.equal(products[0]?.ean, null);
 assert.equal(products[0]?.productNumber, "C11C605011BZ");
 assert.equal(products[0]?.price, 2560690);
 assert.equal(parseProductBlock("<product><price>1</price></product>"), null);
+
+const huXml = `<product>
+<id>11003</id>
+<name><![CDATA[EPSON DFX-9000]]></name>
+<brand><![CDATA[EPSON]]></brand>
+<product_number><![CDATA[C11C605011BZ]]></product_number>
+<picture_url><![CDATA[https://media.icdn.hu/product/x.webp]]></picture_url>
+<gross_price>2560690</gross_price>
+<category><![CDATA[${PSU_PATH}]]></category>
+<url><![CDATA[https://ipon.hu/shop/termek/epson-dfx-9000/11003]]></url>
+<ean><![CDATA[]]></ean>
+</product>`;
+const hu = parseProductBlock(huXml);
+assert.equal(hu?.identifier, "11003");
+assert.equal(hu?.manufacturer, "EPSON");
+assert.equal(hu?.imageUrl, "https://media.icdn.hu/product/x.webp");
+assert.equal(hu?.price, 2560690);
+assert.equal(hu?.categoryPath, PSU_PATH);
+assert.equal(twoLevelFeedKey(hu?.categoryPath), "Számítógép alkatrész > Tápegység");
+assert.equal(
+  toIponEnglishProductUrl(hu?.productUrl),
+  "https://iponcomp.com/shop/product/epson-dfx-9000/11003"
+);
 
 const tracked = parseIponTrackingProducts({
   items: [

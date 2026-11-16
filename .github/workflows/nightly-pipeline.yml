@@ -42,7 +42,11 @@ jobs:
           node-version: "22"
           cache: "npm"
       - run: npm ci
-      - run: echo "iPon feed discovery is off. productGroup was filing existing categories with the wrong articles. Job stays green so the rest of the nightly chain still runs."
+      - id: pause
+        continue-on-error: true
+        run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - if: steps.pause.outcome == 'success'
+        run: npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-import-products.ts
 
   pcx_import:
     name: "1b · PCX import"

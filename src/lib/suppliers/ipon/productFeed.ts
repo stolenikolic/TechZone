@@ -1,12 +1,12 @@
 /**
- * Árukereső <product> feed — source of iPon identifiers, EAN/MPN, main image, category path.
- * Prices stay on the existing XML sync. This parser does not write the database.
+ * iPon Hungarian <product> feed — identifiers, EAN/MPN, main image, category path.
+ * The first price of a new article can come from gross_price. Later price changes stay on XML sync.
  */
 
 import { Readable } from "node:stream";
 import { XMLParser } from "fast-xml-parser";
 
-export const DEFAULT_IPON_PRODUCT_FEED_URL = "https://media.icdn.hu/feeds/arukereso-feed-hu-hu.xml";
+export const DEFAULT_IPON_PRODUCT_FEED_URL = "https://media.icdn.hu/feeds/ipon-feed-hu-hu.xml";
 export const DEFAULT_IPON_PRODUCT_FEED_MIN_ITEMS = 50_000;
 
 export type IponFeedProduct = {
@@ -49,6 +49,41 @@ function parsePrice(raw: unknown): number | null {
   if (!s) return null;
   const n = Number(s.replace(/\s/g, "").replace(",", "."));
   return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+}
+
+function firstField(rec: Record<string, unknown>, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const value = firstString(rec[key]);
+    if (value) return value;
+  }
+  return null;
+}
+
+/** Split a feed `<category>` path on ` > ` and drop empty pieces. */
+export function splitFeedPath(path: string | null | undefined): string[] {
+  if (!path) return [];
+  return path
+    .split(">")
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+}
+
+/** First two levels. Deeper pieces are breadcrumbs. Fewer than two levels has no key. */
+export function twoLevelFeedKey(path: string | null | undefined): string | null {
+  const parts = splitFeedPath(path);
+  if (parts.length < 2) return null;
+  return `${parts[0]} > ${parts[1]}`;
+}
+
+/** Empty clears the path. One level is rejected. Two or more levels are kept whole. */
+export function manualFeedPathFromInput(raw: unknown): { path: string | null } | { error: string } {
+  if (raw == null) return { path: null };
+  if (typeof raw !== "string") return { error: "Feed putanja nije tekst." };
+  const trimmed = raw.trim();
+  if (!trimmed) return { path: null };
+  const parts = splitFeedPath(trimmed);
+  if (parts.length < 2) return { error: "Feed putanja treba bar dva nivoa, odvojena sa >." };
+  return { path: parts.join(" > ") };
 }
 
 /** `<product` but not `<products`. */
@@ -102,19 +137,19 @@ export function parseProductBlock(block: string): IponFeedProduct | null {
       : null;
   if (!rec || typeof rec !== "object") return null;
 
-  const identifier = firstString(rec.identifier);
+  const identifier = firstField(rec, "identifier", "id");
   if (!identifier) return null;
 
   return {
     identifier,
     name: firstString(rec.name),
-    imageUrl: firstString(rec.image_url),
+    imageUrl: firstField(rec, "image_url", "picture_url"),
     ean: firstString(rec.ean),
     productNumber: firstString(rec.product_number),
-    manufacturer: firstString(rec.manufacturer),
-    productUrl: firstString(rec.product_url),
+    manufacturer: firstField(rec, "manufacturer", "brand"),
+    productUrl: firstField(rec, "product_url", "url"),
     categoryPath: firstString(rec.category),
-    price: parsePrice(rec.price)
+    price: parsePrice(rec.gross_price) ?? parsePrice(rec.price)
   };
 }
 

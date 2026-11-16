@@ -17,6 +17,7 @@ import {
   numEnv,
   parseGroupIdFromListingUrl
 } from "./ipon-fetch";
+import { manualFeedPathFromInput } from "./productFeed";
 import { withPostgrestTransientRetry, withTransientHttpRetry } from "./transient-retry";
 import { pauseBetweenIponCalls } from "./trackingApi";
 import { ensureIponXhrSession, IponXhrTokenError, iponXhrHeaders, type IponXhrSession } from "./xhrToken";
@@ -301,10 +302,21 @@ export async function syncFilteredCategoryMembership(
   return { status, requests, fetched: seen.size, expected, captcha };
 }
 
+function categoryEmbed(raw: Record<string, unknown>): { name: string | null; pointer: boolean } {
+  const value = raw.categories;
+  const row = Array.isArray(value) ? value[0] : value;
+  if (!row || typeof row !== "object") return { name: null, pointer: false };
+  const rec = row as Record<string, unknown>;
+  const pointer = typeof rec.view_source_category_id === "string" && rec.view_source_category_id.length > 0;
+  const name = typeof rec.name === "string" && rec.name.trim() ? rec.name.trim() : null;
+  return { name, pointer };
+}
+
 export function mapSupplierCategoryRow(raw: Record<string, unknown>): IponMappedCategory | null {
   const id = typeof raw.id === "string" ? raw.id : null;
   const internalCategoryId = typeof raw.internal_category_id === "string" ? raw.internal_category_id : null;
   if (!id || !internalCategoryId) return null;
+  if (categoryEmbed(raw).pointer) return null;
   const listingUrl = typeof raw.listing_url === "string" && raw.listing_url.trim() ? raw.listing_url.trim() : null;
   let groupKey =
     typeof raw.supplier_category_key === "string" && raw.supplier_category_key.trim()
@@ -320,15 +332,21 @@ export function mapSupplierCategoryRow(raw: Record<string, unknown>): IponMapped
   const status = raw.membership_status;
   const membershipStatus =
     status === "complete" || status === "incomplete" || status === "failed" ? status : null;
+  const manual = manualFeedPathFromInput(
+    typeof raw.manual_feed_path === "string" ? raw.manual_feed_path : null
+  );
+  const category = categoryEmbed(raw);
   return {
     id,
     internalCategoryId,
+    categoryName: category.name,
     groupKey,
     listingUrl,
     feedCategoryPath:
       typeof raw.feed_category_path === "string" && raw.feed_category_path.trim()
         ? raw.feed_category_path.trim()
         : null,
+    manualFeedPath: "error" in manual ? null : manual.path,
     filtered: Boolean(listingUrl && listingUrlHasFilterParams(listingUrl)),
     productGroups: [],
     listReady: false,
@@ -344,7 +362,7 @@ export async function loadIponMappedCategories(supabase: SupabaseClient): Promis
     supabase
       .from("supplier_categories")
       .select(
-        "id, internal_category_id, supplier_category_key, listing_url, feed_category_path, membership_synced_at, membership_status, product_group_learned_at, is_active"
+        "id, internal_category_id, supplier_category_key, listing_url, feed_category_path, manual_feed_path, membership_synced_at, membership_status, product_group_learned_at, is_active, categories(name, view_source_category_id)"
       )
       .eq("supplier_id", IPON_SUPPLIER_ID)
       .eq("is_active", true)
@@ -352,41 +370,19 @@ export async function loadIponMappedCategories(supabase: SupabaseClient): Promis
   );
   if (error) throw new Error(`supplier_categories: ${error.message}`);
   const rows: IponMappedCategory[] = [];
+  let pointers = 0;
   for (const raw of data ?? []) {
     if (!raw || typeof raw !== "object") continue;
-    const mapped = mapSupplierCategoryRow(raw as Record<string, unknown>);
+    const record = raw as Record<string, unknown>;
+    if (categoryEmbed(record).pointer) {
+      pointers += 1;
+      continue;
+    }
+    const mapped = mapSupplierCategoryRow(record);
     if (mapped) rows.push(mapped);
   }
-  const groupsByCategory = await loadProductGroupsByCategory(supabase);
-  for (const row of rows) {
-    row.productGroups = groupsByCategory.get(row.id) ?? [];
-  }
+  if (pointers > 0) console.log(`[iPon categories] Preskočeno pokazivača: ${pointers}`);
   return rows;
-}
-
-async function loadProductGroupsByCategory(supabase: SupabaseClient): Promise<Map<string, string[]>> {
-  const groups = new Map<string, string[]>();
-  let offset = 0;
-  for (;;) {
-    const { data, error } = await withPostgrestTransientRetry("ipon_product_groups.list", async () =>
-      supabase
-        .from("ipon_product_groups")
-        .select("supplier_category_id, product_group")
-        .order("supplier_category_id", { ascending: true })
-        .order("product_group", { ascending: true })
-        .range(offset, offset + DB_CHUNK - 1)
-    );
-    if (error) throw new Error(`ipon_product_groups: ${error.message}`);
-    const page = (data ?? []) as Array<{ supplier_category_id: string; product_group: string }>;
-    for (const row of page) {
-      const list = groups.get(row.supplier_category_id) ?? [];
-      if (row.product_group.trim()) list.push(row.product_group.trim());
-      groups.set(row.supplier_category_id, list);
-    }
-    if (page.length < DB_CHUNK) break;
-    offset += page.length;
-  }
-  return groups;
 }
 
 export type MembershipRotationResult = {

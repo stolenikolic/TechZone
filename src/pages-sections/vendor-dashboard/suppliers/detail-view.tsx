@@ -61,6 +61,7 @@ type SupplierCategoryRow = {
   internalCategoryId: string;
   supplierCategoryKey: string | null;
   listingUrl: string | null;
+  manualFeedPath: string | null;
   isActive: boolean;
   sortOrder: number;
   category: CategoryOption | null;
@@ -148,6 +149,7 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
     internalCategoryId: "",
     supplierCategoryKey: "",
     listingUrl: "",
+    manualFeedPath: "",
     sortOrder: 0,
     isActive: true
   });
@@ -276,6 +278,7 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
       internalCategoryId: "",
       supplierCategoryKey: "",
       listingUrl: "",
+      manualFeedPath: "",
       sortOrder: 0,
       isActive: true
     });
@@ -294,6 +297,7 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
       internalCategoryId: row.internalCategoryId,
       supplierCategoryKey: row.supplierCategoryKey ?? "",
       listingUrl: row.listingUrl ?? "",
+      manualFeedPath: row.manualFeedPath ?? "",
       sortOrder: row.sortOrder,
       isActive: row.isActive
     });
@@ -307,12 +311,23 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
 
   const handleSaveCategory = async () => {
     if (!editingCategoryId && !catForm.internalCategoryId) return;
+    if (isIponSupplier && catForm.manualFeedPath.trim()) {
+      const levels = catForm.manualFeedPath
+        .split(">")
+        .map((part) => part.trim())
+        .filter(Boolean);
+      if (levels.length < 2) {
+        setActionError("Feed putanja treba bar dva nivoa, odvojena sa >.");
+        return;
+      }
+    }
     setBusy(true);
     setActionError(null);
     try {
       const payload = {
         supplierCategoryKey: catForm.supplierCategoryKey || null,
         listingUrl: catForm.listingUrl || null,
+        ...(isIponSupplier ? { manualFeedPath: catForm.manualFeedPath.trim() || null } : {}),
         sortOrder: catForm.sortOrder,
         isActive: catForm.isActive
       };
@@ -610,6 +625,7 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
                 <TableCell>Interna kategorija</TableCell>
                 <TableCell>Source key</TableCell>
                 <TableCell>Listing URL</TableCell>
+                {isIponSupplier ? <TableCell>Feed putanja</TableCell> : null}
                 <TableCell>Active</TableCell>
                     {supportsCategoryImport ? <TableCell align="right">Import</TableCell> : null}
                     <TableCell align="center">Akcije</TableCell>
@@ -618,7 +634,7 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
                 <TableBody>
                   {supplierCategories.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={supportsCategoryImport ? 7 : 6}>
+                      <TableCell colSpan={(supportsCategoryImport ? 7 : 6) + (isIponSupplier ? 1 : 0)}>
                     <Typography align="center" sx={{ py: 2 }} color="text.secondary">
                       Nema kategorija (hardcoded fallback i dalje radi).
                     </Typography>
@@ -633,6 +649,11 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
                     <TableCell sx={{ maxWidth: 320, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {row.listingUrl ?? "—"}
                     </TableCell>
+                    {isIponSupplier ? (
+                      <TableCell sx={{ maxWidth: 280, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {row.manualFeedPath ?? "—"}
+                      </TableCell>
+                    ) : null}
                     <TableCell>
                       <Chip size="small" label={row.isActive ? "yes" : "no"} color={row.isActive ? "success" : "default"} />
                     </TableCell>
@@ -952,6 +973,18 @@ export default function AdminSupplierDetailView({ supplierId }: { supplierId: st
                 onChange={(e) => setCatForm({ ...catForm, listingUrl: e.target.value })}
               />
             </Grid>
+            {isIponSupplier ? (
+              <Grid size={12}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Feed putanja"
+                  value={catForm.manualFeedPath}
+                  onChange={(e) => setCatForm({ ...catForm, manualFeedPath: e.target.value })}
+                  helperText="Dva ili više nivoa iz iPon feeda, npr. Konzol, játék, gyerekjáték, iskola > Konzol tartozék > Kormány, pedál, váltó, ülés. Prazno ostavlja automatska prva dva nivoa."
+                />
+              </Grid>
+            ) : null}
             <Grid size={6}>
               <TextField
                 fullWidth

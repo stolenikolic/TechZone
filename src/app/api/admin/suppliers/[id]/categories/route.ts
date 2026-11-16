@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { invalidateRegistryCaches } from "lib/suppliers/registry";
 import { guardAdminApi } from "lib/auth/admin-route";
+import { IPON_SUPPLIER_ID } from "lib/suppliers/ipon/constants";
+import { manualFeedPathFromInput } from "lib/suppliers/ipon/productFeed";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,7 @@ type Row = {
   internal_category_id: string;
   supplier_category_key: string | null;
   listing_url: string | null;
+  manual_feed_path: string | null;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -32,7 +35,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const { data, error } = await supabase
       .from("supplier_categories")
       .select(
-        "id, supplier_id, internal_category_id, supplier_category_key, listing_url, is_active, sort_order, created_at, updated_at, categories(id, name, slug)"
+        "id, supplier_id, internal_category_id, supplier_category_key, listing_url, manual_feed_path, is_active, sort_order, created_at, updated_at, categories(id, name, slug)"
       )
       .eq("supplier_id", id)
       .order("sort_order", { ascending: true });
@@ -43,6 +46,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       internalCategoryId: row.internal_category_id,
       supplierCategoryKey: row.supplier_category_key,
       listingUrl: row.listing_url,
+      manualFeedPath: row.manual_feed_path,
       isActive: row.is_active,
       sortOrder: row.sort_order,
       category: pickCategory(row.categories)
@@ -63,12 +67,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       internalCategoryId?: string;
       supplierCategoryKey?: string | null;
       listingUrl?: string | null;
+      manualFeedPath?: string | null;
       isActive?: boolean;
       sortOrder?: number;
     };
     if (!body.internalCategoryId) {
       return NextResponse.json({ error: "internalCategoryId is required" }, { status: 400 });
     }
+    const manual =
+      supplierId === IPON_SUPPLIER_ID ? manualFeedPathFromInput(body.manualFeedPath ?? null) : { path: null };
+    if ("error" in manual) return NextResponse.json({ error: manual.error }, { status: 400 });
     const supabase = createSupabaseServiceClient();
     // Insert (ne upsert po internoj): više source keyeva može dijeliti istu internu kategoriju.
     const { data, error } = await supabase
@@ -78,6 +86,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         internal_category_id: body.internalCategoryId,
         supplier_category_key: body.supplierCategoryKey ?? null,
         listing_url: body.listingUrl ?? null,
+        ...(supplierId === IPON_SUPPLIER_ID ? { manual_feed_path: manual.path } : {}),
         is_active: body.isActive ?? true,
         sort_order: body.sortOrder ?? 0,
         updated_at: new Date().toISOString()
@@ -102,6 +111,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       id?: string;
       supplierCategoryKey?: string | null;
       listingUrl?: string | null;
+      manualFeedPath?: string | null;
       isActive?: boolean;
       sortOrder?: number;
     };
@@ -113,6 +123,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       update.supplier_category_key = body.supplierCategoryKey;
     }
     if (body.listingUrl !== undefined) update.listing_url = body.listingUrl;
+    if (supplierId === IPON_SUPPLIER_ID && body.manualFeedPath !== undefined) {
+      const manual = manualFeedPathFromInput(body.manualFeedPath);
+      if ("error" in manual) return NextResponse.json({ error: manual.error }, { status: 400 });
+      update.manual_feed_path = manual.path;
+    }
     if (body.isActive !== undefined) update.is_active = body.isActive;
     if (body.sortOrder !== undefined) update.sort_order = body.sortOrder;
 
