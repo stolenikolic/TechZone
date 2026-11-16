@@ -1,5 +1,5 @@
 /**
- * iPon: JSON-LD detalji (MPN, EAN, specifikacije, factory_link) — odvojeno od API importa.
+ * iPon: RSC detalji (specifikacije, factory_link, galerija) — odvojeno od API importa.
  * Run: npx tsx scripts/run-ipon-scrape-details.ts
  *
  * Idempotencija: ako supplier_products.spec_snapshot IS NOT NULL → preskoči HTTP.
@@ -7,33 +7,24 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { normalizeEan, normalizeMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { fetchWithSession } from "lib/suppliers/shared/http-session";
 import { buildAttributeSlugResolver, loadAttributeMappings } from "lib/suppliers/registry";
-import {
-  IPON_SUPPLIER_ID,
-  getDefaultIponListingUrl,
-  getIponListingUrlByInternalCategoryId
-} from "./categories";
+import { IPON_SUPPLIER_ID } from "./categories";
 import {
   IPON_ACCEPT_LANGUAGE,
   IPON_IMPORT_USER_AGENT,
   createIponCookieJar,
-  getIponOrigin,
   numEnv as iponNumEnv,
-  sleep,
-  warmupIponSessionForListing
+  sleep
 } from "./ipon-fetch";
 import type { IponProductItem } from "./transformProduct";
 import { getIponProductDetailUrl } from "./transformProduct";
 import { ingestIponGalleryImages } from "./galleryImages";
-import { getRandomReferer, randomDelay } from "./scrape-config";
+import { randomDelay } from "./scrape-config";
+import { isIponEnglishProductUrl, parseIponRscFlight, productIdFromIponUrl } from "./rscProduct";
 import { withPostgrestTransientRetry } from "./transient-retry";
-import {
-  extractWarrantyMonthsFromHtml,
-  extractWarrantyMonthsFromSpecRows
-} from "./warranty-from-specs";
+import { extractWarrantyMonthsFromSpecRows } from "./warranty-from-specs";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,15 +33,6 @@ import {
 export type { SpecRow, SpecSnapshot } from "lib/suppliers/shared/spec-snapshot";
 import type { SpecRow, SpecSnapshot } from "lib/suppliers/shared/spec-snapshot";
 import { collectAdditionalProperty as _collectAdditionalProperty } from "lib/suppliers/shared/spec-snapshot";
-
-type ParsedIponJsonLd = {
-  mpn: string | null;
-  ean: string | null;
-  factory_link: string | null;
-  specRows: SpecRow[];
-  productEntityCount: number;
-  rawProductJsonLd?: Record<string, unknown>[];
-};
 
 type QueueRow = {
   id: string;
@@ -76,11 +58,7 @@ type QueueOfferRow = {
 // HTTP config
 // ---------------------------------------------------------------------------
 
-const SCRAPE_PRODUCT_HEADERS = {
-  userAgent: IPON_IMPORT_USER_AGENT,
-  acceptOverride: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-  acceptLanguage: IPON_ACCEPT_LANGUAGE
-} as const;
+const RSC_ACCEPT = "text/x-component";
 
 const CAPTCHA_SLEEP_MS = iponNumEnv("IPON_SCRAPE_CAPTCHA_SLEEP_MS", 0);
 const BATCH_GAP_MS = iponNumEnv("IPON_SCRAPE_BATCH_GAP_MS", 3000);
@@ -108,262 +86,29 @@ function maxDetailRequestsForRun(batchSize: number): number {
 }
 
 // ---------------------------------------------------------------------------
-// JSON-LD parsing
+// raw_json shortcut — only real spec rows, not feed MPN/EAN
 // ---------------------------------------------------------------------------
-
-function extractJsonLdBlocks(html: string): unknown[] {
-  const out: unknown[] = [];
-  const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null) {
-    const raw = m[1]?.trim();
-    if (!raw) continue;
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      if (Array.isArray(parsed)) out.push(...parsed);
-      else out.push(parsed);
-    } catch {
-      /* skip malformed blocks */
-    }
-  }
-  return out;
-}
-
-function expandGraphRoots(blocks: unknown[]): unknown[] {
-  const expanded: unknown[] = [];
-  for (const b of blocks) {
-    expanded.push(b);
-    if (b && typeof b === "object" && !Array.isArray(b)) {
-      const g = (b as Record<string, unknown>)["@graph"];
-      if (Array.isArray(g)) {
-        for (const x of g) expanded.push(x);
-      }
-    }
-  }
-  return expanded;
-}
-
-function schemaTypeIsProduct(typeVal: unknown): boolean {
-  if (typeVal === "Product") return true;
-  if (Array.isArray(typeVal)) return typeVal.some((x) => schemaTypeIsProduct(x));
-  if (typeof typeVal === "string") {
-    const s = typeVal.trim();
-    if (s === "Product") return true;
-    const lower = s.toLowerCase();
-    if (lower === "https://schema.org/product" || lower === "http://schema.org/product")
-      return true;
-    if (/\/Product$/i.test(s)) return true;
-  }
-  return false;
-}
-
-function isProductLike(o: Record<string, unknown>): boolean {
-  return schemaTypeIsProduct(o["@type"]);
-}
 
 export function collectAdditionalProperty(node: Record<string, unknown>, acc: SpecRow[]): void {
   _collectAdditionalProperty(node, acc);
 }
 
-function isUnwantedProductUrl(url: string): boolean {
-  const u = url.toLowerCase();
-  if (u.includes("ipon.hu") || u.includes("iponcomp.com")) return true;
-  if (u.includes("icdn.hu") || u.includes("facebook.com") || u.includes("schema.org")) return true;
-  if (u.includes("youtube.com") || u.includes("youtu.be")) return true;
-  return false;
-}
-
-function looksLikeManufacturerSite(url: string): boolean {
-  const u = url.toLowerCase();
-  return (
-    u.includes("ark.intel.com") ||
-    u.includes("intel.com/content/www") ||
-    u.includes("intel.com/products") ||
-    u.includes("amd.com") ||
-    u.includes("nvidia.com") ||
-    u.includes("asus.com") ||
-    u.includes("msi.com") ||
-    u.includes("gigabyte.com") ||
-    u.includes("supermicro.com") ||
-    u.includes("samsung.com") ||
-    u.includes("crucial.com") ||
-    u.includes("kingston.com") ||
-    u.includes("wd.com") ||
-    u.includes("seagate.com")
-  );
-}
-
-function decodeHtmlEntitiesInUrl(url: string): string {
-  return url
-    .replace(/&amp;/gi, "&")
-    .replace(/&#38;/g, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#34;/g, '"');
-}
-
-function stripHtmlTags(s: string): string {
-  return s
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/**
- * iPon often puts the real manufacturer URL only in the spec table as
- * <a href="https://ark.intel.com/...">Factory link</a> (EN) or "Gyári link" (HU),
- * not in JSON-LD sameAs.
- */
-function extractFactoryLinkFromHtml(html: string): string | null {
-  const linkLabel = /factory\s*link|gy[aá]ri\s*link|manufacturer\s*page|gy[aá]rt[oó]i?\s*oldal/i;
-
-  // 1) <a href="..."> ... Factory link ... </a> (tolerates nested tags / Alpine noise inside)
-  const anchorRe = /<a\b[^>]*?\bhref\s*=\s*["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-  let m: RegExpExecArray | null;
-  while ((m = anchorRe.exec(html)) !== null) {
-    const href = decodeHtmlEntitiesInUrl(m[1].trim());
-    const innerText = stripHtmlTags(m[2]);
-    if (!href || isUnwantedProductUrl(href)) continue;
-    if (linkLabel.test(innerText)) return href;
-  }
-
-  // 2) Text "Factory link" then nearest preceding href= in a window (messy DOM / minified HTML)
-  const textNeedle = /factory\s*link|gy[aá]ri\s*link/gi;
-  let t: RegExpExecArray | null;
-  while ((t = textNeedle.exec(html)) !== null) {
-    const pos = t.index;
-    const before = html.slice(Math.max(0, pos - 6000), pos);
-    const hrefs = Array.from(before.matchAll(/href\s*=\s*["'](https?:\/\/[^"'>\s]+)["']/gi));
-    for (let i = hrefs.length - 1; i >= 0; i--) {
-      const href = decodeHtmlEntitiesInUrl(hrefs[i][1].trim());
-      if (href && !isUnwantedProductUrl(href) && looksLikeManufacturerSite(href)) return href;
-    }
-    for (let i = hrefs.length - 1; i >= 0; i--) {
-      const href = decodeHtmlEntitiesInUrl(hrefs[i][1].trim());
-      if (href && !isUnwantedProductUrl(href)) return href;
-    }
-  }
-
-  // 3) JSON embedded in page (Alpine / product bootstrap) — manufacturer URL only
-  const jsonUrlMatch = html.match(
-    /"(?:factoryLink|factory_link|manufacturerUrl|manufacturer_url|productUrl|officialUrl)"\s*:\s*"(https?:\\?\/\\?\/[^"\\]+)"/i
-  );
-  if (jsonUrlMatch) {
-    const raw = jsonUrlMatch[1].replace(/\\\//g, "/");
-    const href = decodeHtmlEntitiesInUrl(raw);
-    if (href && !isUnwantedProductUrl(href)) return href;
-  }
-
-  // 4) Last resort: first Intel ARK product href (CPU pages almost always have exactly one)
-  const ark = html.match(
-    /href\s*=\s*["'](https?:\/\/ark\.intel\.com\/content\/www\/[^"']+\/products\/[^"']+)["']/i
-  );
-  if (ark) {
-    const href = decodeHtmlEntitiesInUrl(ark[1].trim());
-    if (href && !isUnwantedProductUrl(href)) return href;
-  }
-
-  return null;
-}
-
-function extractFactoryLink(node: Record<string, unknown>): string | null {
-  const sameAs = node.sameAs;
-  const candidates: string[] = [];
-  if (typeof sameAs === "string" && sameAs.trim()) candidates.push(sameAs.trim());
-  if (Array.isArray(sameAs)) {
-    for (const s of sameAs) {
-      if (typeof s === "string" && s.trim()) candidates.push(s.trim());
-    }
-  }
-  for (const c of candidates) {
-    if (!isUnwantedProductUrl(c) && looksLikeManufacturerSite(c)) return c;
-  }
-  for (const c of candidates) {
-    if (!isUnwantedProductUrl(c)) return c;
-  }
-  const url = node.url;
-  if (typeof url === "string" && url.trim() && !isUnwantedProductUrl(url)) return url.trim();
-  return null;
-}
-
-function walkForProduct(node: unknown, products: Record<string, unknown>[]): void {
+function walkRawSpecRows(node: unknown, specRows: SpecRow[]): void {
   if (node === null || node === undefined) return;
   if (Array.isArray(node)) {
-    for (const x of node) walkForProduct(x, products);
+    for (const item of node) walkRawSpecRows(item, specRows);
     return;
   }
   if (typeof node !== "object") return;
-  const o = node as Record<string, unknown>;
-  if (isProductLike(o)) products.push(o);
-  for (const v of Object.values(o)) walkForProduct(v, products);
+  const record = node as Record<string, unknown>;
+  collectAdditionalProperty(record, specRows);
+  for (const value of Object.values(record)) walkRawSpecRows(value, specRows);
 }
 
-function parseIponProductJsonLdFromHtml(html: string): ParsedIponJsonLd {
-  const roots = expandGraphRoots(extractJsonLdBlocks(html));
-  const products: Record<string, unknown>[] = [];
-  for (const b of roots) walkForProduct(b, products);
-
-  let mpn: string | null = null;
-  let ean: string | null = null;
-  let factory_link: string | null = null;
+function specRowsFromRawJson(raw: unknown): SpecRow[] {
   const specRows: SpecRow[] = [];
-
-  for (const p of products) {
-    if (typeof p.mpn === "string" && p.mpn.trim()) mpn = p.mpn.trim();
-    if (typeof p.gtin13 === "string" && p.gtin13.trim()) ean = p.gtin13.trim();
-    if (typeof p.gtin === "string" && p.gtin.trim() && !ean) ean = p.gtin.trim();
-    if (typeof p.gtin14 === "string" && p.gtin14.trim() && !ean) ean = p.gtin14.trim();
-    if (!factory_link) factory_link = extractFactoryLink(p);
-    collectAdditionalProperty(p, specRows);
-  }
-
-  if (!factory_link) factory_link = extractFactoryLinkFromHtml(html);
-
-  return {
-    mpn,
-    ean,
-    factory_link,
-    specRows,
-    productEntityCount: products.length,
-    rawProductJsonLd: products
-  };
-}
-
-function assignFirstIdentifier(
-  target: { mpn: string | null; ean: string | null },
-  node: Record<string, unknown>
-): void {
-  const mpn = node.mpn ?? node.manufacturerPartNumber ?? node.partNumber;
-  if (!target.mpn && typeof mpn === "string" && mpn.trim()) target.mpn = mpn.trim();
-
-  const ean = node.ean ?? node.gtin13 ?? node.gtin ?? node.gtin14 ?? node.barcode;
-  if (!target.ean && typeof ean === "string" && ean.trim()) target.ean = ean.trim();
-  if (!target.ean && typeof ean === "number" && Number.isFinite(ean)) target.ean = String(ean);
-}
-
-function walkRawProductData(node: unknown, parsed: ParsedIponJsonLd): void {
-  if (node === null || node === undefined) return;
-  if (Array.isArray(node)) {
-    for (const x of node) walkRawProductData(x, parsed);
-    return;
-  }
-  if (typeof node !== "object") return;
-  const o = node as Record<string, unknown>;
-  assignFirstIdentifier(parsed, o);
-  collectAdditionalProperty(o, parsed.specRows);
-  for (const v of Object.values(o)) walkRawProductData(v, parsed);
-}
-
-function parseIponProductDetailsFromRawJson(raw: unknown): ParsedIponJsonLd {
-  const parsed: ParsedIponJsonLd = {
-    mpn: null,
-    ean: null,
-    factory_link: null,
-    specRows: [],
-    productEntityCount: 0
-  };
-  walkRawProductData(raw, parsed);
-  if (parsed.mpn || parsed.ean || parsed.specRows.length > 0) parsed.productEntityCount = 1;
-  return parsed;
+  walkRawSpecRows(raw, specRows);
+  return specRows;
 }
 
 // ---------------------------------------------------------------------------
@@ -414,58 +159,66 @@ function splitIntegratedVga(props: SpecRow[]): { vga: string | null; chip: strin
 // ---------------------------------------------------------------------------
 
 /**
- * Idempotentno upisuje spec_snapshot u supplier_products i postavlja specs_fetched_at.
- * Poziva se jednom — ako je spec_snapshot već NOT NULL, red je preskočen u queue-u.
+ * Idempotentno upisuje spec_snapshot. MPN i EAN se ne diraju.
+ * warranty_months se postavlja samo ako je kolona još prazna.
  */
 async function saveSpecSnapshot(
   supabase: SupabaseClient,
   supplierProductId: string,
-  parsed: ParsedIponJsonLd,
-  htmlForWarranty?: string
+  specRows: SpecRow[],
+  factoryLink: string | null
 ): Promise<void> {
   try {
-    // Enhance specRows with integrated_vga split
-    const { vga, chip } = splitIntegratedVga(parsed.specRows);
+    const { vga, chip } = splitIntegratedVga(specRows);
     const extraSpecs: SpecRow[] = [];
     if (vga) extraSpecs.push({ name: "Integrated VGA", value: vga });
     if (chip) extraSpecs.push({ name: "Integrated VGA chip", value: chip });
 
     const snapshot: SpecSnapshot = {
-      mpn: parsed.mpn,
-      ean: parsed.ean,
-      factory_link: parsed.factory_link,
+      mpn: null,
+      ean: null,
+      factory_link: factoryLink,
       specs: [
-        ...parsed.specRows.filter(
-          (r) => !normSpec(r.name).includes("integrated") || !normSpec(r.name).includes("vga")
+        ...specRows.filter(
+          (row) => !normSpec(row.name).includes("integrated") || !normSpec(row.name).includes("vga")
         ),
         ...extraSpecs
       ]
     };
 
-    const warrantyMonths =
-      extractWarrantyMonthsFromSpecRows(snapshot.specs) ??
-      (htmlForWarranty ? extractWarrantyMonthsFromHtml(htmlForWarranty) : null);
-
+    const warrantyMonths = extractWarrantyMonthsFromSpecRows(snapshot.specs);
     const now = new Date().toISOString();
-    const patch: Record<string, unknown> = {
-      spec_snapshot: snapshot,
-      specs_fetched_at: now,
-      enrichment_status: "complete",
-      updated_at: now
-    };
-    if (warrantyMonths != null) patch.warranty_months = warrantyMonths;
-
     const { error } = await withPostgrestTransientRetry(
       "supplier_products.spec-snapshot-save",
       async () =>
         await supabase
           .from("supplier_products")
-          .update(patch)
+          .update({
+            spec_snapshot: snapshot,
+            specs_fetched_at: now,
+            enrichment_status: "complete",
+            updated_at: now
+          })
           .eq("supplier_id", IPON_SUPPLIER_ID)
           .eq("supplier_product_id", supplierProductId)
     );
     if (error) {
       console.warn("[iPon] saveSpecSnapshot update failed:", error.message);
+      return;
+    }
+
+    if (warrantyMonths != null) {
+      const { error: warrantyError } = await withPostgrestTransientRetry(
+        "supplier_products.warranty-if-empty",
+        async () =>
+          await supabase
+            .from("supplier_products")
+            .update({ warranty_months: warrantyMonths, updated_at: now })
+            .eq("supplier_id", IPON_SUPPLIER_ID)
+            .eq("supplier_product_id", supplierProductId)
+            .is("warranty_months", null)
+      );
+      if (warrantyError) console.warn("[iPon] warranty_months update failed:", warrantyError.message);
     }
   } catch (err) {
     console.warn(
@@ -475,72 +228,6 @@ async function saveSpecSnapshot(
   }
 }
 
-// ---------------------------------------------------------------------------
-// MPN / EAN sync to products + supplier_products
-// ---------------------------------------------------------------------------
-
-async function syncIdentifiers(
-  supabase: SupabaseClient,
-  productId: string,
-  supplierProductId: string,
-  mpnN: string | null,
-  eanN: string | null,
-  dryRun: boolean
-): Promise<void> {
-  if (!mpnN && !eanN) return;
-
-  const { data: currentProduct } = await withPostgrestTransientRetry(
-    "products.current-identifiers",
-    async () => await supabase.from("products").select("mpn, ean").eq("id", productId).maybeSingle()
-  );
-
-  const { data: currentSp } = await withPostgrestTransientRetry(
-    "supplier_products.current-identifiers",
-    async () =>
-      await supabase
-        .from("supplier_products")
-        .select("mpn, ean")
-        .eq("supplier_id", IPON_SUPPLIER_ID)
-        .eq("supplier_product_id", supplierProductId)
-        .maybeSingle()
-  );
-
-  const prodUpdate: Record<string, string> = {};
-  if (mpnN && !normalizeMpn(currentProduct?.mpn)) prodUpdate.mpn = mpnN;
-  if (eanN && !normalizeEan(currentProduct?.ean)) prodUpdate.ean = eanN;
-
-  const spUpdate: Record<string, string> = {};
-  if (mpnN && !normalizeMpn(currentSp?.mpn)) spUpdate.mpn = mpnN;
-  if (eanN && !normalizeEan(currentSp?.ean)) spUpdate.ean = eanN;
-
-  if (dryRun) {
-    if (Object.keys(prodUpdate).length > 0)
-      console.log(`[iPon][dry-run] products.${productId}: would write identifiers`, prodUpdate);
-    if (Object.keys(spUpdate).length > 0)
-      console.log(
-        `[iPon][dry-run] supplier_products.${supplierProductId}: would write identifiers`,
-        spUpdate
-      );
-    return;
-  }
-
-  if (Object.keys(prodUpdate).length > 0) {
-    const { error } = await supabase
-      .from("products")
-      .update({ ...prodUpdate, updated_at: new Date().toISOString() })
-      .eq("id", productId);
-    if (error) console.error("[iPon] products identifier update:", error.message);
-  }
-
-  if (Object.keys(spUpdate).length > 0) {
-    const { error } = await supabase
-      .from("supplier_products")
-      .update({ ...spUpdate, updated_at: new Date().toISOString() })
-      .eq("supplier_id", IPON_SUPPLIER_ID)
-      .eq("supplier_product_id", supplierProductId);
-    if (error) console.error("[iPon] supplier_products identifier update:", error.message);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Queue
@@ -609,49 +296,37 @@ async function fetchIponScrapeQueueBatch(
 // HTTP helpers
 // ---------------------------------------------------------------------------
 
-async function fetchProductHtml(
-  url: string,
-  referer: string,
-  jar: Map<string, string>,
-  origin: string
-): Promise<Response> {
-  return fetchWithSession(url, {
-    jar,
-    userAgent: SCRAPE_PRODUCT_HEADERS.userAgent,
-    referer,
-    acceptJson: false,
-    acceptOverride: SCRAPE_PRODUCT_HEADERS.acceptOverride,
-    acceptLanguage: SCRAPE_PRODUCT_HEADERS.acceptLanguage,
-    origin
-  });
-}
-
-function responseLooksLikeCaptchaChallenge(html: string, httpStatus: number): boolean {
+function responseLooksLikeCaptchaChallenge(body: string, httpStatus: number): boolean {
   if (httpStatus === 429) return true;
-  const h = html.slice(0, 20_000).toLowerCase();
-  if (h.includes("cf-browser-verification")) return true;
-  if (h.includes("cf-turnstile") || h.includes("challenges.cloudflare.com/turnstile")) return true;
-  if (h.includes("captcha challenge completion required")) return true;
-  if (/<title>\s*captcha\s*<\/title>/i.test(html)) return true;
-  if (h.includes("checking your browser before accessing")) return true;
-  if (h.includes("just a moment") && h.includes("enable javascript")) return true;
-  if (h.includes("attention required") && h.includes("cloudflare")) return true;
-  if (h.includes("access denied") && (h.includes("cloudflare") || h.includes("forbidden")))
-    return true;
+  const head = body.slice(0, 20_000).toLowerCase();
+  if (head.includes("cf-browser-verification")) return true;
+  if (head.includes("cf-turnstile") || head.includes("challenges.cloudflare.com/turnstile")) return true;
+  if (head.includes("captcha challenge completion required")) return true;
+  if (/<title>\s*captcha\s*<\/title>/i.test(body)) return true;
+  if (head.includes("checking your browser before accessing")) return true;
+  if (head.includes("just a moment") && head.includes("enable javascript")) return true;
+  if (head.includes("attention required") && head.includes("cloudflare")) return true;
+  if (head.includes("access denied") && (head.includes("cloudflare") || head.includes("forbidden"))) return true;
   return false;
 }
 
-async function fetchIponProductDetailHtmlOnce(
+async function fetchIponProductRsc(
   url: string,
-  listingUrl: string,
-  jar: Map<string, string>,
-  origin: string
-): Promise<{ ok: true; html: string } | { ok: false; captcha: boolean; error?: string }> {
-  const referer = getRandomReferer(listingUrl);
+  jar: Map<string, string>
+): Promise<{ ok: true; flight: string } | { ok: false; captcha: boolean; error?: string }> {
   try {
-    const res = await fetchProductHtml(url, referer, jar, origin);
-    const html = await res.text();
-    if (responseLooksLikeCaptchaChallenge(html, res.status)) {
+    const res = await fetchWithSession(url, {
+      jar,
+      userAgent: IPON_IMPORT_USER_AGENT,
+      referer: "https://iponcomp.com/shop",
+      acceptJson: false,
+      acceptOverride: RSC_ACCEPT,
+      acceptLanguage: IPON_ACCEPT_LANGUAGE,
+      origin: "https://iponcomp.com",
+      extraHeaders: { RSC: "1" }
+    });
+    const flight = await res.text();
+    if (responseLooksLikeCaptchaChallenge(flight, res.status)) {
       console.log("[iPon scrape] Zaštita / challenge — zaustavljanje batch-a.");
       if (CAPTCHA_SLEEP_MS > 0) {
         console.log(`[iPon scrape] Pauza ${CAPTCHA_SLEEP_MS}ms…`);
@@ -660,9 +335,13 @@ async function fetchIponProductDetailHtmlOnce(
       return { ok: false, captcha: true };
     }
     if (!res.ok) return { ok: false, captcha: false, error: `HTTP ${res.status}` };
-    return { ok: true, html };
-  } catch (e) {
-    return { ok: false, captcha: false, error: e instanceof Error ? e.message : String(e) };
+    const contentType = res.headers.get("content-type") ?? "";
+    if (!contentType.includes(RSC_ACCEPT)) {
+      return { ok: false, captcha: false, error: `content-type ${contentType || "unknown"}` };
+    }
+    return { ok: true, flight };
+  } catch (error) {
+    return { ok: false, captcha: false, error: error instanceof Error ? error.message : String(error) };
   }
 }
 
@@ -695,15 +374,10 @@ export async function runIponScrapeDetails(
   const supplierAttributeMappings = await loadAttributeMappings(IPON_SUPPLIER_ID, { supabase });
 
   const categoryId = options?.categoryId;
-  const listingUrl =
-    options?.listingWarmupUrl ??
-    getIponListingUrlByInternalCategoryId(categoryId) ??
-    getDefaultIponListingUrl();
   const runUntilQueueEmpty = options?.runUntilQueueEmpty ?? false;
   const dryRun = options?.dryRun ?? false;
   const batchSize = scrapeBatchSize();
   const maxDetailRequests = maxDetailRequestsForRun(batchSize);
-  const origin = getIponOrigin(listingUrl);
   const jar = createIponCookieJar();
 
   if (categoryId) console.log("[iPon scrape] Filtar: category_id =", categoryId);
@@ -715,13 +389,7 @@ export async function runIponScrapeDetails(
   if (dryRun) {
     console.log("[iPon scrape] Dry-run: bez HTTP i bez DB upisa.");
   } else {
-    console.log(`[iPon scrape] HTML detail request budget: ${maxDetailRequests}`);
-  }
-
-  if (!dryRun) {
-    console.log("[iPon scrape] Warmup sesije…");
-    await warmupIponSessionForListing(jar, listingUrl);
-    await sleep(productDelayMs(categoryId));
+    console.log(`[iPon scrape] RSC request budget: ${maxDetailRequests}`);
   }
 
   let processed = 0;
@@ -734,7 +402,6 @@ export async function runIponScrapeDetails(
 
   for (;;) {
     batches += 1;
-    // Svaki batch ima svoj HTML budžet; inače bi prvi batch potrošio cijeli limit i drain režim bi stao.
     if (runUntilQueueEmpty) detailRequests = 0;
 
     console.log(`[iPon scrape] Batch ${batches} (max ${batchSize} proizvoda)…`);
@@ -742,8 +409,8 @@ export async function runIponScrapeDetails(
     let rows: QueueRow[];
     try {
       rows = await fetchIponScrapeQueueBatch(supabase, categoryId, batchSize);
-    } catch (e) {
-      throw e instanceof Error ? e : new Error(String(e));
+    } catch (error) {
+      throw error instanceof Error ? error : new Error(String(error));
     }
 
     if (rows.length === 0) {
@@ -751,98 +418,91 @@ export async function runIponScrapeDetails(
       break;
     }
 
-    for (const r of rows) {
-      const sp = r.supplier_products?.[0];
-      if (!sp?.supplier_product_id) {
+    for (const row of rows) {
+      const offer = row.supplier_products?.[0];
+      if (!offer?.supplier_product_id) {
         skipped += 1;
         continue;
       }
 
-      const raw = sp.raw_json;
+      const raw = offer.raw_json;
       if (!raw || typeof raw !== "object") {
         skipped += 1;
-        if (!dryRun) await sleep(productDelayMs(r.category_id));
         continue;
       }
 
       const item = raw as IponProductItem;
       const url = getIponProductDetailUrl(item);
-
-      // Try extracting from raw_json first (avoids HTTP)
-      const rawParsed = parseIponProductDetailsFromRawJson(raw);
-      if (
-        rawParsed.productEntityCount > 0 &&
-        (rawParsed.mpn || rawParsed.ean || rawParsed.specRows.length > 0)
-      ) {
+      const rawSpecs = specRowsFromRawJson(raw);
+      if (rawSpecs.length > 0) {
         if (dryRun) {
-          console.log(`[iPon scrape][dry-run] raw_json covers data for: ${url}`);
+          console.log(`[iPon scrape][dry-run] raw_json već ima specifikacije: ${url}`);
           skipped += 1;
           continue;
         }
-        const mpnN = normalizeMpn(rawParsed.mpn);
-        const eanN = normalizeEan(rawParsed.ean);
-        await syncIdentifiers(supabase, r.id, sp.supplier_product_id, mpnN, eanN, dryRun);
-        await saveSpecSnapshot(supabase, sp.supplier_product_id, rawParsed);
+        await saveSpecSnapshot(supabase, offer.supplier_product_id, rawSpecs, null);
         processed += 1;
-        await sleep(productDelayMs(r.category_id));
         continue;
       }
 
-      // Need HTTP detail fetch
+      if (!isIponEnglishProductUrl(url)) {
+        console.warn(`[iPon scrape] Nema engleskog URL-a, preskačem ${offer.supplier_product_id}: ${url}`);
+        skipped += 1;
+        continue;
+      }
+
       if (dryRun) {
-        console.log(`[iPon scrape][dry-run] Trebao bi HTML detail za: ${url}`);
+        console.log(`[iPon scrape][dry-run] RSC: ${url}`);
         skipped += 1;
         continue;
       }
 
       if (detailRequests >= maxDetailRequests) {
-        console.log(
-          `[iPon scrape] Zaustavljeno: dostignut HTML request budget (${maxDetailRequests}).`
-        );
+        console.log(`[iPon scrape] Zaustavljeno: dostignut RSC request budget (${maxDetailRequests}).`);
         stoppedForRisk = true;
         break;
       }
 
-      console.log("Scraping product:", url);
+      console.log("RSC product:", url);
       detailRequests += 1;
-
-      const res = await fetchIponProductDetailHtmlOnce(url, listingUrl, jar, origin);
-
+      const res = await fetchIponProductRsc(url, jar);
       if (!res.ok) {
         if (res.captcha) {
           stoppedForCaptcha = true;
           break;
         }
-        console.error("Fetch failed:", res.error ?? "unknown");
-        errors += 1;
-        await sleep(productDelayMs(r.category_id));
+        if (res.error?.startsWith("content-type")) {
+          console.warn(`[iPon scrape] Nečitljiv RSC za ${url}: ${res.error}`);
+          skipped += 1;
+        } else {
+          console.error("Fetch failed:", res.error ?? "unknown");
+          errors += 1;
+        }
+        await sleep(productDelayMs(row.category_id));
         continue;
       }
 
-      const parsed = parseIponProductJsonLdFromHtml(res.html);
-      console.log("MPN:", parsed.mpn ?? "(none)");
-      console.log("EAN:", parsed.ean ?? "(none)");
-      console.log("factory_link:", parsed.factory_link ?? "(none)");
+      const parsed = parseIponRscFlight(res.flight, productIdFromIponUrl(url));
+      console.log("specs:", parsed.specs.length);
+      console.log("images:", parsed.images.length);
+      console.log("factory_link:", parsed.manufacturerUrl ?? "(none)");
 
-      if (parsed.productEntityCount === 0) {
-        const hasLd = res.html.includes("application/ld+json");
-        console.warn(
-          hasLd
-            ? `Nema prepoznatog Product u JSON-LD za ${url}.`
-            : `Nema <script type="application/ld+json"> u odgovoru za ${url} — vjerojatno WAF/Cloudflare.`
-        );
-        stoppedForRisk = true;
-        errors += 1;
-        break;
+      if (parsed.specs.length === 0) {
+        console.warn(`[iPon scrape] Nema specifikacija u RSC za ${url}. Snapshot se ne upisuje.`);
+        skipped += 1;
+        await sleep(productDelayMs(row.category_id));
+        continue;
       }
 
-      const mpnN = normalizeMpn(parsed.mpn);
-      const eanN = normalizeEan(parsed.ean);
-      await syncIdentifiers(supabase, r.id, sp.supplier_product_id, mpnN, eanN, dryRun);
-
       try {
-        const added = await ingestIponGalleryImages(supabase, r.id, sp.supplier_product_id, res.html, raw);
-        if (added > 0) console.log(`[iPon scrape] Galerija +${added} (${sp.supplier_product_id})`);
+        const added = await ingestIponGalleryImages(
+          supabase,
+          row.id,
+          offer.supplier_product_id,
+          parsed.images,
+          raw
+        );
+        if (added > 0) console.log(`[iPon scrape] Galerija +${added} (${offer.supplier_product_id})`);
       } catch (galleryError) {
         console.warn(
           "[iPon scrape] Galerija:",
@@ -850,19 +510,16 @@ export async function runIponScrapeDetails(
         );
       }
 
-      // Build nameToSlug for enrichment hint (resolver used only by enrichment job now,
-      // but we keep the attribute mappings call to verify DB config is healthy)
-      const _nameToSlug = buildAttributeSlugResolver(
+      const nameToSlug = buildAttributeSlugResolver(
         supplierAttributeMappings,
-        r.category_id,
+        row.category_id,
         mapSpecNameToSlug
       );
-      void _nameToSlug;
+      void nameToSlug;
 
-      await saveSpecSnapshot(supabase, sp.supplier_product_id, parsed, res.html);
+      await saveSpecSnapshot(supabase, offer.supplier_product_id, parsed.specs, parsed.manufacturerUrl);
       processed += 1;
-
-      await sleep(productDelayMs(r.category_id));
+      await sleep(productDelayMs(row.category_id));
     }
 
     if (stoppedForCaptcha) {
@@ -870,7 +527,7 @@ export async function runIponScrapeDetails(
       break;
     }
     if (stoppedForRisk) {
-      console.log("[iPon scrape] Zaustavljeno zbog risk signala.");
+      console.log("[iPon scrape] Zaustavljeno zbog request budgeta.");
       break;
     }
     if (!runUntilQueueEmpty) break;
@@ -879,7 +536,7 @@ export async function runIponScrapeDetails(
   }
 
   console.log(
-    `[iPon scrape] Sažetak: batch-eva=${batches}, obrađeno=${processed}, grešaka=${errors}, preskočeno=${skipped}, html_requests=${detailRequests}, captcha_stop=${stoppedForCaptcha}, risk_stop=${stoppedForRisk}`
+    `[iPon scrape] Sažetak: batch-eva=${batches}, obrađeno=${processed}, grešaka=${errors}, preskočeno=${skipped}, rsc_requests=${detailRequests}, captcha_stop=${stoppedForCaptcha}, risk_stop=${stoppedForRisk}`
   );
 
   return {

@@ -5,7 +5,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { processProductImages } from "lib/images/process-product-images";
 import { IPON_SUPPLIER_ID } from "./constants";
-import { extractIcdnImageUrls, galleryUrlsExcludingMain } from "./icdnImages";
+import { galleryUrlsExcludingMain } from "./icdnImages";
 
 export { extractIcdnImageUrls, galleryUrlsExcludingMain } from "./icdnImages";
 
@@ -13,7 +13,7 @@ export async function ingestIponGalleryImages(
   supabase: SupabaseClient,
   productId: string,
   supplierProductId: string,
-  html: string,
+  imageUrls: string[],
   raw: unknown
 ): Promise<number> {
   const record = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
@@ -21,7 +21,7 @@ export async function ingestIponGalleryImages(
 
   const pictures = Array.isArray(record.pictures) ? record.pictures : [];
   const main = typeof pictures[0] === "string" ? pictures[0] : null;
-  const extra = galleryUrlsExcludingMain(extractIcdnImageUrls(html), main);
+  const extra = galleryUrlsExcludingMain(imageUrls, main);
   if (extra.length === 0) {
     await markGalleryIngested(supabase, supplierProductId, record);
     return 0;

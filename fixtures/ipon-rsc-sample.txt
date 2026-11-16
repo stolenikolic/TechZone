@@ -1,0 +1,5 @@
+:HL["/_next/static/chunks/app.css","style"]
+6a:["$","a",null,{"children":"Integrated in CPU"}]
+4c:T5,hello
+9:T3,éX1:{"id":"specifikacio","children":[null,[["$","div","cpu-0",{"className":"grid grid-cols-[1fr_1fr]","children":[["$","div",null,{"children":["CPU",null]}],["$","div",null,{"children":["$","a",null,{"children":"none"}]}]]}],["$","div","vga-1",{"className":"grid grid-cols-[1fr_1fr]","children":[["$","div",null,{"children":["Integrated VGA",null]}],["$","div",null,{"children":"Yes"}]]}],["$","div","vga-2",{"className":"grid grid-cols-[1fr_1fr]","children":[["$","div",null,{"children":["Integrated VGA",null]}],["$","div",null,{"children":"$L6a"}]]}]]]}
+11:{"id":2213319,"name":"MSI PRO B650-S WIFI","images":["https://media.icdn.hu/product/a.webp","https://media.icdn.hu/product/b.webp"],"manufacturerUrl":"https://www.msi.com/Motherboard/PRO-B650-S-WIFI","substitutes":[{"id":9,"imageUrl":"https://media.icdn.hu/product/other.webp"}]}

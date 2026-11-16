@@ -1,5 +1,5 @@
 /**
- * iPon JSON-LD detalji (MPN/EAN/spec). Red uključuje i nedostajuće atribute (prema mapi u scrapeDetails).
+ * iPon RSC detalji (specifikacije i galerija).
  * Run: npx tsx scripts/run-ipon-scrape-details.ts
  */
 import dotenv from "dotenv";
