@@ -24,6 +24,7 @@ import { ingestIponGalleryImages } from "./galleryImages";
 import { randomDelay } from "./scrape-config";
 import { isIponEnglishProductUrl, parseIponRscFlight, productIdFromIponUrl } from "./rscProduct";
 import { withPostgrestTransientRetry } from "./transient-retry";
+import { ensureIponXhrSession, iponXhrHeaders, type IponXhrSession } from "./xhrToken";
 import { extractWarrantyMonthsFromSpecRows } from "./warranty-from-specs";
 
 // ---------------------------------------------------------------------------
@@ -312,7 +313,8 @@ function responseLooksLikeCaptchaChallenge(body: string, httpStatus: number): bo
 
 async function fetchIponProductRsc(
   url: string,
-  jar: Map<string, string>
+  jar: Map<string, string>,
+  session: IponXhrSession
 ): Promise<{ ok: true; flight: string } | { ok: false; captcha: boolean; error?: string }> {
   try {
     const res = await fetchWithSession(url, {
@@ -323,7 +325,7 @@ async function fetchIponProductRsc(
       acceptOverride: RSC_ACCEPT,
       acceptLanguage: IPON_ACCEPT_LANGUAGE,
       origin: "https://iponcomp.com",
-      extraHeaders: { RSC: "1" }
+      extraHeaders: { RSC: "1", ...iponXhrHeaders(session) }
     });
     const flight = await res.text();
     if (responseLooksLikeCaptchaChallenge(flight, res.status)) {
@@ -399,8 +401,22 @@ export async function runIponScrapeDetails(
   let stoppedForRisk = false;
   let detailRequests = 0;
   let batches = 0;
+  let xhrSession: IponXhrSession | null = null;
+
+  if (!dryRun) {
+    try {
+      console.log("[iPon scrape] Sesija: /shop, pa xhr-token.");
+      xhrSession = await ensureIponXhrSession(jar, null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[iPon scrape] Sesija nije otvorena: ${message}`);
+      if (/captcha|blokada|challenge/i.test(message)) stoppedForCaptcha = true;
+      else errors += 1;
+    }
+  }
 
   for (;;) {
+    if (stoppedForCaptcha || (!dryRun && !xhrSession)) break;
     batches += 1;
     if (runUntilQueueEmpty) detailRequests = 0;
 
@@ -464,8 +480,20 @@ export async function runIponScrapeDetails(
       }
 
       console.log("RSC product:", url);
+      let session: IponXhrSession;
+      try {
+        session = await ensureIponXhrSession(jar, xhrSession);
+        xhrSession = session;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`[iPon scrape] xhr-token: ${message}`);
+        xhrSession = null;
+        if (/captcha|blokada|challenge/i.test(message)) stoppedForCaptcha = true;
+        else errors += 1;
+        break;
+      }
       detailRequests += 1;
-      const res = await fetchIponProductRsc(url, jar);
+      const res = await fetchIponProductRsc(url, jar, session);
       if (!res.ok) {
         if (res.captcha) {
           stoppedForCaptcha = true;
