@@ -199,10 +199,34 @@ jobs:
       - if: steps.pause.outcome == 'success'
         run: npx tsx -r ./scripts/register-ws.cjs scripts/run-avtera-import-products.ts
 
+  alza_import:
+    name: "1i · Alza import"
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      JOB_TRIGGERED_BY: cron
+      JOB_TYPE: alza_import
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm ci
+      - run: pip install -r scripts/alza/requirements.txt
+      - id: pause
+        continue-on-error: true
+        run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
+      - if: steps.pause.outcome == 'success'
+        run: npx tsx -r ./scripts/register-ws.cjs scripts/run-alza-import-products.ts
+
   auto_match:
     name: "2 · Auto match"
-    needs: [ipon_import, pcx_import, firstshop_import, pcland_import, oazis_import, konzolvilag_import, comtrade_import, avtera_import]
-    if: ${{ !cancelled() && (needs.ipon_import.result == 'success' || needs.pcx_import.result == 'success' || needs.firstshop_import.result == 'success' || needs.pcland_import.result == 'success' || needs.oazis_import.result == 'success' || needs.konzolvilag_import.result == 'success' || needs.comtrade_import.result == 'success' || needs.avtera_import.result == 'success') }}
+    needs: [ipon_import, pcx_import, firstshop_import, pcland_import, oazis_import, konzolvilag_import, comtrade_import, avtera_import, alza_import]
+    if: ${{ !cancelled() && (needs.ipon_import.result == 'success' || needs.pcx_import.result == 'success' || needs.firstshop_import.result == 'success' || needs.pcland_import.result == 'success' || needs.oazis_import.result == 'success' || needs.konzolvilag_import.result == 'success' || needs.comtrade_import.result == 'success' || needs.avtera_import.result == 'success' || needs.alza_import.result == 'success') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -223,7 +247,7 @@ jobs:
 
   ipon_scrape_details:
     name: "2b · iPon scrape details"
-    needs: [ipon_import, pcx_import, firstshop_import, pcland_import, oazis_import, konzolvilag_import, comtrade_import, avtera_import]
+    needs: [ipon_import, pcx_import, firstshop_import, pcland_import, oazis_import, konzolvilag_import, comtrade_import, avtera_import, alza_import]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 120

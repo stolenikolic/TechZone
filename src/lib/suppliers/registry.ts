@@ -27,6 +27,8 @@ import { COMTRADE_CATEGORIES } from "lib/suppliers/comtrade/categories";
 import { COMTRADE_SUPPLIER_ID } from "lib/suppliers/comtrade/constants";
 import { AVTERA_CATEGORIES } from "lib/suppliers/avtera/categories";
 import { AVTERA_SUPPLIER_ID } from "lib/suppliers/avtera/constants";
+import { ALZA_CATEGORIES } from "lib/suppliers/alza/categories";
+import { ALZA_SUPPLIER_ID } from "lib/suppliers/alza/constants";
 
 export type RegistryCategory = {
   internalCategoryId: string;
@@ -174,6 +176,14 @@ function fallbackCategoriesForSupplier(supplierId: string): RegistryCategory[] {
       sortOrder: (idx + 1) * 10
     })).filter((c) => c.supplierCategoryKey);
   }
+  if (supplierId === ALZA_SUPPLIER_ID) {
+    return ALZA_CATEGORIES.map((c, idx) => ({
+      internalCategoryId: "",
+      supplierCategoryKey: String(c.categoryId),
+      listingUrl: `https://www.alza.hu/${c.categoryId}.htm`,
+      sortOrder: (idx + 1) * 10
+    }));
+  }
   return [];
 }
 
@@ -181,6 +191,7 @@ function fallbackCategoriesForSupplier(supplierId: string): RegistryCategory[] {
 export const PCX_SUPPLIER_ID = "f4a8b2c0-9d1e-4f3a-bc5d-6e7f8091a2b3";
 
 export {
+  ALZA_SUPPLIER_ID,
   AVTERA_SUPPLIER_ID,
   COMTRADE_SUPPLIER_ID,
   FIRSTSHOP_SUPPLIER_ID,

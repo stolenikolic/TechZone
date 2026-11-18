@@ -20,6 +20,8 @@ import { runComtradeImportForSupplierCategory } from "lib/suppliers/comtrade/imp
 import { COMTRADE_SUPPLIER_ID } from "lib/suppliers/comtrade/constants";
 import { runAvteraImportForSupplierCategory } from "lib/suppliers/avtera/importProducts";
 import { AVTERA_SUPPLIER_ID } from "lib/suppliers/avtera/constants";
+import { runAlzaImportProducts } from "lib/suppliers/alza/importProducts";
+import { ALZA_SUPPLIER_ID } from "lib/suppliers/alza/constants";
 import { guardAdminApi } from "lib/auth/admin-route";
 import { createSupabaseServiceClient } from "utils/supabase";
 
@@ -43,12 +45,13 @@ export async function POST(
       supplierId !== OAZIS_SUPPLIER_ID &&
       supplierId !== KONZOLVILAG_SUPPLIER_ID &&
       supplierId !== COMTRADE_SUPPLIER_ID &&
-      supplierId !== AVTERA_SUPPLIER_ID
+      supplierId !== AVTERA_SUPPLIER_ID &&
+      supplierId !== ALZA_SUPPLIER_ID
     ) {
       return NextResponse.json(
         {
           error:
-            "Ručni import po kategoriji je podržan samo za iPon, PCX, FirstShop, PCLand, Oázis, Konzolvilág, ComTrade i Avtera."
+            "Ručni import po kategoriji je podržan samo za iPon, PCX, FirstShop, PCLand, Oázis, Konzolvilág, ComTrade, Avtera i Alza."
         },
         { status: 400 }
       );
@@ -85,16 +88,19 @@ export async function POST(
 
     const isComtrade = supplierId === COMTRADE_SUPPLIER_ID;
     const isAvtera = supplierId === AVTERA_SUPPLIER_ID;
+    const isAlza = supplierId === ALZA_SUPPLIER_ID;
     const listingUrl = row.listing_url?.trim() ?? "";
     const productGroupId = row.supplier_category_key?.trim() ?? "";
 
-    if (isComtrade || isAvtera) {
+    if (isComtrade || isAvtera || isAlza) {
       if (!productGroupId) {
         return NextResponse.json(
           {
             error: isComtrade
               ? "supplier_category_key (ComTrade productGroupID, npr. CPU) nije postavljen za ovaj red."
-              : "supplier_category_key (Avtera kategorija/@id, npr. MS) nije postavljen za ovaj red."
+              : isAlza
+                ? "supplier_category_key (Alza category id) nije postavljen za ovaj red."
+                : "supplier_category_key (Avtera kategorija/@id, npr. MS) nije postavljen za ovaj red."
           },
           { status: 400 }
         );
@@ -127,6 +133,8 @@ export async function POST(
           ? "comtrade_import"
           : isAvtera
             ? "avtera_import"
+            : isAlza
+              ? "alza_import"
             : isKonzolvilag
             ? "konzolvilag_import"
             : isOazis
@@ -149,7 +157,14 @@ export async function POST(
           ...(isAvtera ? { category_id: productGroupId } : {})
         }
       },
-      async () => {
+      async (handle) => {
+        if (isAlza) {
+          const categoryId = Number(productGroupId);
+          if (!Number.isInteger(categoryId)) {
+            throw new Error(`Alza category id nije broj: ${productGroupId}`);
+          }
+          return runAlzaImportProducts(handle, [categoryId]);
+        }
         if (isComtrade) {
           return runComtradeImportForSupplierCategory({
             productGroupId,

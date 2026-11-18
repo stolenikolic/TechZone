@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "utils/supabase";
-import { withJobRun, type JobType } from "lib/jobs/job-runner";
+import { withJobRun, type JobRunHandle, type JobType } from "lib/jobs/job-runner";
 import { IPON_SUPPLIER_ID } from "lib/suppliers/ipon/categories";
 import {
   COMTRADE_SUPPLIER_ID,
@@ -9,7 +9,8 @@ import {
   KONZOLVILAG_SUPPLIER_ID,
   OAZIS_SUPPLIER_ID,
   PCLAND_SUPPLIER_ID,
-  PCX_SUPPLIER_ID
+  PCX_SUPPLIER_ID,
+  ALZA_SUPPLIER_ID
 } from "lib/suppliers/registry";
 import { guardAdminApi } from "lib/auth/admin-route";
 
@@ -25,6 +26,7 @@ const ALLOWED: JobType[] = [
   "pcland_import",
   "oazis_import",
   "konzolvilag_import",
+  "alza_import",
   "comtrade_import",
   "comtrade_price_sync",
   "comtrade_enrich",
@@ -55,6 +57,8 @@ function supplierIdForDashboardJob(jobType: JobType): string | null {
       return OAZIS_SUPPLIER_ID;
     case "konzolvilag_import":
       return KONZOLVILAG_SUPPLIER_ID;
+    case "alza_import":
+      return ALZA_SUPPLIER_ID;
     case "comtrade_import":
     case "comtrade_price_sync":
     case "comtrade_enrich":
@@ -92,7 +96,8 @@ async function runJob(
     applyValueAliasesCategoryId?: string;
     applyValueAliasesAttributeId?: string;
     iponScrapeRunUntilQueueEmpty?: boolean;
-  }
+  },
+  handle?: JobRunHandle
 ) {
   if (jobType === "ipon_import") {
     const { runIponImportProducts } = await import("lib/suppliers/ipon/importProducts");
@@ -127,6 +132,10 @@ async function runJob(
   if (jobType === "konzolvilag_import") {
     const { runKonzolvilagImportProducts } = await import("lib/suppliers/konzolvilag/importProducts");
     return runKonzolvilagImportProducts();
+  }
+  if (jobType === "alza_import") {
+    const { runAlzaImportProducts } = await import("lib/suppliers/alza/importProducts");
+    return runAlzaImportProducts(handle);
   }
   if (jobType === "comtrade_import") {
     const { runComtradeImportProducts } = await import("lib/suppliers/comtrade/importProducts");
@@ -222,17 +231,21 @@ export async function POST(request: Request) {
     }
     const { runId, value } = await withJobRun(
       { jobType, triggeredBy: "manual", supplierId: supplierIdForDashboardJob(jobType) },
-      async () =>
-        runJob(jobType, {
-          enrichmentCategoryId: body.enrichmentCategoryId,
-          enrichmentOverwrite: body.enrichmentOverwrite,
-          aiDescriptionsCategoryId: body.aiDescriptionsCategoryId,
-          aiDescriptionsOverwrite: body.aiDescriptionsOverwrite,
-          aiDescriptionsAutoApprove: body.aiDescriptionsAutoApprove,
-          applyValueAliasesCategoryId: body.applyValueAliasesCategoryId,
-          applyValueAliasesAttributeId: body.applyValueAliasesAttributeId,
-          iponScrapeRunUntilQueueEmpty: body.iponScrapeRunUntilQueueEmpty
-        })
+      async (handle) =>
+        runJob(
+          jobType,
+          {
+            enrichmentCategoryId: body.enrichmentCategoryId,
+            enrichmentOverwrite: body.enrichmentOverwrite,
+            aiDescriptionsCategoryId: body.aiDescriptionsCategoryId,
+            aiDescriptionsOverwrite: body.aiDescriptionsOverwrite,
+            aiDescriptionsAutoApprove: body.aiDescriptionsAutoApprove,
+            applyValueAliasesCategoryId: body.applyValueAliasesCategoryId,
+            applyValueAliasesAttributeId: body.applyValueAliasesAttributeId,
+            iponScrapeRunUntilQueueEmpty: body.iponScrapeRunUntilQueueEmpty
+          },
+          handle
+        )
     );
     return NextResponse.json({ success: true, runId, result: value });
   } catch (err) {

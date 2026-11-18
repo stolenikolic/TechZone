@@ -18,6 +18,7 @@ on:
           - pcland_import
           - oazis_import
           - konzolvilag_import
+          - alza_import
           - comtrade_import
           - comtrade_price_sync
           - avtera_import
@@ -75,6 +76,12 @@ jobs:
           cache: "npm"
       - run: npm ci
       - run: node --version
+      - uses: actions/setup-python@v5
+        if: inputs.job == 'alza_import'
+        with:
+          python-version: "3.12"
+      - if: inputs.job == 'alza_import'
+        run: pip install -r scripts/alza/requirements.txt
       - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
       - run: |
           case "${{ inputs.job }}" in
@@ -85,6 +92,7 @@ jobs:
             pcland_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-pcland-import-products.ts ;;
             oazis_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-oazis-import-products.ts ;;
             konzolvilag_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-konzolvilag-import-products.ts ;;
+            alza_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-alza-import-products.ts ;;
             comtrade_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-comtrade-import-products.ts ;;
             comtrade_price_sync) npx tsx -r ./scripts/register-ws.cjs scripts/run-comtrade-price-sync.ts ;;
             avtera_import) npx tsx -r ./scripts/register-ws.cjs scripts/run-avtera-import-products.ts ;;

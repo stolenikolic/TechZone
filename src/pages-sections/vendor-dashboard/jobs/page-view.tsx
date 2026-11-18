@@ -32,6 +32,7 @@ const JOB_TYPES = [
   "pcland_import",
   "oazis_import",
   "konzolvilag_import",
+  "alza_import",
   "comtrade_import",
   "comtrade_price_sync",
   "comtrade_enrich",
