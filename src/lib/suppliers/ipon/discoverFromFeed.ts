@@ -147,40 +147,50 @@ function takeSpread(items: DirectItem[], limit: number): IponFeedProduct[] {
   return chosen;
 }
 
+// Keyset, not OFFSET. OFFSET re-reads every skipped row, so a middle page of the
+// ~100k pending ids takes 4–5s and trips the PostgREST 8s statement timeout.
 async function loadSupplierProductIds(supabase: SupabaseClient): Promise<Set<string>> {
   const ids = new Set<string>();
-  let offset = 0;
+  let cursor: string | null = null;
   for (;;) {
-    const { data, error } = await withPostgrestTransientRetry("discovery.supplier-ids", async () =>
-      supabase
+    const { data, error } = await withPostgrestTransientRetry("discovery.supplier-ids", async () => {
+      let query = supabase
         .from("supplier_products")
         .select("supplier_product_id")
         .eq("supplier_id", IPON_SUPPLIER_ID)
-        .order("supplier_product_id", { ascending: true })
-        .range(offset, offset + DB_PAGE - 1)
-    );
+        .order("supplier_product_id", { ascending: true, nullsFirst: false })
+        .limit(DB_PAGE);
+      if (cursor) query = query.gt("supplier_product_id", cursor);
+      return query;
+    });
     if (error) throw new Error(`supplier_products ids: ${error.message}`);
     const page = (data ?? []) as Array<{ supplier_product_id: string | null }>;
+    let lastId: string | null = null;
     for (const row of page) {
-      if (row.supplier_product_id) ids.add(String(row.supplier_product_id));
+      if (!row.supplier_product_id) continue;
+      const id = String(row.supplier_product_id);
+      ids.add(id);
+      lastId = id;
     }
-    if (page.length < DB_PAGE) break;
-    offset += page.length;
+    if (page.length < DB_PAGE || !lastId || lastId === cursor) break;
+    cursor = lastId;
   }
   return ids;
 }
 
 async function loadPendingState(supabase: SupabaseClient): Promise<Map<string, PendingState>> {
   const states = new Map<string, PendingState>();
-  let offset = 0;
+  let cursor: string | null = null;
   for (;;) {
-    const { data, error } = await withPostgrestTransientRetry("discovery.pending-ids", async () =>
-      supabase
+    const { data, error } = await withPostgrestTransientRetry("discovery.pending-ids", async () => {
+      let query = supabase
         .from("ipon_feed_pending")
         .select("supplier_product_id, reason, product_group, attempts")
         .order("supplier_product_id", { ascending: true })
-        .range(offset, offset + DB_PAGE - 1)
-    );
+        .limit(DB_PAGE);
+      if (cursor) query = query.gt("supplier_product_id", cursor);
+      return query;
+    });
     if (error) throw new Error(`ipon_feed_pending ids: ${error.message}`);
     const page = (data ?? []) as Array<{
       supplier_product_id: string;
@@ -195,8 +205,9 @@ async function loadPendingState(supabase: SupabaseClient): Promise<Map<string, P
         attempts: row.attempts ?? 0
       });
     }
-    if (page.length < DB_PAGE) break;
-    offset += page.length;
+    const lastId = page.length > 0 ? String(page[page.length - 1]!.supplier_product_id) : null;
+    if (page.length < DB_PAGE || !lastId || lastId === cursor) break;
+    cursor = lastId;
   }
   return states;
 }

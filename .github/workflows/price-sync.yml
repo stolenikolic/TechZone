@@ -4,6 +4,7 @@
 # nad cijelim katalogom (~56k products) — otuda redovan "statement timeout" na reconcile-u i
 # na update_products_prices. Sada svaki supplier korak agregira/reconcile-uje samo proizvode
 # koje je taj run dirnuo (vidi aggregatePricesForProductIds(..., { reconcile: true })).
+# Dijeli concurrency group sa nightly-pipeline.yml, pa ne radi u isto vrijeme kad noćni lanac.
 
 name: Price sync (iPon, Avtera, ComTrade)
 
@@ -25,8 +26,10 @@ env:
   COMTRADE_PASSWORD: ${{ secrets.COMTRADE_PASSWORD }}
 
 concurrency:
-  group: price-sync
+  # Isti group kao nightly-pipeline.yml. Sync u 20:00 ne preklapa se sa noćnim lancem u 20:30.
+  group: nightly-price-sync
   cancel-in-progress: false
+  queue: max
 
 jobs:
   price_sync:

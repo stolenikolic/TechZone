@@ -1,7 +1,8 @@
 # Automatski noćni lanac — SAMO schedule (+ ručni "pokreni cijeli lanac" bez izbora joba).
 # Pojedinačni jobovi: background-jobs.yml (workflow_dispatch).
 # AI opisi nisu u lancu.
-# Uvozi idu paralelno. Match i iPon RSC scrape kreću kad uvozi završe, paralelno.
+# Uvozi idu paralelno. Cijeli workflow čeka price-sync.yml ako je sync još u toku.
+# Match i iPon RSC scrape kreću kad uvozi završe, paralelno.
 # Cijene čekaju match. Enrichment čeka cijene i scrape, pa mapira specifikacije koje scrape stigne upisati.
 
 name: Nightly pipeline
@@ -25,8 +26,11 @@ env:
   R2_PUBLIC_URL: ${{ secrets.R2_PUBLIC_URL }}
 
 concurrency:
-  group: nightly-pipeline
+  # Isti group kao price-sync.yml. Jedan čeka drugi, niko se ne gasi.
+  # Uvozi unutar ovog workflowa i dalje kreću paralelno.
+  group: nightly-price-sync
   cancel-in-progress: false
+  queue: max
 
 jobs:
   ipon_import:
