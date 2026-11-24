@@ -19,7 +19,7 @@ export default function ProductCard13({ product }: Props) {
 
   return (
     <CardRoot elevation={0}>
-      <Link href={`/products/${slug}`}>
+      <Link href={`/proizvodi/${slug}`}>
         {/* SALE CHIP */}
         <DiscountChip discount={discount} sx={{ top: 15, left: 15 }} />
 

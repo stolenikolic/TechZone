@@ -4,10 +4,10 @@ import axios from "utils/axiosInstance";
 import User from "models/User.model";
 
 const INFO_LIST = [
-  { title: "16", subtitle: "All Orders" },
-  { title: "02", subtitle: "Awaiting Payments" },
-  { title: "00", subtitle: "Awaiting Shipment" },
-  { title: "01", subtitle: "Awaiting Delivery" }
+  { title: "16", subtitle: "Sve narudžbe" },
+  { title: "02", subtitle: "Čeka uplatu" },
+  { title: "00", subtitle: "Čeka slanje" },
+  { title: "01", subtitle: "Čeka dostavu" }
 ];
 
 export const getUser = cache(async (): Promise<User> => {
@@ -18,7 +18,7 @@ export const getUser = cache(async (): Promise<User> => {
 export const getUserAnalytics = cache(async (id: string) => {
   return {
     balance: 5000,
-    type: "SILVER USER",
+    type: "Srebrni korisnik",
     orderSummary: INFO_LIST
   };
 });

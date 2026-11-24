@@ -16,7 +16,7 @@ export default async function Address({ searchParams }: Props) {
   const data = await api.getAddressList(+page || 1);
 
   if (!data || data.addressList.length === 0) {
-    return <div>Data not found</div>;
+    return <div>Nema sačuvanih adresa.</div>;
   }
 
   return <AddressPageView addresses={data.addressList} totalPages={data.totalPages} />;

@@ -4,21 +4,28 @@ import Card from "@mui/material/Card";
 import Grid from "@mui/material/Grid";
 import Avatar from "@mui/material/Avatar";
 import Typography from "@mui/material/Typography";
-// GLOBAL CUSTOM COMPONENTS
-import { FlexBetween, FlexBox } from "components/flex-box";
-// CUSTOM UTILS LIBRARY FUNCTION
-import { currency } from "lib";
+import { getOrderStatsForUser } from "lib/auth/customer-orders";
 // CUSTOM DATA MODEL
 import User from "models/User.model";
-// API FUNCTIONS
-import api from "utils/__api__/users";
 
 // ==============================================================
 type Props = { user: User };
 // ==============================================================
 
 export default async function UserAnalytics({ user }: Props) {
-  const { balance, orderSummary, type } = await api.getUserAnalytics(user.id);
+  const stats = await getOrderStatsForUser(user.id).catch(() => ({
+    total: 0,
+    pending: 0,
+    processing: 0,
+    delivered: 0
+  }));
+
+  const orderSummary = [
+    { title: String(stats.total), subtitle: "Sve narudžbe" },
+    { title: String(stats.pending), subtitle: "Na čekanju" },
+    { title: String(stats.processing), subtitle: "U obradi" },
+    { title: String(stats.delivered), subtitle: "Isporučeno" }
+  ];
 
   return (
     <Grid container spacing={3}>
@@ -39,30 +46,7 @@ export default async function UserAnalytics({ user }: Props) {
             <Image fill alt={user.name.firstName} src={user.avatar} sizes="(65px, 65px)" />
           </Avatar>
 
-          <FlexBetween flexWrap="wrap" flex={1}>
-            <div>
-              <Typography variant="h5">{`${user.name.firstName} ${user.name.lastName}`}</Typography>
-
-              <FlexBox alignItems="center" gap={1}>
-                <Typography variant="body1" color="text.secondary">
-                  Balance:
-                </Typography>
-
-                <Typography fontWeight={500} lineHeight={2} variant="body1" color="primary">
-                  {currency(balance)}
-                </Typography>
-              </FlexBox>
-            </div>
-
-            <Typography
-              variant="body1"
-              letterSpacing={3}
-              color="text.secondary"
-              textTransform="uppercase"
-            >
-              {type}
-            </Typography>
-          </FlexBetween>
+          <Typography variant="h5">{`${user.name.firstName} ${user.name.lastName}`}</Typography>
         </Card>
       </Grid>
 

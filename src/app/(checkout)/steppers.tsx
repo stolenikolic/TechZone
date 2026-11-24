@@ -37,17 +37,17 @@ const StyledChip = styled(Chip, {
 }));
 
 const STEPPER_LIST = [
-  { title: "Cart", disabled: false, path: "/cart" },
-  { title: "Details", disabled: false, path: "/checkout" },
-  { title: "Payment", disabled: false, path: "/payment" },
-  { title: "Review", disabled: true, path: "/orders" }
+  { title: "Korpa", disabled: false, path: "/korpa" },
+  { title: "Naplata", disabled: false, path: "/narudzba" },
+  { title: "Plaćanje", disabled: false, path: "/placanje" },
+  { title: "Pregled", disabled: true, path: "/narudzbe" }
 ];
 
 const PATH_TO_STEP: Record<string, number> = {
-  "/cart": 0,
-  "/orders": 3,
-  "/payment": 2,
-  "/checkout": 1
+  "/korpa": 0,
+  "/narudzbe": 3,
+  "/placanje": 2,
+  "/narudzba": 1
 };
 
 export default function Steppers() {

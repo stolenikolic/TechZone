@@ -66,7 +66,7 @@ export default function SearchPageSidebar({ filters }: Props) {
 
       {priceRange && (
         <>
-          <FilterSectionTitle title="Price Range" loading={pendingFilterKey === "prices"} sx={{ mb: 2 }} />
+          <FilterSectionTitle title="Raspon cijene" loading={pendingFilterKey === "prices"} sx={{ mb: 2 }} />
           <DualRangeSlider
             rangeMin={priceRange.min}
             rangeMax={priceRange.max}
@@ -84,7 +84,7 @@ export default function SearchPageSidebar({ filters }: Props) {
             onClick={() => setOpenBrand((state) => !state)}
             sx={FILTER_ACCORDION_HEADER_SX}
           >
-            <FilterSectionTitle title={brandFilter.name} loading={isSectionPending("brand")} />
+            <FilterSectionTitle title="Brend" loading={isSectionPending("brand")} />
           </AccordionHeader>
 
           <Collapse in={openBrand}>

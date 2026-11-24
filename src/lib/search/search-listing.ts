@@ -154,7 +154,7 @@ function buildFiltersPayload(allRows: SearchProductRow[]): SearchFiltersPayload 
   if (brandSet.size > 0) {
     filters.push({
       slug: "brand",
-      name: "Brand",
+      name: "Brend",
       values: Array.from(brandSet).sort((a, b) => a.localeCompare(b))
     });
   }

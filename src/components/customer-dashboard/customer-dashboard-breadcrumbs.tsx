@@ -7,11 +7,11 @@ import type { SiteBreadcrumbItem } from "components/site-breadcrumbs";
 function itemsFor(pathname: string): SiteBreadcrumbItem[] {
   const p = pathname.replace(/\/$/, "") || "/";
 
-  if (p === "/profile") return [{ label: "Profil" }];
-  if (p.startsWith("/profile/")) return [{ label: "Profil", href: "/profile" }, { label: "Detalji" }];
+  if (p === "/profil") return [{ label: "Profil" }];
+  if (p.startsWith("/profil/")) return [{ label: "Profil", href: "/profil" }, { label: "Detalji" }];
 
-  if (p === "/orders") return [{ label: "Porudžbine" }];
-  if (p.startsWith("/orders/")) return [{ label: "Porudžbine", href: "/orders" }, { label: "Detalji narudžbe" }];
+  if (p === "/narudzbe") return [{ label: "Narudžbe" }];
+  if (p.startsWith("/narudzbe/")) return [{ label: "Narudžbe", href: "/narudzbe" }, { label: "Detalji narudžbe" }];
 
   if (p === "/address") return [{ label: "Adrese" }];
   if (p.startsWith("/address/")) return [{ label: "Adrese", href: "/address" }, { label: "Adresa" }];
@@ -21,7 +21,7 @@ function itemsFor(pathname: string): SiteBreadcrumbItem[] {
     return [{ label: "Načini plaćanja", href: "/payment-methods" }, { label: "Detalji" }];
   }
 
-  if (p === "/wish-list") return [{ label: "Lista želja" }];
+  if (p === "/lista-zelja") return [{ label: "Lista želja" }];
 
   if (p === "/support-tickets") return [{ label: "Tiketi podrške" }];
   if (p.startsWith("/support-tickets/")) {

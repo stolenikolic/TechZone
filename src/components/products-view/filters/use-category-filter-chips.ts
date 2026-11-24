@@ -14,9 +14,9 @@ function normalizeBrandSlug(name: string): string {
 
 function formatFilterValue(slug: string, value: string): string {
   if (slug === "heatsink" && (value === "true" || value === "false")) {
-    return value === "true" ? "Yes" : "No";
+    return value === "true" ? "Da" : "Ne";
   }
-  return value === "-" ? "N/A (SATA)" : value;
+  return value === "-" ? "Nije primjenjivo (SATA)" : value;
 }
 
 function getParam(

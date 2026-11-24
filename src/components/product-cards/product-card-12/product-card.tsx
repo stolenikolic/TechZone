@@ -17,7 +17,7 @@ export default function ProductCard12({ product }: Props) {
   const { slug, title, thumbnail, price, discount, rating } = product;
 
   return (
-    <Link href={`/products/${slug}`}>
+    <Link href={`/proizvodi/${slug}`}>
       <ImageWrapper>
         <LazyImage alt={title} width={380} height={379} src={thumbnail} />
       </ImageWrapper>

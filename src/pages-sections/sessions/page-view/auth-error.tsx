@@ -15,7 +15,7 @@ export default function AuthErrorPageView({ message }: Props) {
       <Typography variant="body1" color="text.secondary" sx={{ mb: 4, textAlign: "center" }}>
         {message}
       </Typography>
-      <Button component={Link} href="/login" fullWidth size="large" variant="contained" color="primary">
+      <Button component={Link} href="/prijava" fullWidth size="large" variant="contained" color="primary">
         Nazad na prijavu
       </Button>
     </>

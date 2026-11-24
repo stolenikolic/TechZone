@@ -25,7 +25,7 @@ export default function HoverActions({ slug }: Props) {
     <Fragment>
       <StyledIconButton
         className="product-actions"
-        onClick={() => router.push(`/products/${slug}/view`, { scroll: false })}
+        onClick={() => router.push(`/proizvodi/${slug}/view`, { scroll: false })}
       >
         <RemoveRedEye color="disabled" fontSize="small" />
       </StyledIconButton>

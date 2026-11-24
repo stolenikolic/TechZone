@@ -470,8 +470,8 @@ export async function PATCH(
     }
 
     // Invalidate key storefront surfaces that cache product/category/search listings.
-    revalidatePath(`/products/${slug}`);
-    revalidatePath(`/categories`, "layout");
+    revalidatePath(`/proizvodi/${slug}`);
+    revalidatePath(`/kategorije`, "layout");
     revalidatePath(`/api/categories`);
     revalidatePath(`/api/search`);
     revalidateTag(SEARCH_RESULTS_CACHE_TAG, "max");

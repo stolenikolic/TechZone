@@ -54,10 +54,10 @@ export default function ProductOfferChoices({ productOffers, selected, onSelect 
           variant={selected === "cheapest" ? "filled" : "outlined"}
         />
 
-        <Tooltip title={sameOffer ? "Najbrza dostava je ista kao najjeftinija." : ""} disableHoverListener={!sameOffer}>
+        <Tooltip title={sameOffer ? "Najbrža dostava je ista kao najjeftinija." : ""} disableHoverListener={!sameOffer}>
           <span>
             <Chip
-              label="Najbrza dostava"
+              label="Najbrža dostava"
               size="small"
               color="primary"
               disabled={sameOffer}

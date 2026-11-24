@@ -14,7 +14,7 @@ type Props = { user: User };
 export function ProfilePageView({ user }: Props) {
   return (
     <Fragment>
-      <DashboardHeader title="My Profile" Icon={User3} />
+      <DashboardHeader title="Moj profil" Icon={User3} />
       <UserAnalytics user={user} />
       <UserInfo user={user} />
     </Fragment>

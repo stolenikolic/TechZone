@@ -62,7 +62,7 @@ export default function AddToCart({ product, qty = 1, selectedOffer, offerChoice
       onClick={handleAddToCart}
       sx={{ px: "1.75rem", height: 40 }}
     >
-      Add to Cart
+      Dodaj u korpu
     </Button>
   );
 }

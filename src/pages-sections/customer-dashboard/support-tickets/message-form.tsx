@@ -11,7 +11,7 @@ import { FormProvider, TextField } from "components/form-hook";
 const initialValues = { message: "" };
 
 const validationSchema = yup.object().shape({
-  message: yup.string().required("Message is required")
+  message: yup.string().required("Poruka je obavezna")
 });
 
 export default function MessageForm() {
@@ -36,12 +36,12 @@ export default function MessageForm() {
         fullWidth
         multiline
         name="message"
-        placeholder="Write your message here..."
+        placeholder="Napišite poruku ovdje..."
         sx={{ mb: 3 }}
       />
 
       <Button size="large" loading={isSubmitting} type="submit" color="primary" variant="contained">
-        Post message
+        Pošalji poruku
       </Button>
     </FormProvider>
   );

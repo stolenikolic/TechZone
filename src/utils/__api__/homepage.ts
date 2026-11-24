@@ -24,21 +24,21 @@ import Shop from "models/Shop.model";
 const MAIN_CAROUSEL_FALLBACK: HeroCarouselItem[] = [
   {
     id: "fallback-hero-1",
-    title: "Tech Deals",
+    title: "Tehnološke akcije",
     imgUrl: "/assets/images/hero/hero-1.jpg",
-    category: "Electronics",
-    buttonLink: "/products",
-    buttonLabel: "EXPLORE NOW",
-    description: "Discover the latest gadgets and tech essentials."
+    category: "Elektronika",
+    buttonLink: "/pretraga",
+    buttonLabel: "POGLEDAJ PONUDU",
+    description: "Najnoviji uređaji i oprema na jednom mjestu."
   },
   {
     id: "fallback-hero-2",
-    title: "New Arrivals",
+    title: "Novo u ponudi",
     imgUrl: "/assets/images/hero/hero-2.jpg",
-    category: "Featured",
-    buttonLink: "/products",
-    buttonLabel: "EXPLORE NOW",
-    description: "Explore new products and exclusive offers."
+    category: "Izdvojeno",
+    buttonLink: "/pretraga",
+    buttonLabel: "POGLEDAJ PONUDU",
+    description: "Novi proizvodi i posebne ponude."
   }
 ];
 

@@ -15,8 +15,8 @@ import { useAuth } from "contexts/AuthContext";
 import { signInWithEmail, resendSignupConfirmation } from "lib/auth/actions";
 
 const validationSchema = yup.object().shape({
-  password: yup.string().required("Password is required"),
-  email: yup.string().email("Invalid Email Address").required("Email is required")
+  password: yup.string().required("Lozinka je obavezna"),
+  email: yup.string().email("Neispravna e-mail adresa").required("E-mail je obavezan")
 });
 
 /** Safe internal path from ?next=, or null to close modal / stay on current page. */
@@ -52,7 +52,7 @@ export default function LoginPageView() {
     setResendMessage(null);
     const { error: resendError } = await resendSignupConfirmation(unconfirmedEmail);
     setResendMessage(
-      resendError ? resendError.message : "Confirmation link has been sent again."
+      resendError ? resendError.message : "Link za potvrdu je ponovo poslat."
     );
   };
 
@@ -67,7 +67,9 @@ export default function LoginPageView() {
       const msg = signInError.message.toLowerCase();
       if (msg.includes("email not confirmed") || msg.includes("not confirmed")) {
         setUnconfirmedEmail(values.email);
-        setError("Email is not confirmed. Check your inbox or resend the link.");
+        setError("E-mail nije potvrđen. Provjerite pristiglu poštu ili pošaljite link ponovo.");
+      } else if (msg.includes("invalid login credentials") || msg.includes("invalid credentials")) {
+        setError("Pogrešan e-mail ili lozinka.");
       } else {
         setError(signInError.message);
       }
@@ -75,7 +77,7 @@ export default function LoginPageView() {
     }
 
     if (!data.session) {
-      setError("Login failed. Please try again.");
+      setError("Prijava nije uspjela. Pokušajte ponovo.");
       return;
     }
 
@@ -101,7 +103,7 @@ export default function LoginPageView() {
           {error}
           {unconfirmedEmail && (
             <Button size="small" onClick={handleResend} sx={{ mt: 1, display: "block" }}>
-              Resend confirmation link
+              Pošalji link za potvrdu ponovo
             </Button>
           )}
         </Alert>
@@ -113,18 +115,18 @@ export default function LoginPageView() {
       )}
 
       <div className="mb-1">
-        <Label>Email or Phone Number</Label>
+        <Label>E-mail ili broj telefona</Label>
         <TextField
           fullWidth
           name="email"
           type="email"
           size="medium"
-          placeholder="exmple@mail.com"
+          placeholder="primjer@mail.com"
         />
       </div>
 
       <div className="mb-2">
-        <Label>Password</Label>
+        <Label>Lozinka</Label>
         <TextField
           fullWidth
           size="medium"
@@ -148,7 +150,7 @@ export default function LoginPageView() {
         variant="contained"
         loading={isSubmitting}
       >
-        Login
+        Prijava
       </Button>
     </FormProvider>
   );

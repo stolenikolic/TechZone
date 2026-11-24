@@ -13,7 +13,7 @@ type Props = { payment: Payment };
 export function PaymentDetailsPageView({ payment }: Props) {
   return (
     <Fragment>
-      <DashboardHeader title="Add New Payment" href="/payment-methods" />
+      <DashboardHeader title="Uredi način plaćanja" href="/payment-methods" />
 
       <Card sx={{ padding: { xs: 3, sm: 4 } }}>
         <PaymentForm payment={payment} />

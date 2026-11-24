@@ -7,7 +7,8 @@ import ProductSpecifications from "../product-specifications/product-specificati
 import ProductReviews from "../product-reviews";
 import AvailableShops from "../available-shops";
 import RelatedProducts from "../related-products";
-import FrequentlyBought from "../frequently-bought";
+// Često kupovano je isključeno dok se ne osposobi.
+// import FrequentlyBought from "../frequently-bought";
 import ProductDescription from "../product-description";
 import ProductFaq from "../product-faq";
 import SiteBreadcrumbs from "components/site-breadcrumbs/site-breadcrumbs";
@@ -19,8 +20,8 @@ import { getLeafCategoryHref } from "lib/shop/category-filter-url";
 // ==============================================================
 interface Props {
   product: Product;
-  relatedProducts: Product[];
-  frequentlyBought: Product[];
+  relatedProducts?: Product[];
+  frequentlyBought?: Product[];
 }
 // ==============================================================
 
@@ -32,7 +33,7 @@ export default function ProductDetailsPageView(props: Props) {
 
   const breadcrumbItems: SiteBreadcrumbItem[] = [
     ...(product.parentCategory
-      ? [{ label: product.parentCategory.name, href: `/categories/${product.parentCategory.slug}` }]
+      ? [{ label: product.parentCategory.name, href: `/kategorije/${product.parentCategory.slug}` }]
       : []),
     ...(product.category && leafHref ? [{ label: product.category.name, href: leafHref }] : []),
     { label: product.title }
@@ -64,14 +65,14 @@ export default function ProductDetailsPageView(props: Props) {
         hasFaq={hasFaq}
       />
 
-      {/* FREQUENTLY BOUGHT PRODUCTS AREA */}
-      <FrequentlyBought products={props.frequentlyBought} />
+      {/* ČESTO SE KUPUJU ZAJEDNO — isključeno
+      <FrequentlyBought products={props.frequentlyBought ?? []} />
+      */}
 
       {/* AVAILABLE SHOPS AREA */}
       <AvailableShops />
 
-      {/* RELATED PRODUCTS AREA */}
-      <RelatedProducts products={props.relatedProducts} />
+      <RelatedProducts products={props.relatedProducts ?? []} />
     </Container>
   );
 }

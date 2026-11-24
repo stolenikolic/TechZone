@@ -35,7 +35,7 @@ export default function ProductPurchaseBlock({
   const offers = product.productOffers;
 
   const warrantyLine =
-    offers?.warrantyTrustLabel ?? "Warranty: 36 months";
+    offers?.warrantyTrustLabel ?? "Garancija: 36 mjeseci";
 
   return (
     <Stack spacing={1.5} sx={{ mb: 4.5 }}>
@@ -74,7 +74,7 @@ export default function ProductPurchaseBlock({
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
           <Lock fontSize="small" sx={{ color: "text.secondary" }} />
-          Secure payment
+          Sigurno plaćanje
         </Typography>
       </Stack>
     </Stack>

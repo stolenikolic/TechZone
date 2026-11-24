@@ -22,7 +22,7 @@ export default function ProductCard7({ product }: Props) {
 
   return (
     <StyledCard>
-      <Link href={`/products/${slug}`}>
+      <Link href={`/proizvodi/${slug}`}>
         <ImageWrapper>
           {/* PRODUCT BADGE STATUS IF STATUS AVAILABLE */}
           <ProductStatus status={status!} />
@@ -40,7 +40,7 @@ export default function ProductCard7({ product }: Props) {
       <ContentWrapper>
         <div className="content">
           {/* PRODUCT TITLE / NAME */}
-          <Link href={`/products/${slug}`}>
+          <Link href={`/proizvodi/${slug}`}>
             <Typography noWrap variant="h3">
               {title}
             </Typography>

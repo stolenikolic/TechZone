@@ -7,7 +7,7 @@ type Props = { title: string; slug: string };
 
 export default function ProductTitle({ title, slug }: Props) {
   return (
-    <Link href={`/products/${slug}`}>
+    <Link href={`/proizvodi/${slug}`}>
       <Typography noWrap variant="h6" className="title" color="textSecondary">
         {title}
       </Typography>

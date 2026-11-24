@@ -8,7 +8,7 @@ type Props = { tags: string[] };
 
 export default function ProductTags({ tags }: Props) {
   return (
-    <TagRoot aria-label="Product categories and brand">
+    <TagRoot aria-label="Kategorije i brend proizvoda">
       {tags.map((item, index) => (
         <Typography key={`${item}-${index}`} component="span" variant="caption" color="text.secondary">
           {index > 0 ? " · " : null}

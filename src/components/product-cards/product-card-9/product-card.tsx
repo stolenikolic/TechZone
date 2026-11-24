@@ -78,7 +78,7 @@ export default function ProductCard9({ product }: Props) {
             <Chip
               size="small"
               color="info"
-              label={topPickLabel ?? "Top pick"}
+              label={topPickLabel ?? "Izdvojeno"}
               sx={{ position: "absolute", left: 15, top: discount ? 44 : 15, zIndex: 1 }}
             />
           ) : null}
@@ -92,7 +92,7 @@ export default function ProductCard9({ product }: Props) {
             {tags.length > 0 ? <ProductTags tags={tags} /> : null}
 
             {/* PRODUCT TITLE / NAME */}
-            <Link href={`/products/${slug}`}>
+            <Link href={`/proizvodi/${slug}`}>
               <Typography variant="h5" sx={{ mt: 1, mb: 2 }}>
                 {title}
               </Typography>

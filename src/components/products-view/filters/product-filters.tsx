@@ -42,7 +42,7 @@ function getCategoryChildHref(child: string | { title: string; href: string }) {
   return typeof child === "string" ? undefined : child.href;
 }
 
-/** True when pathname is under this parent's /categories/{slug} (from any child href). */
+/** True when pathname is under this parent's /kategorije/{slug} (from any child href). */
 function isCategoryActiveFromChildren(
   children: Array<string | { title: string; href: string }>,
   pathname: string
@@ -59,10 +59,10 @@ function isCategoryActiveFromChildren(
 
 function formatFilterValue(slug: string, value: string) {
   if (slug === "heatsink" && (value === "true" || value === "false")) {
-    return value === "true" ? "Yes" : "No";
+    return value === "true" ? "Da" : "Ne";
   }
 
-  return value === "-" ? "N/A (SATA)" : value;
+  return value === "-" ? "Nije primjenjivo (SATA)" : value;
 }
 
 const BRAND_VISIBLE_LIMIT = 5;
@@ -149,7 +149,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
     return (
       <div>
         <Typography variant="h6" sx={{ mb: 1.25 }}>
-          Categories
+          Kategorije
         </Typography>
         {CATEGORIES.map((item) =>
           item.children ? (
@@ -207,7 +207,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
         <Box component={Divider} my={3} />
         {priceRange && (
           <>
-            <FilterSectionTitle title="Price Range" loading={isSectionPending("prices")} sx={{ mb: 2 }} />
+            <FilterSectionTitle title="Raspon cijene" loading={isSectionPending("prices")} sx={{ mb: 2 }} />
             <DualRangeSlider
               rangeMin={priceRange.min}
               rangeMax={priceRange.max}
@@ -233,7 +233,10 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
                 onClick={() => setOpenFilterSlugs((state) => ({ ...state, [filter.slug]: !open }))}
                 sx={FILTER_ACCORDION_HEADER_SX}
               >
-                <FilterSectionTitle title={filter.name} loading={isSectionPending(filter.slug)} />
+                <FilterSectionTitle
+                  title={filter.slug === "brand" ? "Brend" : filter.name}
+                  loading={isSectionPending(filter.slug)}
+                />
               </AccordionHeader>
 
               <Collapse in={open}>
@@ -315,7 +318,7 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
             onClick={handleClearFilters}
             sx={{ mt: 4 }}
           >
-            Clear all filters
+            Očisti sve filtere
           </Button>
         )}
       </div>

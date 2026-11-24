@@ -19,7 +19,7 @@ export default function ProductCard({ product }: Props) {
 
   return (
     <RootStyle>
-      <Link href={`/products/${slug}`}>
+      <Link href={`/proizvodi/${slug}`}>
         <div className="img-wrapper">
           <LazyImage width={100} height={100} alt="product" src={thumbnail} />
         </div>

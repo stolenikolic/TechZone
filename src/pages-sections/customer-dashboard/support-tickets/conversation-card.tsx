@@ -2,6 +2,7 @@ import Image from "next/image";
 import Avatar from "@mui/material/Avatar";
 import Typography from "@mui/material/Typography";
 import { format } from "date-fns/format";
+import { bs } from "date-fns/locale/bs";
 // GLOBAL CUSTOM COMPONENTS
 import FlexBox from "components/flex-box/flex-box";
 // CUSTOM DATA MODEL
@@ -24,7 +25,7 @@ export default function ConversationCard({ message }: Props) {
         <Typography variant="h5">{name}</Typography>
 
         <Typography variant="body1" lineHeight={2} color="text.secondary">
-          {format(new Date(date), "hh:mm:a | dd MMM yyyy")}
+          {format(new Date(date), "HH:mm | d. MMM yyyy.", { locale: bs })}
         </Typography>
 
         <Typography

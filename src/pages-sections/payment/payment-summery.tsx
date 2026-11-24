@@ -25,10 +25,10 @@ export default function PaymentSummary() {
         padding: { sm: 3, xs: 2 }
       }}
     >
-      <PaymentItem title="Subtotal:" amount={subtotal} />
-      <PaymentItem title="Shipping:" amount={shipping} />
-      <PaymentItem title="Tax:" amount={0} />
-      <PaymentItem title="Discount:" amount={0} />
+      <PaymentItem title="Međuzbir:" amount={subtotal} />
+      <PaymentItem title="Dostava:" amount={shipping} />
+      <PaymentItem title="Porez:" amount={0} />
+      <PaymentItem title="Popust:" amount={0} />
 
       <Divider sx={{ my: 2 }} />
 

@@ -23,10 +23,10 @@ import { FlexBetween, FlexBox } from "components/flex-box";
 import type Product from "models/Product.model";
 
 const SORT_OPTIONS = [
-  { label: "Relevance", value: "relevance" },
-  { label: "Date", value: "date" },
-  { label: "Price Low to High", value: "asc" },
-  { label: "Price High to Low", value: "desc" }
+  { label: "Relevantnost", value: "relevance" },
+  { label: "Datum", value: "date" },
+  { label: "Cijena: od niže ka višoj", value: "asc" },
+  { label: "Cijena: od više ka nižoj", value: "desc" }
 ];
 
 export interface CategoryProductsSectionProps {
@@ -95,7 +95,7 @@ export default function CategoryProductsSection({
             {title}
           </Typography>
           <Typography variant="body1" sx={{ color: "grey.600" }}>
-            {totalProducts} results found
+            {totalProducts} rezultata
           </Typography>
         </div>
 
@@ -103,7 +103,7 @@ export default function CategoryProductsSection({
           <FlexBox alignItems="center" columnGap={4} flexWrap="wrap">
             <FlexBox alignItems="center" gap={1} flex="1 1 0">
               <Typography variant="body1" sx={{ color: "grey.600", whiteSpace: "pre" }}>
-                Sort by:
+                Sortiraj:
               </Typography>
               <TextField
                 select
@@ -126,10 +126,10 @@ export default function CategoryProductsSection({
               <Typography variant="body1" sx={{ color: "grey.600", mr: 1 }}>
                 Prikaz:
               </Typography>
-              <IconButton onClick={() => handleViewChange("grid")} aria-label="Grid view">
+              <IconButton onClick={() => handleViewChange("grid")} aria-label="Prikaz mreže">
                 <Apps fontSize="small" color={view === "grid" ? "primary" : "inherit"} />
               </IconButton>
-              <IconButton onClick={() => handleViewChange("list")} aria-label="List view">
+              <IconButton onClick={() => handleViewChange("list")} aria-label="Prikaz liste">
                 <ViewList fontSize="small" color={view === "list" ? "primary" : "inherit"} />
               </IconButton>
             </FlexBox>
@@ -170,10 +170,10 @@ export default function CategoryProductsSection({
               <Typography variant="body1" sx={{ color: "grey.600", mr: 0.5 }}>
                 Prikaz:
               </Typography>
-              <IconButton onClick={() => handleViewChange("grid")} aria-label="Grid view">
+              <IconButton onClick={() => handleViewChange("grid")} aria-label="Prikaz mreže">
                 <Apps fontSize="small" color={view === "grid" ? "primary" : "inherit"} />
               </IconButton>
-              <IconButton onClick={() => handleViewChange("list")} aria-label="List view">
+              <IconButton onClick={() => handleViewChange("list")} aria-label="Prikaz liste">
                 <ViewList fontSize="small" color={view === "list" ? "primary" : "inherit"} />
               </IconButton>
             </FlexBox>

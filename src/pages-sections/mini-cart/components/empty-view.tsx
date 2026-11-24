@@ -13,7 +13,7 @@ export default function EmptyCartView() {
       justifyContent="center"
       height="calc(100% - 74px)"
     >
-      <Image width={90} height={100} alt="banner" src="/assets/images/logos/shopping-bag.svg" />
+      <Image width={90} height={100} alt="Prazna korpa" src="/assets/images/logos/shopping-bag.svg" />
 
       <Typography
         variant="body1"
@@ -25,12 +25,12 @@ export default function EmptyCartView() {
           textAlign: "center"
         }}
       >
-        No products in the cart
+        Nema proizvoda u korpi
       </Typography>
 
-      <Link href="/products/search">
+      <Link href="/pretraga">
         <Button variant="contained" color="primary">
-          Continue Shopping
+          Nastavi kupovinu
         </Button>
       </Link>
     </FlexBox>

@@ -108,11 +108,11 @@ export default function SalesLayout({ children, data }: Props) {
         </Footer1.Brand>
 
         <Footer1.Widget1>
-          <FooterLinksWidget title="About Us" links={footer.about} />
+          <FooterLinksWidget title="O nama" links={footer.about} />
         </Footer1.Widget1>
 
         <Footer1.Widget2>
-          <FooterLinksWidget title="Customer Care" links={footer.customers} />
+          <FooterLinksWidget title="Podrška kupcima" links={footer.customers} />
         </Footer1.Widget2>
 
         <Footer1.Contact>
@@ -132,7 +132,7 @@ export default function SalesLayout({ children, data }: Props) {
             variant="body2"
             sx={{ py: 3, textAlign: "center", span: { fontWeight: 500 } }}
           >
-            &copy; Copyright {new Date().getFullYear()} <span>UI Lib</span>, All rights reserved.
+            &copy; {new Date().getFullYear()} <span>Tech Zone</span>. Sva prava zadržana.
           </Typography>
         </Footer1.Copyright>
       </Footer1>

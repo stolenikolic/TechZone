@@ -54,11 +54,11 @@ function buildCategoryBreadcrumbItems(
 ): SiteBreadcrumbItem[] {
   const trail = getCategoryBreadcrumbTrail(categories, pathSegments);
   if (!trail.length) {
-    return [{ label: "Kategorije", href: "/categories" }, { label: fallbackTitle }];
+    return [{ label: "Kategorije", href: "/kategorije" }, { label: fallbackTitle }];
   }
   return [
-    { label: "Kategorije", href: "/categories" },
-    ...trail.slice(0, -1).map((t) => ({ label: t.name, href: `/categories/${t.slugPath}` })),
+    { label: "Kategorije", href: "/kategorije" },
+    ...trail.slice(0, -1).map((t) => ({ label: t.name, href: `/kategorije/${t.slugPath}` })),
     { label: trail[trail.length - 1].name }
   ];
 }
@@ -80,7 +80,7 @@ function buildFiltersCategories(
               ? c
               : {
                   title: c.name,
-                  href: c.href ?? `/categories/${item.slug}/${c.slug}`
+                  href: c.href ?? `/kategorije/${item.slug}/${c.slug}`
                 })
         : undefined;
     return { title: item.name, ...(children?.length ? { children } : {}) };
@@ -125,7 +125,7 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePar
   }
   const payload = metaResult;
 
-  const basePath = `/categories/${categoryPath}`;
+  const basePath = `/kategorije/${categoryPath}`;
   const seoPath =
     filterSegments.length > 0 ? `${basePath}/${filterSegments.join("/")}` : basePath;
   const canonical =

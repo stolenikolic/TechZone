@@ -14,11 +14,11 @@ import { FormProvider, TextField } from "components/form-hook";
 import User from "models/User.model";
 
 const validationSchema = yup.object().shape({
-  firstName: yup.string().required("First name is required"),
-  lastName: yup.string().required("Last name is required"),
-  email: yup.string().email("invalid email").required("Email is required"),
-  contact: yup.string().required("Contact is required"),
-  birthOfDate: yup.date().required("Birth date is required")
+  firstName: yup.string().required("Ime je obavezno"),
+  lastName: yup.string().required("Prezime je obavezno"),
+  email: yup.string().email("Neispravna e-mail adresa").required("E-mail je obavezan"),
+  contact: yup.string().required("Telefon je obavezan"),
+  birthOfDate: yup.date().required("Datum rođenja je obavezan")
 });
 
 // ==============================================================
@@ -53,19 +53,19 @@ export default function ProfileEditForm({ user }: Props) {
     <FormProvider methods={methods} onSubmit={handleSubmitForm}>
       <Grid container spacing={3}>
         <Grid size={{ md: 6, xs: 12 }}>
-          <TextField size="medium" fullWidth name="firstName" label="First Name" />
+          <TextField size="medium" fullWidth name="firstName" label="Ime" />
         </Grid>
 
         <Grid size={{ md: 6, xs: 12 }}>
-          <TextField size="medium" fullWidth name="lastName" label="Last Name" />
+          <TextField size="medium" fullWidth name="lastName" label="Prezime" />
         </Grid>
 
         <Grid size={{ md: 6, xs: 12 }}>
-          <TextField size="medium" fullWidth name="email" type="email" label="Email" />
+          <TextField size="medium" fullWidth name="email" type="email" label="E-mail" />
         </Grid>
 
         <Grid size={{ md: 6, xs: 12 }}>
-          <TextField size="medium" fullWidth label="Phone" name="contact" />
+          <TextField size="medium" fullWidth label="Telefon" name="contact" />
         </Grid>
 
         <Grid size={{ md: 6, xs: 12 }}>
@@ -75,7 +75,7 @@ export default function ProfileEditForm({ user }: Props) {
             render={({ field, fieldState: { error } }) => (
               <DatePicker
                 {...field}
-                label="Birth Date"
+                label="Datum rođenja"
                 enableAccessibleFieldDOMStructure={false}
                 slots={{ textField: MuiTextField }}
                 slotProps={{
@@ -101,7 +101,7 @@ export default function ProfileEditForm({ user }: Props) {
             variant="contained"
             loading={isSubmitting}
           >
-            Save Changes
+            Sačuvaj izmjene
           </Button>
         </Grid>
       </Grid>

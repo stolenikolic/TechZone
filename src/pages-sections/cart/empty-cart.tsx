@@ -35,15 +35,15 @@ export default function EmptyCart() {
       </IconWrapper>
 
       <Typography variant="body1" fontSize={24} fontWeight={600}>
-        Your cart is empty
+        Korpa je prazna
       </Typography>
 
       <Typography variant="body1" fontSize={16} color="text.secondary" sx={{ mb: 3 }}>
-        Looks like you haven't added anything to your cart yet.
+        Još niste dodali nijedan proizvod u korpu.
       </Typography>
 
-      <Button variant="contained" color="primary" href="/products" LinkComponent={Link}>
-        Start Shopping
+      <Button variant="contained" color="primary" href="/pretraga" LinkComponent={Link}>
+        Kreni u kupovinu
       </Button>
     </EmptyCartWrapper>
   );

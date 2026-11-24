@@ -14,7 +14,7 @@ type Props = { order: Order };
 export function OrderDetailsPageView({ order }: Props) {
   return (
     <Fragment>
-      <DashboardHeader href="/orders" title="Order Details" />
+      <DashboardHeader href="/narudzbe" title="Detalji narudžbe" />
 
       <OrderProgress
         status={order.status}

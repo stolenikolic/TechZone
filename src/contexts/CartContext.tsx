@@ -179,11 +179,14 @@ const reducer = (state: InitialState, action: CartActionType) => {
       const updatedCart = state.cart.filter((item) => !unavailableSet.has(item.id));
       const removedCount = existingCount - updatedCart.length;
       if (removedCount <= 0) return state;
-      const noun = removedCount === 1 ? "item" : "items";
+      const warning =
+        removedCount === 1
+          ? "1 stavka je uklonjena iz korpe jer više nije dostupna."
+          : `${removedCount} stavki je uklonjeno iz korpe jer više nisu dostupne.`;
       return {
         ...state,
         cart: updatedCart,
-        warning: `${removedCount} ${noun} removed from cart because no longer available.`
+        warning
       };
     }
     case "CLEAR_CART_WARNING": {

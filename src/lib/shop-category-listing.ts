@@ -217,7 +217,7 @@ export async function buildCategoryFiltersPayload(
   if (facets.brands.length > 0) {
     result.filters.push({
       slug: "brand",
-      name: "Brand",
+      name: "Brend",
       values: [...facets.brands].sort((a, b) => a.localeCompare(b))
     });
   }

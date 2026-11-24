@@ -5,12 +5,12 @@ import SiteBreadcrumbs from "components/site-breadcrumbs/site-breadcrumbs";
 import type { SiteBreadcrumbItem } from "components/site-breadcrumbs";
 
 const CRUMBS_BY_PATH: Record<string, SiteBreadcrumbItem[]> = {
-  "/cart": [{ label: "Korpa" }],
-  "/checkout": [{ label: "Korpa", href: "/cart" }, { label: "Naplata" }],
-  "/payment": [{ label: "Korpa", href: "/cart" }, { label: "Naplata", href: "/checkout" }, { label: "Plaćanje" }]
+  "/korpa": [{ label: "Korpa" }],
+  "/narudzba": [{ label: "Korpa", href: "/korpa" }, { label: "Naplata" }],
+  "/placanje": [{ label: "Korpa", href: "/korpa" }, { label: "Naplata", href: "/narudzba" }, { label: "Plaćanje" }]
 };
 
-/** Iznad steppera na /cart, /checkout, /payment — isti raspored kao dogovoreni koraci. */
+/** Iznad steppera na /korpa, /narudzba, /placanje — isti raspored kao dogovoreni koraci. */
 export default function CheckoutFlowBreadcrumbs() {
   const pathname = usePathname();
   const key = pathname?.replace(/\/$/, "") ?? "";

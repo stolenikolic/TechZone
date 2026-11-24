@@ -16,7 +16,7 @@ export default function RelatedProducts({ products }: Props) {
   return (
     <div className="mb-4">
       <Typography variant="h3" sx={{ mb: 3 }}>
-        Related Products
+        Slični proizvodi
       </Typography>
 
       <Grid container spacing={3}>

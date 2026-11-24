@@ -17,7 +17,7 @@ interface Props {
 export function OrdersPageView({ orders, totalPages }: Props) {
   return (
     <Fragment>
-      <DashboardHeader Icon={Packages} title="My Orders" />
+      <DashboardHeader Icon={Packages} title="Moje narudžbe" />
 
       {orders.map((order) => (
         <OrderRow order={order} key={order.id} />

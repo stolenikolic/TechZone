@@ -43,7 +43,7 @@ export default function ListItem({ sx, title, imgUrl, isSelected, ...others }: P
         />
       )}
 
-      <Typography noWrap variant="h5" sx={{ lineHeight: 1, textTransform: "capitalize" }}>
+      <Typography noWrap variant="h5" sx={{ lineHeight: 1 }}>
         {title}
       </Typography>
     </StyledCard>

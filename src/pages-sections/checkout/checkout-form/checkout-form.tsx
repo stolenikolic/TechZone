@@ -21,12 +21,12 @@ const SHOW_BILLING_ADDRESS = false;
 const DEFAULT_SHIPPING_COUNTRY = { label: "BiH", value: "BA" } as const;
 
 const validationSchema = yup.object().shape({
-  shipping_name: yup.string().required("Name is required"),
-  shipping_email: yup.string().email("invalid email").required("Email is required"),
-  shipping_contact: yup.string().required("Phone is required"),
-  shipping_zip: yup.string().required("Zip is required"),
-  shipping_address1: yup.string().required("Address is required"),
-  shipping_city: yup.string().required("City is required"),
+  shipping_name: yup.string().required("Ime je obavezno"),
+  shipping_email: yup.string().email("Neispravna e-mail adresa").required("E-mail je obavezan"),
+  shipping_contact: yup.string().required("Broj telefona je obavezan"),
+  shipping_zip: yup.string().required("Poštanski broj je obavezan"),
+  shipping_address1: yup.string().required("Adresa je obavezna"),
+  shipping_city: yup.string().required("Grad je obavezan"),
   delivery_notes: yup.string().optional()
 });
 
@@ -67,21 +67,21 @@ export default function CheckoutForm() {
         same_as_shipping: true
       })
     );
-    router.push("/payment");
+    router.push("/placanje");
   });
 
   return (
     <FormProvider methods={methods} onSubmit={handleSubmitForm}>
       <CardRoot elevation={0}>
         <Typography variant="h5" sx={{ mb: 2 }}>
-          Shipping Address
+          Adresa za dostavu
         </Typography>
 
         <FormWrapper>
           <TextField
             size="medium"
             fullWidth
-            label="Full Name"
+            label="Ime i prezime"
             name="shipping_name"
             autoComplete="name"
             {...shrinkLabelSlots}
@@ -89,7 +89,7 @@ export default function CheckoutForm() {
           <TextField
             size="medium"
             fullWidth
-            label="Phone Number"
+            label="Broj telefona"
             name="shipping_contact"
             autoComplete="tel"
             {...shrinkLabelSlots}
@@ -98,7 +98,7 @@ export default function CheckoutForm() {
             fullWidth
             type="email"
             size="medium"
-            label="Email Address"
+            label="E-mail adresa"
             name="shipping_email"
             autoComplete="email"
             {...shrinkLabelSlots}
@@ -106,7 +106,7 @@ export default function CheckoutForm() {
           <TextField
             size="medium"
             fullWidth
-            label="Address"
+            label="Adresa"
             name="shipping_address1"
             autoComplete="street-address"
             {...shrinkLabelSlots}
@@ -122,7 +122,7 @@ export default function CheckoutForm() {
           <TextField
             size="medium"
             fullWidth
-            label="Zip Code"
+            label="Poštanski broj"
             name="shipping_zip"
             autoComplete="postal-code"
             {...shrinkLabelSlots}
@@ -143,8 +143,8 @@ export default function CheckoutForm() {
 
       {SHOW_BILLING_ADDRESS ? (
         <CardRoot elevation={0}>
-          <Typography variant="h5">Billing Address</Typography>
-          <Typography color="text.secondary">Billing fields are disabled in this build.</Typography>
+          <Typography variant="h5">Adresa za naplatu</Typography>
+          <Typography color="text.secondary">Polja za naplatu su isključena u ovoj verziji.</Typography>
         </CardRoot>
       ) : null}
 
@@ -152,12 +152,12 @@ export default function CheckoutForm() {
         <Button
           size="large"
           fullWidth
-          href="/cart"
+          href="/korpa"
           color="primary"
           variant="outlined"
           LinkComponent={Link}
         >
-          Back to Cart
+          Nazad u korpu
         </Button>
 
         <Button
@@ -168,7 +168,7 @@ export default function CheckoutForm() {
           variant="contained"
           loading={isSubmitting}
         >
-          Proceed to Payment
+          Nastavi na plaćanje
         </Button>
       </ButtonWrapper>
     </FormProvider>

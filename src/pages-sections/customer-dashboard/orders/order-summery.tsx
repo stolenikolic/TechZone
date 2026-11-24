@@ -13,13 +13,22 @@ import Order from "models/Order.model";
 type Props = { order: Order };
 // ==============================================================
 
+function paymentLabel(method: string | undefined) {
+  const value = (method ?? "").trim().toLowerCase();
+  if (value === "cash on delivery" || value === "cod") return "Plaćanje pouzećem";
+  if (value.includes("card") || value.includes("credit") || value.includes("debit")) {
+    return "Plaćeno kreditnom ili debitnom karticom";
+  }
+  return method || "Plaćeno kreditnom ili debitnom karticom";
+}
+
 export default function OrderSummery({ order }: Props) {
   return (
     <Grid container spacing={3}>
       <Grid size={{ md: 6, xs: 12 }}>
         <Card elevation={0} sx={{ p: 3, border: "1px solid", borderColor: "grey.100" }}>
           <Typography variant="h5" sx={{ mb: 2 }}>
-            Shipping Address
+            Adresa za dostavu
           </Typography>
 
           <Typography variant="body1">{order.shippingAddress}</Typography>
@@ -29,21 +38,21 @@ export default function OrderSummery({ order }: Props) {
       <Grid size={{ md: 6, xs: 12 }}>
         <Card elevation={0} sx={{ p: 3, border: "1px solid", borderColor: "grey.100" }}>
           <Typography variant="h5" sx={{ mb: 2 }}>
-            Total Summary
+            Pregled iznosa
           </Typography>
 
-          <ListItem title="Subtotal:" value={currency(order.totalPrice)} />
-          <ListItem title="Shipping fee:" value={currency(0)} />
-          <ListItem title="Discount:" value={currency(order.discount)} />
+          <ListItem title="Međuzbir:" value={currency(order.subtotal ?? order.totalPrice)} />
+          <ListItem title="Dostava:" value={currency(order.shippingTotal ?? 0)} />
+          <ListItem title="Popust:" value={currency(order.discount)} />
 
           <Divider sx={{ mb: 1 }} />
 
           <FlexBetween mb={2}>
-            <Typography variant="h6">Total</Typography>
+            <Typography variant="h6">Ukupno</Typography>
             <Typography variant="h6">{currency(order.totalPrice)}</Typography>
           </FlexBetween>
 
-          <p>Paid by Credit/Debit Card</p>
+          <p>{paymentLabel(order.paymentMethod)}</p>
         </Card>
       </Grid>
     </Grid>

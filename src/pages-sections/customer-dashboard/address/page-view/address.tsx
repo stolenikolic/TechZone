@@ -17,7 +17,7 @@ interface Props {
 export function AddressPageView({ addresses, totalPages }: Props) {
   return (
     <Fragment>
-      <DashboardHeader Icon={Location} title="My Addresses" />
+      <DashboardHeader Icon={Location} title="Moje adrese" />
 
       {addresses.map((address) => (
         <AddressListItem key={address.id} address={address} />

@@ -27,10 +27,10 @@ export default function CheckoutSummary() {
         border: `1px solid ${theme.palette.divider}`
       })}
     >
-      <ListItem title="Subtotal" value={subtotal} />
-      <ListItem title="Shipping" value={shipping} />
-      <ListItem title="Tax" value={0} />
-      <ListItem title="Discount" value={0} />
+      <ListItem title="Međuzbir" value={subtotal} />
+      <ListItem title="Dostava" value={shipping} />
+      <ListItem title="Porez" value={0} />
+      <ListItem title="Popust" value={0} />
 
       <Divider sx={{ my: 2 }} />
 

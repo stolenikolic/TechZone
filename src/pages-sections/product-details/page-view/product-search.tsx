@@ -24,10 +24,10 @@ import type { ProductFilterCardFilters } from "components/products-view/filters/
 import Product from "models/Product.model";
 
 const SORT_OPTIONS = [
-  { label: "Relevance", value: "relevance" },
-  { label: "Date", value: "date" },
-  { label: "Price Low to High", value: "asc" },
-  { label: "Price High to Low", value: "desc" }
+  { label: "Relevantnost", value: "relevance" },
+  { label: "Datum", value: "date" },
+  { label: "Cijena: od niže ka višoj", value: "asc" },
+  { label: "Cijena: od više ka nižoj", value: "desc" }
 ];
 
 interface Props {
@@ -89,7 +89,7 @@ export default function ProductSearchPageView({
         <SiteBreadcrumbs
           items={
             query
-              ? [{ label: "Pretraga", href: "/products/search" }, { label: query }]
+              ? [{ label: "Pretraga", href: "/pretraga" }, { label: query }]
               : [{ label: "Pretraga" }]
           }
         />
@@ -137,11 +137,11 @@ export default function ProductSearchPageView({
                   Prikaz:
                 </Typography>
 
-                <IconButton onClick={() => handleViewChange("grid")} aria-label="Grid view">
+                <IconButton onClick={() => handleViewChange("grid")} aria-label="Prikaz mreže">
                   <Apps fontSize="small" color={view === "grid" ? "primary" : "inherit"} />
                 </IconButton>
 
-                <IconButton onClick={() => handleViewChange("list")} aria-label="List view">
+                <IconButton onClick={() => handleViewChange("list")} aria-label="Prikaz liste">
                   <ViewList fontSize="small" color={view === "list" ? "primary" : "inherit"} />
                 </IconButton>
               </FlexBox>
@@ -183,11 +183,11 @@ export default function ProductSearchPageView({
                 <Typography variant="body1" sx={{ color: "grey.600", mr: 0.5 }}>
                   Prikaz:
                 </Typography>
-                <IconButton onClick={() => handleViewChange("grid")} aria-label="Grid view">
+                <IconButton onClick={() => handleViewChange("grid")} aria-label="Prikaz mreže">
                   <Apps fontSize="small" color={view === "grid" ? "primary" : "inherit"} />
                 </IconButton>
 
-                <IconButton onClick={() => handleViewChange("list")} aria-label="List view">
+                <IconButton onClick={() => handleViewChange("list")} aria-label="Prikaz liste">
                   <ViewList fontSize="small" color={view === "list" ? "primary" : "inherit"} />
                 </IconButton>
               </FlexBox>

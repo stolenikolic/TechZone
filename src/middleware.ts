@@ -17,7 +17,7 @@ function isAdminPath(path: string) {
 }
 
 function loginUrl(request: NextRequest, nextPath?: string) {
-  const url = new URL("/login", request.url);
+  const url = new URL("/prijava", request.url);
   if (nextPath) url.searchParams.set("next", nextPath);
   return url;
 }
@@ -28,11 +28,11 @@ function resolvePostLoginDestination(
 ): string {
   if (next && next.startsWith("/") && !next.startsWith("//")) {
     if (isAdminPath(next) && !isAdmin) {
-      return "/profile";
+      return "/profil";
     }
     return next;
   }
-  return isAdmin ? "/admin/products" : "/profile";
+  return isAdmin ? "/admin/products" : "/profil";
 }
 
 export async function middleware(request: NextRequest) {
@@ -91,8 +91,8 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl(request, pathname));
     }
     if (!isAdmin) {
-      // Logged-in customer must not be sent to /login?next=/admin/* (redirect loop).
-      return NextResponse.redirect(new URL("/profile", request.url));
+      // Logged-in customer must not be sent to /prijava?next=/admin/* (redirect loop).
+      return NextResponse.redirect(new URL("/profil", request.url));
     }
     return response;
   }

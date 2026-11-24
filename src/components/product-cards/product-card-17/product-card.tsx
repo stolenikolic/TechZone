@@ -51,11 +51,11 @@ export default function ProductCard17({
           disableAddToCart={isUnavailable}
         />
 
-        <Link href={`/products/${slug}`} aria-label={`Pogledaj ${title}`}>
+        <Link href={`/proizvodi/${slug}`} aria-label={`Pogledaj ${title}`}>
           <ImageContainer>
             <Image
               src={thumbnail}
-              alt={`Thumbnail for ${title}`}
+              alt={title}
               fill
               className={images.length > 1 ? "thumbnail" : ""}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -67,7 +67,7 @@ export default function ProductCard17({
                 src={images[1]}
                 loading="lazy"
                 className="hover-thumbnail"
-                alt={`Hover thumbnail for ${title}`}
+                alt={title}
                 fill
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 style={{ objectFit: "contain" }}
@@ -82,7 +82,7 @@ export default function ProductCard17({
           {categories.length > 0 ? categories[0] : "N/A"}
         </Typography>
 
-        <Link href={`/products/${slug}`} aria-label={`Pogledaj ${title}`}>
+        <Link href={`/proizvodi/${slug}`} aria-label={`Pogledaj ${title}`}>
           <Typography variant="h5" className="title">
             {title}
           </Typography>

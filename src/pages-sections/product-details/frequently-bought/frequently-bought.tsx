@@ -4,7 +4,7 @@ import Typography from "@mui/material/Typography";
 // LOCAL CUSTOM COMPONENT
 import FrequentlyProductCard from "./frequently-product-card";
 // CUSTOM UTILS LIBRARY FUNCTION
-import { currency } from "lib";
+import { formatPrice } from "lib";
 // CUSTOM DATA MODEL
 import Product from "models/Product.model";
 // STYLED COMPONENTS
@@ -15,13 +15,14 @@ type Props = { products: Product[] };
 // ============================================================
 
 export default function FrequentlyBought({ products }: Props) {
-  // IF NO PRODUCTS RETURN NULL
   if (!products || !products.length) return null;
+
+  const total = products.reduce((sum, item) => sum + (item.price || 0), 0);
 
   return (
     <StyledRoot>
       <Typography variant="h3" sx={{ mb: 3 }}>
-        Frequently Bought Together
+        Često se kupuju zajedno
       </Typography>
 
       <div className="content-wrapper">
@@ -44,20 +45,16 @@ export default function FrequentlyBought({ products }: Props) {
 
         <TotalCount>
           <Typography variant="h3" color="primary">
-            {currency(2500)}
-          </Typography>
-
-          <Typography component="span" sx={{ mb: 2, fontWeight: "600", color: "grey.600" }}>
-            Save {currency(500)}
+            {formatPrice(total)}
           </Typography>
 
           <div className="btn-wrapper">
             <Button variant="contained" color="primary">
-              Add to Cart
+              Dodaj u korpu
             </Button>
 
             <Button variant="outlined" color="primary">
-              Add to List
+              Dodaj u listu
             </Button>
           </div>
         </TotalCount>

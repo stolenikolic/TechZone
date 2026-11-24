@@ -10,7 +10,7 @@ import { resolveProductOffersForStorefront } from "lib/product-offers";
 import { SlugParams } from "models/Common";
 import Product from "models/Product.model";
 
-/** Data Cache TTL for a product detail page. Admin edits call revalidatePath(`/products/:slug`) directly. */
+/** Data Cache TTL for a product detail page. Admin edits call revalidatePath(`/proizvodi/:slug`) directly. */
 const PRODUCT_DETAIL_REVALIDATE_SECONDS = 60;
 
 type DbCategory = { id: string; name: string; slug: string; parent_id: string | null };
@@ -69,7 +69,7 @@ const getSlugs = cache(async () => {
 });
 
 // get product based on slug. Server-side reads DB directly; no axios hop to our own API during RSC render.
-// Data-Cached (60s) + de-duped per request; admin edits call revalidatePath(`/products/:slug`) on save.
+// Data-Cached (60s) + de-duped per request; admin edits call revalidatePath(`/proizvodi/:slug`) on save.
 const getProduct = cache(
   unstable_cache(
     async (slug: string): Promise<Product | null> => {

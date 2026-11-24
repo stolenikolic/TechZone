@@ -27,7 +27,7 @@ export default function ProductCard3({ product }: Props) {
 
         {/* PRODUCT IMAGE / THUMBNAIL */}
         <ImageBox className="hoverImgBox">
-          <Link href={`/products/${slug}`}>
+          <Link href={`/proizvodi/${slug}`}>
             <LazyImage alt={title} width={190} height={190} src={thumbnail} />
           </Link>
         </ImageBox>

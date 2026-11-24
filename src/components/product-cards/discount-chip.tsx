@@ -28,6 +28,6 @@ interface Props extends ChipProps {
 
 export default function DiscountChip({ discount = 0, shape = "rounded", ...props }: Props) {
   return discount > 0 ? (
-    <StyledChip size="small" shape={shape} label={`${discount}% off`} {...props} />
+    <StyledChip size="small" shape={shape} label={`${discount}% popusta`} {...props} />
   ) : null;
 }

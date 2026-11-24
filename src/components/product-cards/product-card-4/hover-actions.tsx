@@ -30,7 +30,7 @@ export default function HoverActions({ product }: Props) {
 
   return (
     <HoverWrapper className="controller">
-      <span onClick={() => router.push(`/products/${slug}/view`, { scroll: false })}>
+      <span onClick={() => router.push(`/proizvodi/${slug}/view`, { scroll: false })}>
         <RemoveRedEye />
       </span>
 

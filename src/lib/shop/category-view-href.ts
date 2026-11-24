@@ -53,10 +53,10 @@ export function categoryPublicHref(
     if (sourcePath && attributeSlug && attributeValue) {
       const params = new URLSearchParams();
       params.set(attributeSlug, attributeValue);
-      return `/categories/${sourcePath}?${params.toString()}`;
+      return `/kategorije/${sourcePath}?${params.toString()}`;
     }
   }
 
   const ownPath = categoryPathForId(row.id, byId);
-  return `/categories/${ownPath ?? row.slug}`;
+  return `/kategorije/${ownPath ?? row.slug}`;
 }

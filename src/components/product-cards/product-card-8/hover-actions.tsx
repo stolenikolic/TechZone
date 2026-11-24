@@ -56,7 +56,7 @@ export default function HoverActions({ product }: Props) {
           color="dark"
           variant="contained"
           className="product-view-action"
-          onClick={() => router.push(`/products/${slug}/view`, { scroll: false })}
+          onClick={() => router.push(`/proizvodi/${slug}/view`, { scroll: false })}
         >
           Quick View
         </QuickViewButton>

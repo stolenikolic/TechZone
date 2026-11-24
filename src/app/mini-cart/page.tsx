@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 const COOKIE_KEY = "tz_last_non_cart";
-const FALLBACK_PATH = "/products";
+const FALLBACK_PATH = "/pretraga";
 
 function decodePath(value: string | undefined): string | null {
   if (!value) return null;

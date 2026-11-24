@@ -13,7 +13,7 @@ type Props = { address: Address };
 export function AddressDetailsPageView({ address }: Props) {
   return (
     <Fragment>
-      <DashboardHeader href="/address" title="Edit Address" />
+      <DashboardHeader href="/address" title="Uredi adresu" />
 
       <Card sx={{ padding: { xs: 3, sm: 4 } }}>
         <AddressForm address={address} />

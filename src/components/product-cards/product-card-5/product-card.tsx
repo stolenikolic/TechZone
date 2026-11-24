@@ -33,7 +33,7 @@ export default function ProductCard5({ product }: Props) {
         />
 
         <ImageBox>
-          <Link href={`/products/${slug}`}>
+          <Link href={`/proizvodi/${slug}`}>
             <LazyImage alt={title} src={thumbnail} width={150} height={150} />
           </Link>
 

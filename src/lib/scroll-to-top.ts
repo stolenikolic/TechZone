@@ -1,7 +1,7 @@
 /** Modal / intercept routes — keep background scroll position. */
 export function isModalPath(pathname: string): boolean {
-  if (pathname === "/login" || pathname === "/mini-cart") return true;
-  return /^\/products\/[^/]+\/view\/?$/.test(pathname);
+  if (pathname === "/prijava" || pathname === "/mini-cart") return true;
+  return /^\/proizvodi\/[^/]+\/view\/?$/.test(pathname);
 }
 
 export function forceScrollToTop() {

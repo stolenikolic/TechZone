@@ -14,7 +14,7 @@ import BoxLink from "../components/box-link";
 import { resetPasswordForEmail } from "lib/auth/actions";
 
 const validationSchema = yup.object().shape({
-  email: yup.string().email("invalid email").required("Email is required")
+  email: yup.string().email("Neispravna e-mail adresa").required("E-mail je obavezan")
 });
 
 export default function ResetPassword() {
@@ -42,7 +42,7 @@ export default function ResetPassword() {
     }
 
     setMessage(
-      "If an account exists for that email, we sent password reset instructions. Please check your inbox."
+      "Ako nalog postoji za tu e-mail adresu, poslali smo uputstvo za reset lozinke. Provjerite pristiglu poštu."
     );
     methods.reset();
   });
@@ -50,7 +50,7 @@ export default function ResetPassword() {
   return (
     <Fragment>
       <Typography variant="h3" fontWeight={700} sx={{ mb: 4, textAlign: "center" }}>
-        Reset your password
+        Resetujte lozinku
       </Typography>
 
       {message && (
@@ -70,9 +70,9 @@ export default function ResetPassword() {
             fullWidth
             name="email"
             type="email"
-            label="Email"
+            label="E-mail"
             size="medium"
-            placeholder="exmple@mail.com"
+            placeholder="primjer@mail.com"
           />
 
           <Button
@@ -83,16 +83,16 @@ export default function ResetPassword() {
             variant="contained"
             loading={isSubmitting}
           >
-            Reset
+            Resetuj
           </Button>
         </Stack>
       </FormProvider>
 
       <FlexRowCenter mt={3} justifyContent="center" gap={1}>
         <Typography variant="body1" color="text.secondary">
-          Don&apos;t have an account?
+          Nemate nalog?
         </Typography>
-        <BoxLink title="Register" href="/register" />
+        <BoxLink title="Registracija" href="/registracija" />
       </FlexRowCenter>
     </Fragment>
   );

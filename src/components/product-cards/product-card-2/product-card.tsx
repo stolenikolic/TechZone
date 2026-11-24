@@ -21,7 +21,7 @@ export default function ProductCard2({ product, showReview = true }: Props) {
 
   return (
     <div>
-      <Link href={`/products/${slug}`}>
+      <Link href={`/proizvodi/${slug}`}>
         <Box
           sx={{
             borderRadius: 3,

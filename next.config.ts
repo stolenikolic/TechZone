@@ -53,6 +53,29 @@ const nextConfig: NextConfig = {
         pathname: "/**"
       }
     ]
+  },
+  async redirects() {
+    return [
+      { source: "/products/search", destination: "/pretraga", permanent: true },
+      { source: "/products/search/:path*", destination: "/pretraga/:path*", permanent: true },
+      { source: "/products", destination: "/pretraga", permanent: true },
+      { source: "/proizvodi", destination: "/pretraga", permanent: true },
+      { source: "/products/:path*", destination: "/proizvodi/:path*", permanent: true },
+      { source: "/categories", destination: "/kategorije", permanent: true },
+      { source: "/categories/:path*", destination: "/kategorije/:path*", permanent: true },
+      { source: "/cart", destination: "/korpa", permanent: true },
+      { source: "/checkout", destination: "/narudzba", permanent: true },
+      { source: "/payment", destination: "/placanje", permanent: true },
+      { source: "/order-confirmation", destination: "/potvrda", permanent: true },
+      { source: "/login", destination: "/prijava", permanent: true },
+      { source: "/register", destination: "/registracija", permanent: true },
+      { source: "/reset-password", destination: "/reset-lozinke", permanent: true },
+      { source: "/wish-list", destination: "/lista-zelja", permanent: true },
+      { source: "/orders", destination: "/narudzbe", permanent: true },
+      { source: "/orders/:path*", destination: "/narudzbe/:path*", permanent: true },
+      { source: "/profile", destination: "/profil", permanent: true },
+      { source: "/profile/:path*", destination: "/profil/:path*", permanent: true }
+    ];
   }
 };
 

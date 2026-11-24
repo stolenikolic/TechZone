@@ -89,7 +89,7 @@ const DEFAULT_FIELDS: Record<HomepageZone, ContentFields> = {
     title: "",
     categoryLabel: "",
     description: "",
-    buttonLink: "/products",
+    buttonLink: "/pretraga",
     buttonLabel: "EXPLORE NOW"
   },
   hero_side: {
@@ -101,7 +101,7 @@ const DEFAULT_FIELDS: Record<HomepageZone, ContentFields> = {
   promo: {
     title: "",
     description: "",
-    buttonLink: "/products/search",
+    buttonLink: "/pretraga",
     buttonLabel: "Shop Now"
   }
 };

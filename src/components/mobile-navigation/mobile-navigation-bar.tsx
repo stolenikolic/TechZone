@@ -13,7 +13,7 @@ import { NavRow, SafeAreaInset, StyledNavLink, Wrapper } from "./styles";
 // CUSTOM DATA MODEL
 import { MobileNavItem } from "models/Layout.model";
 
-const PROFILE_HREF = "/profile";
+const PROFILE_HREF = "/profil";
 
 // ==============================================================
 type Props = { navigation: MobileNavItem[] };

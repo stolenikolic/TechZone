@@ -10,7 +10,7 @@ import Search from "icons/Search";
 // CUSTOM DATA MODEL
 import { CategoryLink } from "models/Layout.model";
 
-const SEARCH_PAGE = "/products/search";
+const SEARCH_PAGE = "/pretraga";
 /** Stable id avoids MUI/React useId mismatch between SSR and client hydration. */
 const SEARCH_INPUT_ID = "shop-header-search";
 
@@ -100,9 +100,9 @@ function SearchInput1Field() {
       variant="outlined"
       onKeyDown={handleEnter}
       onChange={handleChange}
-      placeholder="Searching for..."
+      placeholder="Pretraži proizvode..."
       slotProps={{ input: INPUT_SLOT_PROPS }}
-      aria-label="Search products"
+      aria-label="Pretraga proizvoda"
       role="searchbox"
     />
   );

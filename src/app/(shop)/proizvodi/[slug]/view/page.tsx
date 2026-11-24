@@ -4,5 +4,5 @@ import { SlugParams } from "models/Common";
 
 export default async function ProductQuickView({ params }: SlugParams) {
   const { slug } = await params;
-  redirect(`/products/${slug}`);
+  redirect(`/proizvodi/${slug}`);
 }

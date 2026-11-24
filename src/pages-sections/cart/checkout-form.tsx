@@ -48,7 +48,7 @@ export default function CheckoutForm({ deliverySummary }: Props) {
 
       <FlexBetween mb={2}>
         <Typography variant="body1" fontSize={16} fontWeight={600}>
-          Total:
+          Ukupno:
         </Typography>
 
         <Typography variant="body1" fontSize={18} fontWeight={600} lineHeight={1}>
@@ -60,7 +60,7 @@ export default function CheckoutForm({ deliverySummary }: Props) {
 
       <FlexBox alignItems="center" columnGap={1} mb={2}>
         <Typography variant="body1" fontWeight={500}>
-          Additional Comments
+          Dodatni komentar
         </Typography>
 
         <Typography
@@ -73,7 +73,7 @@ export default function CheckoutForm({ deliverySummary }: Props) {
             bgcolor: "grey.200"
           }}
         >
-          Note
+          Napomena
         </Typography>
       </FlexBox>
 
@@ -85,20 +85,20 @@ export default function CheckoutForm({ deliverySummary }: Props) {
         <TextField
           fullWidth
           size="small"
-          label="Voucher"
+          label="Vaučer"
           variant="outlined"
-          placeholder="Voucher"
+          placeholder="Vaučer"
         />
 
         <Button variant="outlined" color="primary">
-          Apply
+          Primijeni
         </Button>
       </FlexBox>
 
       <Divider sx={{ mb: 2 }} />
 
       <Typography variant="body1" fontWeight={500} sx={{ mb: 2 }}>
-        Shipping Estimates
+        Procjena dostave
       </Typography>
 
       {/* COUNTRY TEXT FIELD */}
@@ -106,13 +106,16 @@ export default function CheckoutForm({ deliverySummary }: Props) {
         fullWidth
         sx={{ mb: 2 }}
         options={countryList}
+        openText="Otvori"
+        closeText="Zatvori"
+        clearText="Obriši"
         renderInput={(params) => (
           <TextField
             {...params}
             size="small"
-            label="Country"
+            label="Država"
             variant="outlined"
-            placeholder="Select Country"
+            placeholder="Izaberi državu"
           />
         )}
       />
@@ -122,9 +125,9 @@ export default function CheckoutForm({ deliverySummary }: Props) {
         select
         fullWidth
         size="small"
-        label="State"
+        label="Regija"
         variant="outlined"
-        placeholder="Select State"
+        placeholder="Izaberi regiju"
         defaultValue="new-york"
       >
         {STATE_LIST.map(({ label, value }) => (
@@ -138,18 +141,18 @@ export default function CheckoutForm({ deliverySummary }: Props) {
       <TextField
         fullWidth
         size="small"
-        label="Zip Code"
+        label="Poštanski broj"
         placeholder="3100"
         variant="outlined"
         sx={{ mt: 2 }}
       />
 
       <Button variant="outlined" color="primary" fullWidth sx={{ my: 2 }}>
-        Calculate Shipping
+        Izračunaj dostavu
       </Button>
 
-      <Button fullWidth color="primary" href="/checkout" variant="contained" LinkComponent={Link}>
-        Checkout Now
+      <Button fullWidth color="primary" href="/narudzba" variant="contained" LinkComponent={Link}>
+        Nastavi na narudžbu
       </Button>
       <Snackbar
         open={Boolean(state.warning)}

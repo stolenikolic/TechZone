@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { format } from "date-fns/format";
+import { bs } from "date-fns/locale/bs";
 // MUI
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -17,6 +18,13 @@ import Order from "models/Order.model";
 type Props = { order: Order };
 // =================================================
 
+const STATUS_LABEL: Record<string, string> = {
+  Pending: "Na čekanju",
+  Processing: "U obradi",
+  Delivered: "Isporučeno",
+  Cancelled: "Otkazano"
+};
+
 const getColor = (status: string) => {
   if (status === "Pending") return "secondary";
   else if (status === "Processing") return "info";
@@ -27,18 +35,22 @@ const getColor = (status: string) => {
 
 export default function OrderRow({ order }: Props) {
   return (
-    <Link href={`/orders/${order.id}`}>
+    <Link href={`/narudzbe/${order.id}`}>
       <TableRow elevation={0} sx={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr" }}>
         <Typography noWrap variant="h5">
           #{order.id.substring(0, 18)}
         </Typography>
 
         <Box textAlign={{ sm: "center", xs: "right" }}>
-          <Chip size="small" label={order.status} color={getColor(order.status)} />
+          <Chip
+            size="small"
+            label={STATUS_LABEL[order.status] ?? order.status}
+            color={getColor(order.status)}
+          />
         </Box>
 
         <Typography noWrap variant="body1" sx={{ textAlign: { sm: "center", xs: "left" } }}>
-          {format(new Date(order.createdAt), "MMM dd, yyyy")}
+          {format(new Date(order.createdAt), "d. MMM yyyy.", { locale: bs })}
         </Typography>
 
         <Typography

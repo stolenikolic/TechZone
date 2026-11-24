@@ -194,7 +194,7 @@ export default function ProductRow({ product, onToggleExpand }: Props & RowActio
         </Link>
 
         <Link
-          href={`/products/${slug}`}
+          href={`/proizvodi/${slug}`}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}

@@ -63,7 +63,7 @@ export default function ProductCard18({ product }: Props) {
           Earphones
         </Typography>
 
-        <Link href={`/products/${slug}`} aria-label={`View ${title}`}>
+        <Link href={`/proizvodi/${slug}`} aria-label={`View ${title}`}>
           <Typography noWrap variant="h5" className="title">
             {title}
           </Typography>

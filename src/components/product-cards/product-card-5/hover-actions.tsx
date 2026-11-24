@@ -35,7 +35,7 @@ export default function HoverActions({ product }: Props) {
 
   return (
     <HoverWrapper className="controller">
-      <Link className="hover-link" scroll={false} href={`/products/${slug}/view`}>
+      <Link className="hover-link" scroll={false} href={`/proizvodi/${slug}/view`}>
         <RemoveRedEye />
       </Link>
 

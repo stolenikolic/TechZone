@@ -13,7 +13,7 @@ export default function ProfilePicUpload({ image }: { image: string }) {
   return (
     <FlexBox alignItems="flex-end" mb={4}>
       <Avatar sx={{ height: 60, width: 60 }}>
-        <Image fill alt="user" src={image} sizes="(60px, 60px)" />
+        <Image fill alt="Korisnik" src={image} sizes="(60px, 60px)" />
       </Avatar>
 
       <IconButton

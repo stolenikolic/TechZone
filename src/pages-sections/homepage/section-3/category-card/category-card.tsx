@@ -13,7 +13,7 @@ interface Props {
 export default function CategoryCard({ image, title, slug, href }: Props) {
   const hasImage = image && image.trim() !== "";
   return (
-    <Link href={href ?? `/categories/${slug}`}>
+    <Link href={href ?? `/kategorije/${slug}`}>
       <StyledRoot>
         <ImageContainer>
           {hasImage ? (

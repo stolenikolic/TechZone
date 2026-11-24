@@ -49,9 +49,9 @@ export default function MiniCart() {
   return (
     <Box sx={{ height: "100vh", width: 380, display: "flex", flexDirection: "column" }}>
       <FlexBetween sx={{ ml: 3, mr: 2, height: 74, flexShrink: 0 }}>
-        <Typography variant="h6">Your Cart ({CART_LENGTH})</Typography>
+        <Typography variant="h6">Vaša korpa ({CART_LENGTH})</Typography>
 
-        <IconButton size="small" onClick={router.back}>
+        <IconButton size="small" aria-label="Zatvori" onClick={router.back}>
           <Clear fontSize="small" />
         </IconButton>
       </FlexBetween>
@@ -81,7 +81,7 @@ export default function MiniCart() {
           <CartDeliverySummaryBlock summary={deliverySummary} compact />
           <FlexBetween sx={{ mb: 2 }}>
             <Typography variant="body1" color="text.secondary">
-              Total
+              Ukupno
             </Typography>
             <Typography variant="h6">{currency(getTotalPrice())}</Typography>
           </FlexBetween>
@@ -91,10 +91,10 @@ export default function MiniCart() {
             color="primary"
             variant="contained"
             LinkComponent={Link}
-            href="/checkout"
+            href="/narudzba"
             sx={{ height: 44, mb: 1 }}
           >
-            Proceed to Checkout
+            Nastavi na narudžbu
           </Button>
 
           <Button
@@ -102,10 +102,10 @@ export default function MiniCart() {
             color="primary"
             variant="outlined"
             LinkComponent={Link}
-            href="/cart"
+            href="/korpa"
             sx={{ height: 44 }}
           >
-            View Cart
+            Pogledaj korpu
           </Button>
         </Box>
       )}

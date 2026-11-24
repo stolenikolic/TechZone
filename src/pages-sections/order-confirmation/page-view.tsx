@@ -17,9 +17,9 @@ export default function OrderConfirmationPageView({ orderId }: Props) {
     <Container className="mt-2 mb-5">
       <SiteBreadcrumbs
         items={[
-          { label: "Korpa", href: "/cart" },
-          { label: "Naplata", href: "/checkout" },
-          { label: "Plaćanje", href: "/payment" },
+          { label: "Korpa", href: "/korpa" },
+          { label: "Naplata", href: "/narudzba" },
+          { label: "Plaćanje", href: "/placanje" },
           { label: "Potvrda narudžbe" }
         ]}
       />
@@ -27,12 +27,12 @@ export default function OrderConfirmationPageView({ orderId }: Props) {
         <Image
           width={116}
           height={116}
-          alt="complete"
+          alt="Narudžba je primljena"
           src="/assets/images/illustrations/party-popper.svg"
         />
 
         <Typography variant="h1" fontWeight={700}>
-          Thank you for your purchase!
+          Hvala na kupovini!
         </Typography>
 
         <Typography
@@ -41,12 +41,11 @@ export default function OrderConfirmationPageView({ orderId }: Props) {
           color="text.secondary"
           sx={{ padding: ".5rem 2rem" }}
         >
-          We have received your order and you will be receiving confirmation email with order
-          details.
+          Primili smo vašu narudžbu. Potvrda sa detaljima stiže na e-mail.
         </Typography>
 
         <Typography fontSize={16} variant="body1" color="text.secondary">
-          Your order number is <strong>{orderId ? `#${orderId.split("-")[0]}` : "pending"}</strong>.
+          Broj narudžbe je <strong>{orderId ? `#${orderId.split("-")[0]}` : "na čekanju"}</strong>.
         </Typography>
 
         <StyledButton
@@ -57,7 +56,7 @@ export default function OrderConfirmationPageView({ orderId }: Props) {
           LinkComponent={Link}
           href="/"
         >
-          Browse products
+          Pregledaj proizvode
         </StyledButton>
       </Wrapper>
     </Container>

@@ -44,7 +44,7 @@ export default function HoverActions({ product }: Props) {
         </Button>
       </Link>
 
-      <Link scroll={false} href={`/products/${slug}/view`}>
+      <Link scroll={false} href={`/proizvodi/${slug}/view`}>
         <Button disableElevation color="primary" variant="contained" aria-label="Quick view">
           <SvgIcon width="24" height="24" viewBox="0 0 24 24">
             <path

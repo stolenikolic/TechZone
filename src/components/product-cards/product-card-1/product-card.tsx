@@ -34,7 +34,7 @@ export default function ProductCard1({ product, showProductSize, showRating = tr
 
         {/* HOVER ACTION ICONS */}
         <HoverIconWrapper className="hover-box">
-          <Link href={`/products/${slug}/view`} scroll={false}>
+          <Link href={`/proizvodi/${slug}/view`} scroll={false}>
             <IconButton color="inherit">
               <RemoveRedEye fontSize="small" color="inherit" />
             </IconButton>
@@ -44,7 +44,7 @@ export default function ProductCard1({ product, showProductSize, showRating = tr
         </HoverIconWrapper>
 
         {/* PRODUCT IMAGE / THUMBNAIL */}
-        <Link href={`/products/${slug}`}>
+        <Link href={`/proizvodi/${slug}`}>
           <LazyImage
             priority
             alt={title}

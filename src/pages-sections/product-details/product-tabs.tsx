@@ -17,7 +17,7 @@ const StyledTabs = styled(Tabs)(({ theme }) => ({
   "& .inner-tab": {
     minHeight: 40,
     fontWeight: 500,
-    textTransform: "capitalize"
+    textTransform: "none"
   }
 }));
 

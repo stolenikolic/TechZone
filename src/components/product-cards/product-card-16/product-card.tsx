@@ -30,7 +30,7 @@ export default function ProductCard16({ product }: Props) {
     >
       <div className="img-wrapper" style={{ position: "relative" }}>
         <WishlistHeartButton productId={product.id} className="wishlist-heart" sx={{ top: 6, right: 6 }} />
-        <Link href={`/products/${slug}`}>
+        <Link href={`/proizvodi/${slug}`}>
           <Image
             src={thumbnail}
             alt={title}
@@ -42,7 +42,7 @@ export default function ProductCard16({ product }: Props) {
             <Chip
               size="small"
               color="info"
-              label={topPickLabel ?? "Top pick"}
+              label={topPickLabel ?? "Izdvojeno"}
               sx={{ position: "absolute", left: 20, top: discount ? 48 : 20, zIndex: 1 }}
             />
           ) : null}
@@ -52,7 +52,7 @@ export default function ProductCard16({ product }: Props) {
 
       <div className="content">
         <div className="content-main">
-          <Link href={`/products/${slug}`}>
+          <Link href={`/proizvodi/${slug}`}>
             <Typography variant="h6" className="product-title">
               {title}
             </Typography>

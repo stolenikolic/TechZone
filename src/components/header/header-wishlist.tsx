@@ -11,7 +11,7 @@ export function HeaderWishlist() {
 
   return (
     <Badge badgeContent={isHydrated ? count : 0} color="primary">
-      <IconButton LinkComponent={Link} href="/wish-list" aria-label="Lista želja">
+      <IconButton LinkComponent={Link} href="/lista-zelja" aria-label="Lista želja">
         <HeartLine fontSize="small" />
       </IconButton>
     </Badge>

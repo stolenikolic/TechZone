@@ -18,7 +18,7 @@ interface Props {
 export default function WishListPageView({ products, totalPages }: Props) {
   return (
     <Fragment>
-      <DashboardHeader title="My Wish List" Icon={Favorite} />
+      <DashboardHeader title="Moja lista želja" Icon={Favorite} />
 
       <Grid container spacing={3}>
         {products.map((product) => (

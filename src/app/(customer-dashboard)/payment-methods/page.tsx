@@ -16,7 +16,7 @@ export default async function PaymentMethods({ searchParams }: Props) {
   const data = await api.getPayments(+page || 1);
 
   if (!data || data.payments.length === 0) {
-    return <div>Data not found</div>;
+    return <div>Nema sačuvanih načina plaćanja.</div>;
   }
 
   return <PaymentMethodsPageView payments={data.payments} totalPages={data.totalPages} />;

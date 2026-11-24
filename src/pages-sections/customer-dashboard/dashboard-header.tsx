@@ -11,7 +11,7 @@ import ChevronLeft from "@mui/icons-material/ChevronLeft";
 import { type SvgIconComponent } from "@mui/icons-material";
 // GLOBAL CUSTOM COMPONENTS
 import SideNav from "components/side-nav";
-import { Navigation } from "components/layouts/customer-dashboard";
+import { Navigation } from "components/layouts/customer-dashboard/navigation";
 
 // STYLED COMPONENT
 const StyledRoot = styled("div")(({ theme }) => ({

@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { ProductDetailsPageView } from "pages-sections/product-details/page-view";
 // API FUNCTIONS
 import api from "utils/__api__/products";
-import { getFrequentlyBought, getRelatedProducts } from "utils/__api__/related-products";
+import { getRelatedProducts } from "utils/__api__/related-products";
+// import { getFrequentlyBought } from "utils/__api__/related-products";
 // CUSTOM DATA MODEL
 import { SlugParams } from "models/Common";
 import { absoluteOgImageUrl } from "lib/og-image-url";
@@ -16,7 +17,7 @@ import {
 import { ogPageTitle, pageTitle, SITE_NAME } from "lib/site-metadata";
 
 // Product/related/offers data is Data-Cached (unstable_cache, 60s) — admin edits
-// call revalidatePath(`/products/:slug`) on save, so this stays fresh on change
+// call revalidatePath(`/proizvodi/:slug`) on save, so this stays fresh on change
 // while avoiding a fresh DB round trip on every single visit.
 export const revalidate = 60;
 
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: SlugParams): Promise<Metadata
   if (!product) notFound();
 
   const baseUrl = getBaseUrl();
-  const canonicalUrl = `${baseUrl}/products/${product.slug}`;
+  const canonicalUrl = `${baseUrl}/proizvodi/${product.slug}`;
   const title = pageTitle(product.title, "shop");
   const ogTitle = ogPageTitle(product.title);
   const description =
@@ -70,16 +71,16 @@ export async function generateMetadata({ params }: SlugParams): Promise<Metadata
 
 export default async function ProductDetails({ params }: SlugParams) {
   const { slug } = await params;
-  const [product, relatedProducts, frequentlyBought] = await Promise.all([
+  const [product, relatedProducts] = await Promise.all([
     api.getProduct(slug),
-    getRelatedProducts(),
-    getFrequentlyBought()
+    getRelatedProducts()
   ]);
+  // const frequentlyBought = await getFrequentlyBought();
 
   if (!product) notFound();
 
   const baseUrl = getBaseUrl();
-  const canonicalUrl = `${baseUrl}/products/${product.slug}`;
+  const canonicalUrl = `${baseUrl}/proizvodi/${product.slug}`;
   const productSchema = buildProductJsonLd(product, canonicalUrl);
   const faqSchema = buildFaqPageJsonLd(product.faq);
   const breadcrumbSchema = buildBreadcrumbJsonLd(product, baseUrl);
@@ -102,11 +103,7 @@ export default async function ProductDetails({ params }: SlugParams) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
         />
       ) : null}
-      <ProductDetailsPageView
-        product={product}
-        relatedProducts={relatedProducts}
-        frequentlyBought={frequentlyBought}
-      />
+      <ProductDetailsPageView product={product} relatedProducts={relatedProducts} />
     </>
   );
 }

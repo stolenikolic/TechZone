@@ -1,10 +1,10 @@
 // MUI
 import Grid from "@mui/material/Grid";
-import Rating from "@mui/material/Rating";
 import Typography from "@mui/material/Typography";
 // LOCAL CUSTOM COMPONENTS
 import ProductGallery from "./product-gallery";
 import ProductIntroSidebar from "./product-intro-sidebar";
+import ProductRating from "./product-rating";
 // STYLED COMPONENTS
 import { StyledRoot } from "./styles";
 // CUSTOM DATA MODEL
@@ -30,13 +30,13 @@ export default function ProductIntro({ product }: Props) {
 
           {product.brand && (
             <Typography variant="body1" sx={{ mt: 1 }}>
-              Brand: <strong>{product.brand}</strong>
+              Brend: <strong>{product.brand}</strong>
             </Typography>
           )}
 
           <div className="rating">
-            <span>Rated:</span>
-            <Rating readOnly color="warn" size="small" value={product.rating ?? 0} />
+            <span>Ocjena:</span>
+            <ProductRating value={product.rating ?? 0} />
             <Typography variant="h6">({(product.rating ?? 0).toFixed(1)})</Typography>
           </div>
 

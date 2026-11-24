@@ -4,6 +4,23 @@ import type Order from "models/Order.model";
 
 const PAGE_SIZE = 10;
 
+export async function getOrderStatsForUser(userId: string) {
+  const supabase = createSupabaseServiceClient();
+  const { data, error } = await supabase.from("orders").select("status").eq("user_id", userId);
+
+  if (error) throw new Error(error.message);
+
+  const rows = data ?? [];
+  const countStatus = (status: string) => rows.filter((row) => row.status === status).length;
+
+  return {
+    total: rows.length,
+    pending: countStatus("Pending"),
+    processing: countStatus("Processing"),
+    delivered: countStatus("Delivered")
+  };
+}
+
 export async function getOrdersForUser(userId: string, page = 1) {
   const supabase = createSupabaseServiceClient();
   const from = (page - 1) * PAGE_SIZE;

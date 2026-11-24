@@ -16,7 +16,7 @@ export default async function SupportTickets({ searchParams }: Props) {
   const data = await api.getTicketList(+page || 1);
 
   if (!data || data.tickets.length === 0) {
-    return <div>Data not found</div>;
+    return <div>Nema tiketa podrške.</div>;
   }
 
   return <TicketsPageView tickets={data.tickets} totalPages={data.totalPages} />;

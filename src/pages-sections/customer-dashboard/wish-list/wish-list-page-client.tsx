@@ -107,7 +107,7 @@ export default function WishListPageClient({ page }: Props) {
         {!user ? (
           <Alert severity="info" sx={{ mb: 3 }}>
             Prijavite se da sačuvate listu želja na nalogu.{" "}
-            <Link href="/login?next=/wish-list">Prijavite se</Link>
+            <Link href="/prijava?next=/lista-zelja">Prijavite se</Link>
           </Alert>
         ) : null}
         <Typography variant="body1" color="text.secondary" sx={{ py: 6, textAlign: "center" }}>
@@ -124,7 +124,7 @@ export default function WishListPageClient({ page }: Props) {
       {!user ? (
         <Alert severity="info" sx={{ mb: 3 }}>
           Prijavite se da sačuvate listu želja na nalogu.{" "}
-          <Link href="/login?next=/wish-list">Prijavite se</Link>
+          <Link href="/prijava?next=/lista-zelja">Prijavite se</Link>
         </Alert>
       ) : null}
 

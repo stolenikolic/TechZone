@@ -14,17 +14,17 @@ export const languageOptions = {
 // MOBILE NAVIGATION LIST
 export const mobileNavigation = [
   { title: "Početna", icon: "Home", href: "/", badge: false },
-  { title: "Kategorije", icon: "CategoryOutlined", href: "/categories", badge: false },
-  { title: "Lista želja", icon: "HeartLine", href: "/wish-list", badge: false },
-  { title: "Profil", icon: "User2", href: "/profile", badge: false }
+  { title: "Kategorije", icon: "CategoryOutlined", href: "/kategorije", badge: false },
+  { title: "Lista želja", icon: "HeartLine", href: "/lista-zelja", badge: false },
+  { title: "Profil", icon: "User2", href: "/profil", badge: false }
 ];
 
 // MOBILE NAVIGATION LIST
 export const mobileNavigationTwo = [
   { title: "Home", icon: "Home", href: "/", badge: false },
   { title: "Category", icon: "CategoryOutlined", href: "", badge: false },
-  { title: "Cart", icon: "ShoppingBagOutlined", href: "/cart", badge: true },
-  { title: "Account", icon: "User2", href: "/profile", badge: false }
+  { title: "Cart", icon: "ShoppingBagOutlined", href: "/korpa", badge: true },
+  { title: "Account", icon: "User2", href: "/profil", badge: false }
 ];
 
 // CATEGORY LIST FOR HEADER

@@ -12,7 +12,7 @@ export default async function Section3() {
 
   return (
     <Container>
-      <SectionHeader title="Categories" seeMoreLink="#" />
+      <SectionHeader title="Kategorije" seeMoreLink="#" linkText="Prikaži više" />
 
       <Grid container spacing={3} sx={{ width: "100%", m: 0 }}>
         {categories.map((item) => (

@@ -25,12 +25,14 @@ const CATEGORY_ICON_BY_SLUG: Record<string, string> = {
   "konzole-i-gaming": "Robot",
   "audio-i-multimedija": "MicrophoneLines",
   "telefoni-tableti-pametni-uredjaji": "MobileNotch",
-  "foto-video-dronovi": "Camera"
+  "foto-video-dronovi": "Camera",
+  "racunarski-dodaci-softver": "Gear",
+  racunari: "Laptop"
 };
 
 const MAIN_NAVIGATION: Menu[] = [
   { title: "Početna", url: "/", megaMenu: false, megaMenuWithSub: false },
-  { title: "Kategorije", url: "/categories", megaMenu: false, megaMenuWithSub: false },
+  { title: "Kategorije", url: "/kategorije", megaMenu: false, megaMenuWithSub: false },
   { title: "Akcije", url: "#", megaMenu: false, megaMenuWithSub: false },
   { title: "Najprodavanije", url: "#", megaMenu: false, megaMenuWithSub: false },
   { title: "Novo u ponudi", url: "#", megaMenu: false, megaMenuWithSub: false },
@@ -109,9 +111,7 @@ function createLayout(categories: LayoutModel["header"]["categories"], categoryM
       title: "Dobrodošli u Tech Zone",
       label: "",
       socials: {},
-      languageOptions: {
-        en: { title: "English", value: "en" }
-      }
+      languageOptions: {}
     },
     mobileNavigation: {
       logo: "/assets/images/logo.svg",

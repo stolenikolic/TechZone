@@ -59,14 +59,14 @@ export default function HoverActions({ product, showRemoveFromWishlist = false, 
           loading={isCartLoading}
           onClick={handleAddToCart}
           disabled={disableAddToCart}
-          aria-label={showRemoveFromWishlist ? "Dodaj u korpu" : "Add to cart"}
+          aria-label="Dodaj u korpu"
         >
-          {showRemoveFromWishlist ? "Dodaj u korpu" : "Add to cart"}
+          Dodaj u korpu
         </Button>
       </Link>
 
       {!showRemoveFromWishlist ? (
-        <Link scroll={false} href={`/products/${slug}/view`} onNavigate={handleNavigate}>
+        <Link scroll={false} href={`/proizvodi/${slug}/view`} onNavigate={handleNavigate}>
           <Button
             fullWidth
             disableElevation
@@ -75,9 +75,9 @@ export default function HoverActions({ product, showRemoveFromWishlist = false, 
             className="view-btn"
             onClick={handleQuickView}
             loading={isQuickViewLoading}
-            aria-label="Quick view"
+            aria-label="Brzi pregled"
           >
-            Quick View
+            Brzi pregled
           </Button>
         </Link>
       ) : null}

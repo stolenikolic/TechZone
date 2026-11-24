@@ -9,7 +9,7 @@ import TextField from "@mui/material/TextField";
 // STYLED COMPONENT
 import { SearchOutlinedIcon } from "./styles";
 
-const SEARCH_PAGE = "/products/search";
+const SEARCH_PAGE = "/pretraga";
 const SEARCH_INPUT_ID = "shop-mobile-search";
 
 function SearchInput2Placeholder() {
@@ -73,11 +73,11 @@ function SearchInput2Field() {
         name="q"
         fullWidth
         variant="outlined"
-        placeholder="Searching for..."
+        placeholder="Pretraži proizvode..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         slotProps={{ input: INPUT_PROPS }}
-        aria-label="Search products"
+        aria-label="Pretraga proizvoda"
         role="searchbox"
       />
     </Box>

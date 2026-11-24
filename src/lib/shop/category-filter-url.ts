@@ -12,9 +12,9 @@ export type ProductSpecFilterItem = {
 export function getLeafCategoryHref(product: Pick<Product, "category" | "parentCategory">): string | null {
   if (!product.category) return null;
   if (product.parentCategory) {
-    return `/categories/${product.parentCategory.slug}/${product.category.slug}`;
+    return `/kategorije/${product.parentCategory.slug}/${product.category.slug}`;
   }
-  return `/categories/${product.category.slug}`;
+  return `/kategorije/${product.category.slug}`;
 }
 
 /** @deprecated Use parseNumericFromAttributeValue */

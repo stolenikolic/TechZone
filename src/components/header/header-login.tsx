@@ -56,7 +56,7 @@ export function HeaderLogin() {
 
   if (loading) {
     return (
-      <IconButton disabled aria-label="Loading">
+      <IconButton disabled aria-label="Učitavanje">
         <SvgIcon fontSize="small">
           <svg viewBox="0 0 24 24">
             <g fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -75,8 +75,8 @@ export function HeaderLogin() {
 
   if (!user) {
     return (
-      <Link href="/login">
-        <IconButton aria-label="Login">
+      <Link href="/prijava">
+        <IconButton aria-label="Prijava">
           <SvgIcon fontSize="small">
             <svg viewBox="0 0 24 24">
               <g fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -95,9 +95,9 @@ export function HeaderLogin() {
   }
 
   const displayName =
-    profile?.full_name?.trim() || user.email?.split("@")[0] || "User";
+    profile?.full_name?.trim() || user.email?.split("@")[0] || "Korisnik";
   const avatarSrc = profile?.avatar_url || user.user_metadata?.avatar_url || "/assets/images/avatars/001-man.svg";
-  const roleLabel = isAdmin ? "Admin" : "Customer";
+  const roleLabel = isAdmin ? "Admin" : "Kupac";
 
   const handleSignOut = async () => {
     handleClose();
@@ -135,19 +135,19 @@ export function HeaderLogin() {
         </Box>
 
         <Divider />
-        <MenuItem component={Link} href="/profile">
-          Profile
+        <MenuItem component={Link} href="/profil">
+          Profil
         </MenuItem>
-        <MenuItem component={Link} href="/orders">
-          My Orders
+        <MenuItem component={Link} href="/narudzbe">
+          Moje narudžbe
         </MenuItem>
         {isAdmin && (
           <MenuItem component={Link} href="/admin/products">
-            Dashboard
+            Kontrolna tabla
           </MenuItem>
         )}
         <Divider />
-        <MenuItem onClick={handleSignOut}>Logout</MenuItem>
+        <MenuItem onClick={handleSignOut}>Odjava</MenuItem>
       </Menu>
     </div>
   );

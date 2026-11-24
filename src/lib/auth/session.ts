@@ -34,7 +34,7 @@ export async function getSessionProfile(): Promise<UserProfile | null> {
   return { ...profile, email: user.email ?? undefined };
 }
 
-export async function requireUser(redirectTo = "/login") {
+export async function requireUser(redirectTo = "/prijava") {
   const user = await getAuthUser();
   if (!user) redirect(redirectTo);
   return user;
@@ -44,7 +44,7 @@ export async function requireAdmin() {
   const user = await requireUser();
   const profile = await getUserProfile(user.id);
   if (!profile || profile.role !== "admin") {
-    redirect("/login?next=/admin");
+    redirect("/prijava?next=/admin");
   }
   return { user, profile };
 }

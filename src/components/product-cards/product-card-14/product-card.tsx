@@ -22,7 +22,7 @@ export default function ProductCard14({ product }: Props) {
 
   return (
     <StyledRoot>
-      <Link href={`/products/${slug}`}>
+      <Link href={`/proizvodi/${slug}`}>
         <div className="img-wrapper">
           {discount > 0 && <StyledChip size="small" label={`${discount}% off`} />}
 

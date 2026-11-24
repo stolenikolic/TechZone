@@ -35,7 +35,7 @@ export function MobileMenu({ navigation }: Props) {
       <IconButton
         onClick={handleOpen}
         sx={{ flexShrink: 0, color: "grey.600" }}
-        aria-label="Open menu"
+        aria-label="Otvori meni"
         aria-expanded={openDrawer}
         aria-controls="mobile-menu-drawer"
       >

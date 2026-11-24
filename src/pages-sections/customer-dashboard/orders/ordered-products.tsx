@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { format } from "date-fns/format";
+import { bs } from "date-fns/locale/bs";
 // MUI
 import Card from "@mui/material/Card";
 import Button from "@mui/material/Button";
@@ -17,7 +18,7 @@ type Props = { order: Order };
 // ==============================================================
 
 export default function OrderedProducts({ order }: Props) {
-  const { id, createdAt, items, deliveredAt } = order;
+  const { id, createdAt, items, deliveredAt, isDelivered } = order;
 
   return (
     <Card
@@ -30,11 +31,15 @@ export default function OrderedProducts({ order }: Props) {
       }}
     >
       <FlexBetween px={3} py={2} flexWrap="wrap" gap={1} bgcolor="grey.50">
-        <Item title="Order ID:" value={id} />
-        <Item title="Placed on:" value={format(new Date(createdAt), "dd MMM, yyyy")} />
+        <Item title="Broj narudžbe:" value={id} />
+        <Item title="Naručeno:" value={format(new Date(createdAt), "d. MMM yyyy.", { locale: bs })} />
         <Item
-          title="Delivered on:"
-          value={deliveredAt ? format(new Date(deliveredAt), "dd MMM, yyyy") : "None"}
+          title="Isporučeno:"
+          value={
+            isDelivered && deliveredAt
+              ? format(new Date(deliveredAt), "d. MMM yyyy.", { locale: bs })
+              : "Nije isporučeno"
+          }
         />
       </FlexBetween>
 
@@ -63,7 +68,7 @@ export default function OrderedProducts({ order }: Props) {
           )}
 
           <Button variant="text" color="primary">
-            Write a Review
+            Napiši recenziju
           </Button>
         </FlexBetween>
       ))}

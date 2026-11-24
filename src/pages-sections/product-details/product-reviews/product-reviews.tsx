@@ -44,7 +44,7 @@ export default function ProductReviews() {
 
       {/* REVIEW FORM */}
       <Typography variant="h3" sx={{ mt: 7, mb: 2.5 }}>
-        Write a Review for this product
+        Napišite recenziju ovog proizvoda
       </Typography>
 
       <ReviewForm />

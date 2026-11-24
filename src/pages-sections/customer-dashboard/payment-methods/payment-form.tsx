@@ -12,10 +12,10 @@ import { FormProvider, TextField } from "components/form-hook";
 import Payment from "models/Payment.model";
 
 const validationSchema = yup.object().shape({
-  name: yup.string().required("Name is required"),
-  cvc: yup.string().required("Card CVC is required"),
-  card_no: yup.string().required("Card No is required"),
-  exp: yup.string().required("Card expiry date is required")
+  name: yup.string().required("Ime je obavezno"),
+  cvc: yup.string().required("CVC je obavezan"),
+  card_no: yup.string().required("Broj kartice je obavezan"),
+  exp: yup.string().required("Datum isteka je obavezan")
 });
 
 // ==============================================================
@@ -48,15 +48,15 @@ export default function PaymentForm({ payment }: Props) {
     <FormProvider methods={methods} onSubmit={handleSubmitForm}>
       <Grid container spacing={3}>
         <Grid size={{ md: 6, xs: 12 }}>
-          <TextField size="medium" fullWidth name="card_no" label="Card Number" />
+          <TextField size="medium" fullWidth name="card_no" label="Broj kartice" />
         </Grid>
 
         <Grid size={{ md: 6, xs: 12 }}>
-          <TextField size="medium" fullWidth name="name" label="Name on Card" />
+          <TextField size="medium" fullWidth name="name" label="Ime na kartici" />
         </Grid>
 
         <Grid size={{ md: 6, xs: 12 }}>
-          <TextField size="medium" fullWidth name="exp" label="Exp. Date" />
+          <TextField size="medium" fullWidth name="exp" label="Datum isteka" />
         </Grid>
 
         <Grid size={{ md: 6, xs: 12 }}>
@@ -71,7 +71,7 @@ export default function PaymentForm({ payment }: Props) {
             variant="contained"
             loading={isSubmitting}
           >
-            Save Changes
+            Sačuvaj izmjene
           </Button>
         </Grid>
       </Grid>

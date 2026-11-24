@@ -27,7 +27,7 @@ export function renderProductCount(page: number, perPageProduct: number, totalPr
     endNumber = totalProduct;
   }
 
-  return `Showing ${startNumber + 1}-${endNumber} of ${totalProduct} products`;
+  return `Prikazano ${startNumber + 1}-${endNumber} od ${totalProduct} proizvoda`;
 }
 
 /**

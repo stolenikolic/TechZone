@@ -17,7 +17,7 @@ interface Props {
 export function TicketsPageView({ tickets, totalPages }: Props) {
   return (
     <Fragment>
-      <DashboardHeader title="Support Ticket" Icon={Headset} />
+      <DashboardHeader title="Tiketi podrške" Icon={Headset} />
 
       {tickets.map((item) => (
         <TicketCard ticket={item} key={item.id} />

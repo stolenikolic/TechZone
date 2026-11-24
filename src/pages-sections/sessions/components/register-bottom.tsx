@@ -6,10 +6,10 @@ export default function RegisterBottom() {
   return (
     <FlexRowCenter gap={1} mt={3}>
       <Typography variant="body2" color="text.secondary">
-        Already have an account?
+        Već imate nalog?
       </Typography>
 
-      <BoxLink title="Login" href="/login" />
+      <BoxLink title="Prijava" href="/prijava" />
     </FlexRowCenter>
   );
 }

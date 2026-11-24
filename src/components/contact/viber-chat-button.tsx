@@ -20,7 +20,7 @@ export default function ViberChatButton({ productTitle, productSlug, fullWidth, 
   if (!phone) return null;
 
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
-  const productUrl = siteUrl ? `${siteUrl}/products/${productSlug}` : `/products/${productSlug}`;
+  const productUrl = siteUrl ? `${siteUrl}/proizvodi/${productSlug}` : `/proizvodi/${productSlug}`;
   const message = `Pozdrav, zanima me artikal: ${productTitle}\n${productUrl}`;
   const href = buildViberChatUrl(phone, message);
 

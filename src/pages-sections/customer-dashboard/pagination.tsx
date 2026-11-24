@@ -38,5 +38,21 @@ export default function Pagination({ count }: Props) {
 
   if (count <= 1) return null;
 
-  return <StyledPagination color="primary" count={count} onChange={handlePageChange} />;
+  return (
+    <StyledPagination
+      color="primary"
+      count={count}
+      onChange={handlePageChange}
+      aria-label="Navigacija stranica"
+      getItemAriaLabel={(type, pageNumber, selected) => {
+        if (type === "page") {
+          return selected ? `Strana ${pageNumber}` : `Idi na stranu ${pageNumber}`;
+        }
+        if (type === "first") return "Idi na prvu stranu";
+        if (type === "last") return "Idi na posljednju stranu";
+        if (type === "next") return "Idi na sljedeću stranu";
+        return "Idi na prethodnu stranu";
+      }}
+    />
+  );
 }

@@ -7,6 +7,7 @@ import { createTheme, ThemeProvider as MuiThemeProvider } from "@mui/material/st
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { bs } from "date-fns/locale/bs";
 import merge from "lodash/merge";
 
 import useSettings from "hooks/useSettings";
@@ -31,7 +32,7 @@ export default function ThemeProvider({ children }: PropsWithChildren) {
   theme.shadows[7] = "rgba(43, 52, 69, .07) 1px 1px 1px 0px";
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns}>
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={bs}>
       <AppRouterCacheProvider options={{ key: "css" }}>
         <MuiThemeProvider theme={theme}>
           <CssBaseline />

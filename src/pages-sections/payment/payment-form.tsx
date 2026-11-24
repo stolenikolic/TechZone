@@ -27,12 +27,12 @@ export default function PaymentForm() {
 
     const checkoutJson = sessionStorage.getItem(CHECKOUT_STORAGE_KEY);
     if (!checkoutJson) {
-      router.push("/checkout");
+      router.push("/narudzba");
       return;
     }
 
     if (!state.cart.length) {
-      router.push("/cart");
+      router.push("/korpa");
       return;
     }
 
@@ -63,14 +63,14 @@ export default function PaymentForm() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to place order.");
+        throw new Error(result.error || "Narudžba nije kreirana.");
       }
 
       dispatch({ type: "CLEAR_CART" });
       sessionStorage.removeItem(CHECKOUT_STORAGE_KEY);
-      router.push(`/order-confirmation?orderId=${result.orderId}`);
+      router.push(`/potvrda?orderId=${result.orderId}`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to place order.";
+      const message = err instanceof Error ? err.message : "Narudžba nije kreirana.";
       setError(message);
     } finally {
       setIsSubmitting(false);
@@ -108,11 +108,11 @@ export default function PaymentForm() {
           size="large"
           type="button"
           color="primary"
-          href="/checkout"
+          href="/narudzba"
           variant="outlined"
           LinkComponent={Link}
         >
-          Back to checkout
+          Nazad na narudžbu
         </Button>
 
         <Button

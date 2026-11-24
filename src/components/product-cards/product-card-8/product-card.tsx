@@ -21,7 +21,7 @@ export default function ProductCard8({ product }: Props) {
   return (
     <Card>
       <CardMedia>
-        <Link href={`/products/${slug}`}>
+        <Link href={`/proizvodi/${slug}`}>
           <LazyImage
             width={300}
             height={300}

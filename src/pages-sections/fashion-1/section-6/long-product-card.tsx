@@ -25,7 +25,7 @@ export default function LongProductCard({ product }: Props) {
 
   return (
     <div>
-      <Link href={`/products/${slug}`}>
+      <Link href={`/proizvodi/${slug}`}>
         <HoverBox sx={{ position: "relative" }}>
           <Box component="img" src={thumbnail} width="100%" height="auto" alt={title} mx="auto" />
         </HoverBox>

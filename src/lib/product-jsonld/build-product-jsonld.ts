@@ -105,13 +105,13 @@ export function buildBreadcrumbJsonLd(
   if (product.parentCategory) {
     items.push({
       name: product.parentCategory.name,
-      item: `${baseUrl}/categories/${product.parentCategory.slug}`
+      item: `${baseUrl}/kategorije/${product.parentCategory.slug}`
     });
   }
   if (product.category) {
     items.push({
       name: product.category.name,
-      item: `${baseUrl}/categories/${product.category.slug}`
+      item: `${baseUrl}/kategorije/${product.category.slug}`
     });
   }
   items.push({ name: product.title });

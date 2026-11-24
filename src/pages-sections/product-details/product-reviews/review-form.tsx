@@ -14,8 +14,8 @@ import { FormProvider, TextField } from "components/form-hook";
 import { RatingGroup } from "./styles";
 
 const validationSchema = yup.object().shape({
-  rating: yup.number().required("Rating is required!"),
-  comment: yup.string().required("Comment is required!")
+  rating: yup.number().required("Ocjena je obavezna."),
+  comment: yup.string().required("Komentar je obavezan.")
 });
 
 export default function ReviewForm() {
@@ -49,7 +49,7 @@ export default function ReviewForm() {
           sx={{ color: "grey.700", span: { color: "error.main" } }}
           color="grey.700"
         >
-          Your Rating <span>*</span>
+          Vaša ocjena <span>*</span>
         </Typography>
 
         <Controller
@@ -62,6 +62,10 @@ export default function ReviewForm() {
               name={field.name}
               value={field.value}
               onChange={(_, value) => field.onChange(value)}
+              emptyLabelText="Bez ocjene"
+              getLabelText={(value) =>
+                value === 1 ? "1 zvjezdica" : value >= 2 && value <= 4 ? `${value} zvjezdice` : `${value} zvjezdica`
+              }
             />
           )}
         />
@@ -73,7 +77,7 @@ export default function ReviewForm() {
           sx={{ mb: 1, color: "grey.700", span: { color: "error.main" } }}
           color="grey.700"
         >
-          Your Review <span>*</span>
+          Vaša recenzija <span>*</span>
         </Typography>
 
         <TextField
@@ -82,12 +86,12 @@ export default function ReviewForm() {
           fullWidth
           name="comment"
           variant="outlined"
-          placeholder="Write a review here..."
+          placeholder="Napišite recenziju ovdje..."
         />
       </Box>
 
       <Button loading={isSubmitting} variant="contained" color="primary" type="submit">
-        Submit
+        Pošalji
       </Button>
     </FormProvider>
   );

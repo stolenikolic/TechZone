@@ -19,7 +19,7 @@ export const addressList = [
     phone: "(213) 840-9416",
     street: "497 Erdman Passage",
     country: "Paraguay",
-    title: "Office"
+    title: "Kancelarija"
   },
   {
     id: "488cb38d-1614-45a6-b86d-bf69d6db2d48",
@@ -41,7 +41,7 @@ export const addressList = [
     phone: "345-510-1406",
     street: "8000 Evans Brooks",
     country: "Mongolia",
-    title: "Shop"
+    title: "Prodavnica"
   },
   {
     id: "32a078f4-d3b1-4eea-bdda-c6dc01182e5c",
@@ -63,7 +63,7 @@ export const addressList = [
     phone: "(932) 581-1393",
     street: "978 Elton Springs",
     country: "Uganda",
-    title: "Garage"
+    title: "Garaža"
   },
   {
     id: "a41a8078-6062-488d-a9ec-a3f37e9be6b6",
@@ -85,7 +85,7 @@ export const addressList = [
     phone: "201.292.9655 x140",
     street: "3899 Gutkowski Views",
     country: "Ghana",
-    title: "Coffee House"
+    title: "Kafić"
   },
   {
     id: "392f6957-c5e1-4f34-8f96-3b0739a03ea8",
@@ -107,6 +107,6 @@ export const addressList = [
     phone: "445-946-3391",
     street: "789 Spencer Lock",
     country: "Tanzania",
-    title: "Italian Restaurant"
+    title: "Italijanski restoran"
   }
 ];

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { format } from "date-fns/format";
+import { bs } from "date-fns/locale/bs";
 import Card from "@mui/material/Card";
 import Typography from "@mui/material/Typography";
 // GLOBAL CUSTOM COMPONENTS
@@ -13,7 +14,7 @@ type Props = { user: User };
 
 export default function UserInfo({ user }: Props) {
   return (
-    <Link href={`/profile/${user.id}`}>
+    <Link href={`/profil/${user.id}`}>
       <Card
         elevation={0}
         sx={{
@@ -28,14 +29,14 @@ export default function UserInfo({ user }: Props) {
           justifyContent: { md: "space-between", xs: "flex-start" }
         }}
       >
-        <TableRowItem title="First Name" value={user.name.firstName} />
-        <TableRowItem title="Last Name" value={user.name.lastName} />
-        <TableRowItem title="Email" value={user.email} />
-        <TableRowItem title="Phone" value={user.phone} />
+        <TableRowItem title="Ime" value={user.name.firstName} />
+        <TableRowItem title="Prezime" value={user.name.lastName} />
+        <TableRowItem title="E-mail" value={user.email} />
+        <TableRowItem title="Telefon" value={user.phone} />
         {user.dateOfBirth ? (
           <TableRowItem
             title="Datum rođenja"
-            value={format(new Date(user.dateOfBirth), "dd MMM, yyyy")}
+            value={format(new Date(user.dateOfBirth), "d. MMM yyyy.", { locale: bs })}
           />
         ) : null}
       </Card>

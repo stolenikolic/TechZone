@@ -59,7 +59,7 @@ export default function ProductsCarousel({ children }: PropsWithChildren) {
     <Box position="relative">
       <Heading>
         <Typography variant="h2" fontWeight={700} fontSize={{ sm: 32, xs: 27 }}>
-          Flash Deals
+          Akcije
         </Typography>
 
         <div className="buttons-container">

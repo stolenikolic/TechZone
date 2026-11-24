@@ -10,14 +10,14 @@ export function revalidateCategorySurfaces(
   categoryId?: string | null
 ): void {
   if (categorySlug) {
-    revalidatePath(`/categories/${categorySlug}`);
+    revalidatePath(`/kategorije/${categorySlug}`);
     revalidateTag(categoryListingTagForPath(categorySlug), "max");
   }
   if (categoryId) {
     revalidateTag(categoryListingTagForId(categoryId), "max");
   }
   revalidatePath("/");
-  revalidatePath("/categories", "layout");
+  revalidatePath("/kategorije", "layout");
   revalidatePath("/api/categories");
   revalidatePath("/api/homepage/categories");
   revalidateTag("homepage-categories", "max");

@@ -21,7 +21,7 @@ const PAYMENT_METHODS = [
   {
     id: "1050017AC",
     cvc: "123",
-    exp: "N/A",
+    exp: "Nije dostupno",
     user: "Ralf Edward",
     payment_method: "PayPal",
     card_no: "ui-lib@email.com"
@@ -45,7 +45,7 @@ const PAYMENT_METHODS = [
   {
     id: "1050017AG",
     cvc: "123",
-    exp: "N/A",
+    exp: "Nije dostupno",
     user: "Ralf Edward",
     payment_method: "PayPal",
     card_no: "ui-lib@email.com"

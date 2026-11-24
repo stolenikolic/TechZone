@@ -31,7 +31,7 @@ export default function CarouselCard1({
           <h1 className="title">{title}</h1>
           <p className="description">{description}</p>
 
-          <Link href="/products/search">
+          <Link href="/pretraga">
             <Button
               size="large"
               disableElevation

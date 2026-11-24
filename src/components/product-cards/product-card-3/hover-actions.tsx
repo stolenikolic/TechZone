@@ -44,7 +44,7 @@ export default function HoverActions({ product }: Props) {
     <HoverButtonBox className="hoverButtonBox">
       <div className="buttonBox">
         <ItemController>
-          <span onClick={() => router.push(`/products/${slug}/view`, { scroll: false })}>
+          <span onClick={() => router.push(`/proizvodi/${slug}/view`, { scroll: false })}>
             <RemoveRedEye />
           </span>
 

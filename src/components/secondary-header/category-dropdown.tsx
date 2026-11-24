@@ -22,7 +22,7 @@ export default function CategoryDropdown({ children }: PropsWithChildren) {
               </svg>
             </SvgIcon>
 
-            <Typography variant="h6">Categories</Typography>
+            <Typography variant="h6">Kategorije</Typography>
           </div>
 
           <ChevronRight className="dropdown-icon" fontSize="small" />

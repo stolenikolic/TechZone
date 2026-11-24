@@ -30,7 +30,7 @@ export default function ProductCard6({ hideRating, product }: Props) {
         <DiscountChip discount={discount} shape="square" />
 
         {/* PRODUCT IMAGE / THUMBNAIL */}
-        <Link href={`/products/${slug}`}>
+        <Link href={`/proizvodi/${slug}`}>
           <LazyImage
             alt={title}
             width={550}

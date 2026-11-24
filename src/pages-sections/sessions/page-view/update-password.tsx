@@ -54,7 +54,7 @@ export default function UpdatePasswordPageView() {
 
     setSuccess(true);
     setTimeout(() => {
-      router.push("/login");
+      router.push("/prijava");
       router.refresh();
     }, 2000);
   });

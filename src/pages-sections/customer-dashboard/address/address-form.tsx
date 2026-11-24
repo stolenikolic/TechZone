@@ -12,9 +12,9 @@ import { FormProvider, TextField } from "components/form-hook";
 import Address from "models/Address.model";
 
 const validationSchema = yup.object().shape({
-  name: yup.string().required("Name is required"),
-  address: yup.string().required("Address is required"),
-  contact: yup.string().required("Contact is required")
+  name: yup.string().required("Ime je obavezno"),
+  address: yup.string().required("Adresa je obavezna"),
+  contact: yup.string().required("Telefon je obavezan")
 });
 
 // =============================================================
@@ -46,15 +46,15 @@ export default function AddressForm({ address }: Props) {
     <FormProvider methods={methods} onSubmit={handleSubmitForm}>
       <Grid container spacing={3}>
         <Grid size={{ md: 6, xs: 12 }}>
-          <TextField fullWidth size="medium" name="name" label="Name" />
+          <TextField fullWidth size="medium" name="name" label="Ime" />
         </Grid>
 
         <Grid size={{ md: 6, xs: 12 }}>
-          <TextField fullWidth size="medium" name="address" label="Address Line" />
+          <TextField fullWidth size="medium" name="address" label="Adresa" />
         </Grid>
 
         <Grid size={{ md: 6, xs: 12 }}>
-          <TextField fullWidth size="medium" label="Phone" name="contact" />
+          <TextField fullWidth size="medium" label="Telefon" name="contact" />
         </Grid>
 
         <Grid size={12}>
@@ -65,7 +65,7 @@ export default function AddressForm({ address }: Props) {
             variant="contained"
             loading={isSubmitting}
           >
-            Save Changes
+            Sačuvaj izmjene
           </Button>
         </Grid>
       </Grid>

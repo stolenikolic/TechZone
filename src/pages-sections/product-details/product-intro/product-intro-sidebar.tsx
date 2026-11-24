@@ -52,18 +52,16 @@ export default function ProductIntroSidebar({ product }: Props) {
   const originalPrice =
     referenceOriginal != null && referenceOriginal > displayPrice ? referenceOriginal : null;
 
-  const deliveryLine = (
-    activeOffer
-      ? formatRokIsporuke(activeOffer)
-      : offers?.deliveryTrustLabel ?? "Delivery: 2–4 working days"
-  ).replace(/^Rok isporuke:/, "Delivery:");
+  const deliveryLine = activeOffer
+    ? formatRokIsporuke(activeOffer)
+    : offers?.deliveryTrustLabel ?? "Rok isporuke: 2–4 radna dana";
 
   return (
     <>
       <div className="price">
         {showPricePlaceholder ? (
           <Typography variant="h2" sx={{ color: "price.main", mb: 0.5, lineHeight: 1 }}>
-            Price on request
+            Cijena na upit
           </Typography>
         ) : (
           <Box

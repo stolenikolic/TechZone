@@ -13,7 +13,7 @@ export default async function Section6() {
   return (
     <Container>
       <Typography variant="h2" fontWeight={700} fontSize={{ sm: 32, xs: 27 }}>
-        Top rated products
+        Najbolje ocijenjeni proizvodi
       </Typography>
 
       <ProductsCarousel>

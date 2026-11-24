@@ -4,8 +4,8 @@ export const AUTH_UPDATE_PASSWORD_PATH = "/auth/update-password";
 export const AUTH_ERROR_PATH = "/auth/error";
 
 export const CUSTOMER_PROTECTED_PREFIXES = [
-  "/profile",
-  "/orders",
+  "/profil",
+  "/narudzbe",
   "/address",
   "/payment-methods",
   "/support-tickets"
@@ -13,7 +13,7 @@ export const CUSTOMER_PROTECTED_PREFIXES = [
 
 export const ADMIN_PROTECTED_PREFIXES = ["/admin", "/vendor"] as const;
 
-export const AUTH_PAGES = ["/login", "/register", "/reset-password"] as const;
+export const AUTH_PAGES = ["/prijava", "/registracija", "/reset-lozinke"] as const;
 
 export function getAuthCallbackUrl() {
   const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";

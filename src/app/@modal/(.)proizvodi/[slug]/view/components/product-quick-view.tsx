@@ -31,15 +31,14 @@ export default function ProductQuickView({ product }: Props) {
         </Typography>
 
         <Box display="flex" alignItems="center" gap={1} mb={3} mt={2}>
-          <Rating size="small" color="warn" value={4} readOnly />
+          <Rating size="small" color="warn" value={product.rating ?? 0} readOnly />
           <Typography variant="body1" lineHeight="1" color="text.secondary">
-            (50)
+            ({product.rating?.toFixed(1) ?? "0.0"})
           </Typography>
         </Box>
 
         <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          {product?.description ||
-            "Sed egestas, ante et vulputate volutpat, eros pede semper est, vitae luctus metus libero eu augue. Morbi purus liberpuro ate vol faucibus adipiscing."}
+          {product?.description || "Opis proizvoda trenutno nije dostupan."}
         </Typography>
 
         <ButtonGroup product={product} />

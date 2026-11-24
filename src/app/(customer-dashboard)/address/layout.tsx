@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "react";
-import { CustomerDashboardLayout } from "components/layouts/customer-dashboard";
+import { CustomerDashboardShell } from "components/layouts/customer-dashboard/shell";
 
 export default function Layout({ children }: PropsWithChildren) {
-  return <CustomerDashboardLayout>{children}</CustomerDashboardLayout>;
+  return <CustomerDashboardShell>{children}</CustomerDashboardShell>;
 }

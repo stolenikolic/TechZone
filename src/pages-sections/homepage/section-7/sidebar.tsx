@@ -50,7 +50,7 @@ export default function Sidebar({ brands, shops }: Props) {
           onClick={() => setType("brands")}
           sx={{ cursor: "pointer", color: type === "brands" ? "grey.900" : "grey.400" }}
         >
-          Brands
+          Brendovi
         </Typography>
 
         <Typography variant="h4" sx={{ cursor: "pointer", color: "grey.200" }}>
@@ -62,7 +62,7 @@ export default function Sidebar({ brands, shops }: Props) {
           onClick={() => setType("shops")}
           sx={{ cursor: "pointer", color: type === "shops" ? "grey.900" : "grey.400" }}
         >
-          Shops
+          Prodavnice
         </Typography>
       </FlexBox>
 
@@ -78,7 +78,7 @@ export default function Sidebar({ brands, shops }: Props) {
       ))}
 
       <ListItem
-        title={`View All ${type}`}
+        title={type === "brands" ? "Prikaži sve brendove" : "Prikaži sve prodavnice"}
         sx={{ mt: 8, justifyContent: "center", backgroundColor: "white" }}
       />
     </Card>

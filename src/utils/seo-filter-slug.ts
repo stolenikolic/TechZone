@@ -62,7 +62,7 @@ export function isSeoFilterSlug(slug: string): boolean {
 /**
  * Parse multiple SEO filter segments and merge into one params object.
  * Each segment is parsed (e.g. wd → brands, 4tb → capacity); multiple brands
- * are joined with comma. Used for URLs like /categories/.../wd/4tb.
+ * are joined with comma. Used for URLs like /kategorije/.../wd/4tb.
  */
 export function seoFilterSegmentsToParams(segments: string[]): Record<string, string> {
   const merged: Record<string, string> = {};
@@ -85,7 +85,7 @@ export function seoFilterSegmentsToParams(segments: string[]): Record<string, st
 const CATEGORY_PATH_SEGMENT_COUNT = 2;
 
 /**
- * From a pathname like /categories/racunarske-komponente/hard-diskovi/wd/4tb,
+ * From a pathname like /kategorije/racunarske-komponente/hard-diskovi/wd/4tb,
  * return the category base path and the parsed filter params from all trailing segments.
  * Requires at least categories + category path (3 segments); trailing = SEO filters.
  */

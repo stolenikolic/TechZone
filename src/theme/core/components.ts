@@ -181,7 +181,7 @@ export const components: ThemeComponents = {
         minWidth: 0,
         minHeight: 0,
         fontWeight: 500,
-        textTransform: "capitalize"
+        textTransform: "none"
       }
     }
   },

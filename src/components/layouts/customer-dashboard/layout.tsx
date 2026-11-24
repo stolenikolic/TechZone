@@ -3,7 +3,7 @@ import Box from "@mui/material/Box";
 import Grid from "@mui/material/Grid";
 import Container from "@mui/material/Container";
 import CustomerDashboardBreadcrumbs from "components/customer-dashboard/customer-dashboard-breadcrumbs";
-import { Navigation } from "./navigation";
+import { Navigation, OrderCountProvider } from "./navigation";
 
 const gridStyle = {
   display: {
@@ -12,24 +12,29 @@ const gridStyle = {
   }
 };
 
-export function CustomerDashboardLayout({ children }: PropsWithChildren) {
+export function CustomerDashboardLayout({
+  children,
+  orderCount = 0
+}: PropsWithChildren<{ orderCount?: number }>) {
   return (
-    <Box bgcolor="grey.50" py={{ xs: 3, sm: 4 }}>
-      <Container>
-        <Grid container spacing={3}>
-          <Grid size={{ lg: 3, xs: 12 }} sx={gridStyle}>
-            <CustomerDashboardBreadcrumbs />
-            <Navigation />
-          </Grid>
-
-          <Grid size={{ lg: 9, xs: 12 }}>
-            <Box sx={{ display: { xs: "block", lg: "none" }, mb: 2 }}>
+    <OrderCountProvider count={orderCount}>
+      <Box bgcolor="grey.50" py={{ xs: 3, sm: 4 }}>
+        <Container>
+          <Grid container spacing={3}>
+            <Grid size={{ lg: 3, xs: 12 }} sx={gridStyle}>
               <CustomerDashboardBreadcrumbs />
-            </Box>
-            {children}
+              <Navigation />
+            </Grid>
+
+            <Grid size={{ lg: 9, xs: 12 }}>
+              <Box sx={{ display: { xs: "block", lg: "none" }, mb: 2 }}>
+                <CustomerDashboardBreadcrumbs />
+              </Box>
+              {children}
+            </Grid>
           </Grid>
-        </Grid>
-      </Container>
-    </Box>
+        </Container>
+      </Box>
+    </OrderCountProvider>
   );
 }

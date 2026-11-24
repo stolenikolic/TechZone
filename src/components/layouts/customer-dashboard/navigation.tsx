@@ -1,5 +1,6 @@
 "use client";
 
+import { createContext, useContext, type PropsWithChildren } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
@@ -7,30 +8,25 @@ import NavItem from "./nav-item";
 import useWishlist from "hooks/useWishlist";
 import { MainContainer } from "./styles";
 
-const ACCOUNT_MENUS = [
-  {
-    title: "ACCOUNT SETTINGS",
-    list: [
-      { icon: "User3", href: "/profile", title: "Profile Info" },
-      { count: 16, icon: "Location", href: "/address", title: "Addresses" },
-      { count: 4, icon: "CreditCard", href: "/payment-methods", title: "Payment Methods" }
-    ]
-  }
-];
+const OrderCountContext = createContext(0);
+
+export function OrderCountProvider({ count, children }: PropsWithChildren<{ count: number }>) {
+  return <OrderCountContext.Provider value={count}>{children}</OrderCountContext.Provider>;
+}
 
 export function Navigation() {
   const { count, isHydrated } = useWishlist();
+  const orderCount = useContext(OrderCountContext);
 
   const dashboardMenus = [
     {
-      title: "DASHBOARD",
+      title: "Nalog",
       list: [
-        { count: 5, icon: "Packages", href: "/orders", title: "Orders" },
-        { count: isHydrated ? count : 0, icon: "HeartLine", href: "/wish-list", title: "Lista želja" },
-        { count: 1, icon: "Headset", href: "/support-tickets", title: "Support Tickets" }
+        { count: orderCount, icon: "Packages", href: "/narudzbe", title: "Narudžbe" },
+        { count: isHydrated ? count : 0, icon: "HeartLine", href: "/lista-zelja", title: "Lista želja" },
+        { icon: "User3", href: "/profil", title: "Podaci o profilu" }
       ]
-    },
-    ...ACCOUNT_MENUS
+    }
   ];
 
   return (
@@ -56,7 +52,7 @@ export function Navigation() {
 
       <Box px={4} mt={6} pb={2}>
         <Button fullWidth color="primary" variant="contained" href="/">
-          Back to Shop
+          Nazad u prodavnicu
         </Button>
       </Box>
     </MainContainer>

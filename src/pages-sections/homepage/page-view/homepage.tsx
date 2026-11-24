@@ -1,7 +1,8 @@
 import { Fragment, Suspense } from "react";
-//GLOBAL CUSTOM COMPONENTS
-import Setting from "components/settings";
-import Newsletter from "components/newsletter";
+// Demo prekidač rasporeda (RTL/LTR) je isključen.
+// import Setting from "components/settings";
+// Newsletter i blog su isključeni dok ne zatrebaju.
+// import Newsletter from "components/newsletter";
 //LOCAL CUSTOM COMPONENTS
 import Section1 from "../section-1";
 import Section2 from "../section-2";
@@ -11,8 +12,8 @@ import Section5 from "../section-5";
 import Section6 from "../section-6";
 import Section7 from "../section-7";
 import Section8 from "../section-8";
-import Section9 from "../section-9";
-import Section10 from "../section-10";
+// import Section9 from "../section-9";
+// import Section10 from "../section-10";
 
 export default function HomepageView() {
   return (
@@ -52,26 +53,30 @@ export default function HomepageView() {
         <Section7 />
       </Suspense>
 
-      {/* NEWSLETTER SECTION */}
-      <Suspense fallback={null}>
-        <Section9 />
-      </Suspense>
-
-      {/* READ OUR BLOG SECTION */}
-      <Suspense fallback={null}>
-        <Section10 />
-      </Suspense>
-
       {/*  CLIENTS SECTION */}
       <Suspense fallback={null}>
         <Section8 />
       </Suspense>
 
-      {/* POPUP NEWSLETTER FORM */}
-      <Newsletter />
+      {/* NEWSLETTER SECTION — isključeno
+      <Suspense fallback={null}>
+        <Section9 />
+      </Suspense>
+      */}
 
-      {/* SETTINGS IS USED ONLY FOR DEMO, YOU CAN REMOVE THIS */}
+      {/* READ OUR BLOG SECTION — isključeno
+      <Suspense fallback={null}>
+        <Section10 />
+      </Suspense>
+      */}
+
+      {/* POPUP NEWSLETTER FORM — isključeno
+      <Newsletter />
+      */}
+
+      {/* DEMO POSTAVKE RASPOREDA — isključeno
       <Setting />
+      */}
     </Fragment>
   );
 }

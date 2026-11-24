@@ -41,6 +41,16 @@ export default memo(function ProductPagination({ page, perPage, totalProducts }:
         variant="outlined"
         onChange={handleChangePage}
         count={Math.ceil(totalProducts / perPage)}
+        aria-label="Navigacija stranica"
+        getItemAriaLabel={(type, pageNumber, selected) => {
+          if (type === "page") {
+            return selected ? `Strana ${pageNumber}` : `Idi na stranu ${pageNumber}`;
+          }
+          if (type === "first") return "Idi na prvu stranu";
+          if (type === "last") return "Idi na posljednju stranu";
+          if (type === "next") return "Idi na sljedeću stranu";
+          return "Idi na prethodnu stranu";
+        }}
       />
     </FlexBetween>
   );

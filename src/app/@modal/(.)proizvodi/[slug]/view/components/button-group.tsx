@@ -29,10 +29,10 @@ export default function ButtonGroup({ product }: { product: Product }) {
         loading={isLoading}
         onClick={handleAddToCart}
       >
-        Add to Cart
+        Dodaj u korpu
       </Button>
 
-      <IconLink title="View Product Details" url={`/products/${product.slug}`} sx={{ mt: 2 }} />
+      <IconLink title="Pogledaj detalje proizvoda" url={`/proizvodi/${product.slug}`} sx={{ mt: 2 }} />
     </>
   );
 }

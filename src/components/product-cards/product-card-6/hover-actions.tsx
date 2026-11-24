@@ -40,7 +40,7 @@ export default function HoverActions({ product }: Props) {
     <ItemController className="controlBox">
       <Typography
         component="span"
-        onClick={() => router.push(`/products/${slug}/view`, { scroll: false })}
+        onClick={() => router.push(`/proizvodi/${slug}/view`, { scroll: false })}
       >
         <RemoveRedEye />
       </Typography>

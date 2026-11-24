@@ -18,7 +18,7 @@ export function FooterApps({ playStoreUrl, appleStoreUrl }: Props) {
           <PlayStore />
 
           <div>
-            <p className="subtitle">Get it on</p>
+            <p className="subtitle">Preuzmi na</p>
             <p className="title">Google Play</p>
           </div>
         </AppItem>
@@ -29,7 +29,7 @@ export function FooterApps({ playStoreUrl, appleStoreUrl }: Props) {
           <AppleStore />
 
           <div>
-            <p className="subtitle">Download on the</p>
+            <p className="subtitle">Preuzmi u</p>
             <p className="title">App Store</p>
           </div>
         </AppItem>

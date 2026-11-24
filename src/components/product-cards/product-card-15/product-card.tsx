@@ -20,7 +20,7 @@ export default function ProductCard15({ product }: Props) {
 
   return (
     <StyledRoot>
-      <Link href={`/products/${slug}`}>
+      <Link href={`/proizvodi/${slug}`}>
         <LazyImage
           alt={title}
           width={260}

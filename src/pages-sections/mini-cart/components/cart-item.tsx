@@ -69,7 +69,7 @@ interface Props {
 export default function MiniCartItem({ item, offerLabel, showLineDelivery, onCart }: Props) {
   return (
     <StyledRoot>
-      <Link href={`/products/${item.slug}`}>
+      <Link href={`/proizvodi/${item.slug}`}>
         <StyledAvatar variant="rounded">
           <Image alt={item.title} src={item.thumbnail} fill sizes="(100px, 100px)" />
         </StyledAvatar>
@@ -77,7 +77,7 @@ export default function MiniCartItem({ item, offerLabel, showLineDelivery, onCar
 
       <ContentWrapper>
         <Link
-          href={`/products/${item.slug}`}
+          href={`/proizvodi/${item.slug}`}
           style={{ color: "inherit", textDecoration: "none" }}
         >
           <Typography

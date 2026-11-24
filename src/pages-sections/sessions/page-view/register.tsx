@@ -18,7 +18,7 @@ import { signUpWithEmail } from "lib/auth/actions";
 
 const validationSchema = yup.object().shape({
   name: yup.string().required("Ime je obavezno"),
-  email: yup.string().email("Neispravna email adresa").required("Email je obavezan"),
+  email: yup.string().email("Neispravna e-mail adresa").required("E-mail je obavezan"),
   password: yup.string().min(8, "Lozinka mora imati najmanje 8 znakova").required("Lozinka je obavezna"),
   re_password: yup
     .string()
@@ -83,7 +83,7 @@ export default function RegisterPageView() {
       </div>
 
       <div className="mb-1">
-        <Label>Email</Label>
+        <Label>E-mail</Label>
         <TextField fullWidth name="email" size="medium" type="email" placeholder="primjer@mail.com" />
       </div>
 

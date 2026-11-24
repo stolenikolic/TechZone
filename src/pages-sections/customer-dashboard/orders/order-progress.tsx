@@ -2,6 +2,7 @@
 
 import { Fragment } from "react";
 import { format } from "date-fns/format";
+import { bs } from "date-fns/locale/bs";
 // MUI
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
@@ -101,14 +102,14 @@ export default function OrderProgress({ status, deliveredAt, isDelivered }: Prop
           <Fragment key={`step-${ind}`}>
             <Box position="relative">
               <StyledStatusAvatar
-                alt={`shipping-step-${ind + 1}`}
+                alt={`Korak dostave ${ind + 1}`}
                 className={ind <= statusIndex ? "completed" : "pending"}
               >
                 <Icon color="inherit" fontSize="large" />
               </StyledStatusAvatar>
 
               {ind < statusIndex && (
-                <StyledAvatar alt="completed-step">
+                <StyledAvatar alt="Završen korak">
                   <Done color="inherit" />
                 </StyledAvatar>
               )}
@@ -123,8 +124,8 @@ export default function OrderProgress({ status, deliveredAt, isDelivered }: Prop
 
       <FlexBox justifyContent={{ xs: "center", sm: "flex-end" }}>
         <DeliveryDateBox>
-          Estimated Delivery Date{" "}
-          <b>{isDelivered ? format(new Date(deliveredAt), "dd MMM yyyy") : "N/A"}</b>
+          Procijenjeni datum dostave{" "}
+          <b>{isDelivered ? format(new Date(deliveredAt), "d. MMM yyyy.", { locale: bs }) : "Nije dostupno"}</b>
         </DeliveryDateBox>
       </FlexBox>
     </Card>

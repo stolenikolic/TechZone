@@ -12,7 +12,7 @@ export default function LoginModalPage({ children }: PropsWithChildren) {
   const pathname = usePathname();
   const isMobile = useMediaQuery((theme: Theme) => theme.breakpoints.down("xs"));
 
-  if (pathname !== "/login") return null;
+  if (pathname !== "/prijava") return null;
 
   const handleClose = () => {
     router.back();

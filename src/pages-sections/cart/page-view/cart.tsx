@@ -44,7 +44,7 @@ export default function CartPageView() {
             startIcon={<Trash fontSize="small" />}
             onClick={() => dispatch({ type: "CLEAR_CART" })}
           >
-            Clear Cart
+            Isprazni korpu
           </Button>
         </Box>
       </Grid>

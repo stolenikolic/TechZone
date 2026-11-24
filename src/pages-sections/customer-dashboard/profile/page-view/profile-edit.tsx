@@ -14,7 +14,7 @@ type Props = { user: User };
 export function ProfileEditPageView({ user }: Props) {
   return (
     <Fragment>
-      <DashboardHeader href="/profile" title="Edit Profile" />
+      <DashboardHeader href="/profil" title="Uredi profil" />
 
       <Card sx={{ padding: { xs: 3, sm: 4 } }}>
         <ProfilePicUpload image={user.avatar} />

@@ -24,7 +24,7 @@ export default function themeOptions(pathname: string) {
     mapping.paths.some((path) => pathname.startsWith(path))
   );
 
-  if (["/mini-cart", "/login"].includes(pathname)) {
+  if (["/mini-cart", "/prijava"].includes(pathname)) {
     selectedMapping = oldMapping;
   }
 

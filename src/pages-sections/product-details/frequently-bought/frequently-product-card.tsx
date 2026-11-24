@@ -3,7 +3,7 @@ import Typography from "@mui/material/Typography";
 import HoverBox from "components/HoverBox";
 import LazyImage from "components/LazyImage";
 // CUSTOM UTILS LIBRARY FUNCTIONS
-import { calculateDiscount, formatPrice } from "lib";
+import { formatPrice } from "lib";
 // STYLED COMPONENTS
 import { CardLink, ItemCard, Price } from "./styles";
 
@@ -24,7 +24,7 @@ export default function FrequentlyProductCard({
   imgUrl = "/assets/images/products/Rectangle 116.png"
 }: Props) {
   return (
-    <CardLink href={`/products/${slug}`}>
+    <CardLink href={`/proizvodi/${slug}`}>
       <ItemCard>
         <HoverBox sx={{ mb: 1.5, borderRadius: 2 }}>
           <LazyImage alt={title} width={500} height={500} src={imgUrl} />
@@ -38,7 +38,6 @@ export default function FrequentlyProductCard({
           <Typography variant="h6" color="primary">
             {formatPrice(price)}
           </Typography>
-          <del>{calculateDiscount(price, 35)}</del>
         </Price>
       </ItemCard>
     </CardLink>

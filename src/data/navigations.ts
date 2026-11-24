@@ -6,86 +6,86 @@ export const categoryMenus: CategoryMenuItem[] = [
     title: "Fashion",
     href: "/fashion",
     component: "Grid",
-    offer: { url: "/assets/images/promotion/offer-1.png", href: "/products/search", position: "right" },
+    offer: { url: "/assets/images/promotion/offer-1.png", href: "/pretraga", position: "right" },
     children: [
       {
         title: "Man Clothes",
         href: "#",
         children: [
-          { title: "Shirt", href: "/products/search?category=clothes" },
-          { title: "T- shirt", href: "/products/search?category=clothes" },
-          { title: "Pant", href: "/products/search?category=clothes" },
-          { title: "Underwear", href: "/products/search?category=clothes" }
+          { title: "Shirt", href: "/pretraga?category=clothes" },
+          { title: "T- shirt", href: "/pretraga?category=clothes" },
+          { title: "Pant", href: "/pretraga?category=clothes" },
+          { title: "Underwear", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Accessories",
         href: "#",
         children: [
-          { title: "Belt", href: "/products/search?category=clothes" },
-          { title: "Hat", href: "/products/search?category=clothes" },
-          { title: "Watches", href: "/products/search?category=clothes" },
-          { title: "Sunglasses", href: "/products/search?category=clothes" }
+          { title: "Belt", href: "/pretraga?category=clothes" },
+          { title: "Hat", href: "/pretraga?category=clothes" },
+          { title: "Watches", href: "/pretraga?category=clothes" },
+          { title: "Sunglasses", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Shoes",
         href: "#",
         children: [
-          { title: "Sneakers", href: "/products/search?category=clothes" },
-          { title: "Sandals", href: "/products/search?category=clothes" },
-          { title: "Formal", href: "/products/search?category=clothes" },
-          { title: "Casual", href: "/products/search?category=clothes" }
+          { title: "Sneakers", href: "/pretraga?category=clothes" },
+          { title: "Sandals", href: "/pretraga?category=clothes" },
+          { title: "Formal", href: "/pretraga?category=clothes" },
+          { title: "Casual", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Bags",
         href: "#",
         children: [
-          { title: "Backpack", href: "/products/search?category=clothes" },
-          { title: "Crossbody Bags", href: "/products/search?category=clothes" },
-          { title: "Side Bags", href: "/products/search?category=clothes" },
-          { title: "Slides", href: "/products/search?category=clothes" }
+          { title: "Backpack", href: "/pretraga?category=clothes" },
+          { title: "Crossbody Bags", href: "/pretraga?category=clothes" },
+          { title: "Side Bags", href: "/pretraga?category=clothes" },
+          { title: "Slides", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Woman Clothes",
         href: "#",
         children: [
-          { title: "Shirt", href: "/products/search?category=clothes" },
-          { title: "T- shirt", href: "/products/search?category=clothes" },
-          { title: "Pant", href: "/products/search?category=clothes" },
-          { title: "Underwear", href: "/products/search?category=clothes" }
+          { title: "Shirt", href: "/pretraga?category=clothes" },
+          { title: "T- shirt", href: "/pretraga?category=clothes" },
+          { title: "Pant", href: "/pretraga?category=clothes" },
+          { title: "Underwear", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Accessories",
         href: "#",
         children: [
-          { title: "Belt", href: "/products/search?category=clothes" },
-          { title: "Hat", href: "/products/search?category=clothes" },
-          { title: "Watches", href: "/products/search?category=clothes" },
-          { title: "Sunglasses", href: "/products/search?category=clothes" }
+          { title: "Belt", href: "/pretraga?category=clothes" },
+          { title: "Hat", href: "/pretraga?category=clothes" },
+          { title: "Watches", href: "/pretraga?category=clothes" },
+          { title: "Sunglasses", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Shoes",
         href: "#",
         children: [
-          { title: "Sneakers", href: "/products/search?category=clothes" },
-          { title: "Sandals", href: "/products/search?category=clothes" },
-          { title: "Formal", href: "/products/search?category=clothes" },
-          { title: "Casual", href: "/products/search?category=clothes" }
+          { title: "Sneakers", href: "/pretraga?category=clothes" },
+          { title: "Sandals", href: "/pretraga?category=clothes" },
+          { title: "Formal", href: "/pretraga?category=clothes" },
+          { title: "Casual", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Bags",
         href: "#",
         children: [
-          { title: "Backpack", href: "/products/search?category=clothes" },
-          { title: "Crossbody Bags", href: "/products/search?category=clothes" },
-          { title: "Side Bags", href: "/products/search?category=clothes" },
-          { title: "Slides", href: "/products/search?category=clothes" }
+          { title: "Backpack", href: "/pretraga?category=clothes" },
+          { title: "Crossbody Bags", href: "/pretraga?category=clothes" },
+          { title: "Side Bags", href: "/pretraga?category=clothes" },
+          { title: "Slides", href: "/pretraga?category=clothes" }
         ]
       }
     ]
@@ -101,80 +101,80 @@ export const categoryMenus: CategoryMenuItem[] = [
         title: "Man Clothes",
         href: "#",
         children: [
-          { title: "Shirt", href: "/products/search?category=clothes" },
-          { title: "T- shirt", href: "/products/search?category=t-clothes" },
-          { title: "Pant", href: "/products/search?category=clothes" },
-          { title: "Underwear", href: "/products/search?category=clothes" }
+          { title: "Shirt", href: "/pretraga?category=clothes" },
+          { title: "T- shirt", href: "/pretraga?category=t-clothes" },
+          { title: "Pant", href: "/pretraga?category=clothes" },
+          { title: "Underwear", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Accessories",
         href: "#",
         children: [
-          { title: "Belt", href: "/products/search?category=clothes" },
-          { title: "Hat", href: "/products/search?category=clothes" },
-          { title: "Watches", href: "/products/search?category=clothes" },
-          { title: "Sunglasses", href: "/products/search?category=clothes" }
+          { title: "Belt", href: "/pretraga?category=clothes" },
+          { title: "Hat", href: "/pretraga?category=clothes" },
+          { title: "Watches", href: "/pretraga?category=clothes" },
+          { title: "Sunglasses", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Shoes",
         href: "#",
         children: [
-          { title: "Sneakers", href: "/products/search?category=clothes" },
-          { title: "Sandals", href: "/products/search?category=clothes" },
-          { title: "Formal", href: "/products/search?category=clothes" },
-          { title: "Casual", href: "/products/search?category=clothes" }
+          { title: "Sneakers", href: "/pretraga?category=clothes" },
+          { title: "Sandals", href: "/pretraga?category=clothes" },
+          { title: "Formal", href: "/pretraga?category=clothes" },
+          { title: "Casual", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Bags",
         href: "#",
         children: [
-          { title: "Backpack", href: "/products/search?category=clothes" },
-          { title: "Crossbody Bags", href: "/products/search?category=clothes" },
-          { title: "Side Bags", href: "/products/search?category=clothes" },
-          { title: "Slides", href: "/products/search?category=clothes" }
+          { title: "Backpack", href: "/pretraga?category=clothes" },
+          { title: "Crossbody Bags", href: "/pretraga?category=clothes" },
+          { title: "Side Bags", href: "/pretraga?category=clothes" },
+          { title: "Slides", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Woman Clothes",
         href: "#",
         children: [
-          { title: "Shirt", href: "/products/search?category=clothes" },
-          { title: "T- shirt", href: "/products/search?category=clothes" },
-          { title: "Pant", href: "/products/search?category=clothes" },
-          { title: "Underwear", href: "/products/search?category=clothes" }
+          { title: "Shirt", href: "/pretraga?category=clothes" },
+          { title: "T- shirt", href: "/pretraga?category=clothes" },
+          { title: "Pant", href: "/pretraga?category=clothes" },
+          { title: "Underwear", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Accessories",
         href: "#",
         children: [
-          { title: "Belt", href: "/products/search?category=clothes" },
-          { title: "Hat", href: "/products/search?category=clothes" },
-          { title: "Watches", href: "/products/search?category=clothes" },
-          { title: "Sunglasses", href: "/products/search?category=clothes" }
+          { title: "Belt", href: "/pretraga?category=clothes" },
+          { title: "Hat", href: "/pretraga?category=clothes" },
+          { title: "Watches", href: "/pretraga?category=clothes" },
+          { title: "Sunglasses", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Shoes",
         href: "#",
         children: [
-          { title: "Sneakers", href: "/products/search?category=clothes" },
-          { title: "Sandals", href: "/products/search?category=clothes" },
-          { title: "Formal", href: "/products/search?category=clothes" },
-          { title: "Casual", href: "/products/search?category=clothes" }
+          { title: "Sneakers", href: "/pretraga?category=clothes" },
+          { title: "Sandals", href: "/pretraga?category=clothes" },
+          { title: "Formal", href: "/pretraga?category=clothes" },
+          { title: "Casual", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Bags",
         href: "#",
         children: [
-          { title: "Backpack", href: "/products/search?category=clothes" },
-          { title: "Crossbody Bags", href: "/products/search?category=clothes" },
-          { title: "Side Bags", href: "/products/search?category=clothes" },
-          { title: "Slides", href: "/products/search?category=clothes" }
+          { title: "Backpack", href: "/pretraga?category=clothes" },
+          { title: "Crossbody Bags", href: "/pretraga?category=clothes" },
+          { title: "Side Bags", href: "/pretraga?category=clothes" },
+          { title: "Slides", href: "/pretraga?category=clothes" }
         ]
       }
     ]
@@ -195,40 +195,40 @@ export const categoryMenus: CategoryMenuItem[] = [
             title: "Man Clothes",
             href: "#",
             children: [
-              { title: "Shirt", href: "/products/search?category=clothes" },
-              { title: "T- shirt", href: "/products/search?category=clothes" },
-              { title: "Pant", href: "/products/search?category=clothes" },
-              { title: "Underwear", href: "/products/search?category=clothes" }
+              { title: "Shirt", href: "/pretraga?category=clothes" },
+              { title: "T- shirt", href: "/pretraga?category=clothes" },
+              { title: "Pant", href: "/pretraga?category=clothes" },
+              { title: "Underwear", href: "/pretraga?category=clothes" }
             ]
           },
           {
             title: "Accessories",
             href: "#",
             children: [
-              { title: "Belt", href: "/products/search?category=clothes" },
-              { title: "Hat", href: "/products/search?category=clothes" },
-              { title: "Watches", href: "/products/search?category=clothes" },
-              { title: "Sunglasses", href: "/products/search?category=clothes" }
+              { title: "Belt", href: "/pretraga?category=clothes" },
+              { title: "Hat", href: "/pretraga?category=clothes" },
+              { title: "Watches", href: "/pretraga?category=clothes" },
+              { title: "Sunglasses", href: "/pretraga?category=clothes" }
             ]
           },
           {
             title: "Shoes",
             href: "#",
             children: [
-              { title: "Sneakers", href: "/products/search?category=clothes" },
-              { title: "Sandals", href: "/products/search?category=clothes" },
-              { title: "Formal", href: "/products/search?category=clothes" },
-              { title: "Casual", href: "/products/search?category=clothes" }
+              { title: "Sneakers", href: "/pretraga?category=clothes" },
+              { title: "Sandals", href: "/pretraga?category=clothes" },
+              { title: "Formal", href: "/pretraga?category=clothes" },
+              { title: "Casual", href: "/pretraga?category=clothes" }
             ]
           },
           {
             title: "Bags",
             href: "#",
             children: [
-              { title: "Backpack", href: "/products/search?category=clothes" },
-              { title: "Crossbody Bags", href: "/products/search?category=clothes" },
-              { title: "Side Bags", href: "/products/search?category=clothes" },
-              { title: "Slides", href: "/products/search?category=clothes" }
+              { title: "Backpack", href: "/pretraga?category=clothes" },
+              { title: "Crossbody Bags", href: "/pretraga?category=clothes" },
+              { title: "Side Bags", href: "/pretraga?category=clothes" },
+              { title: "Slides", href: "/pretraga?category=clothes" }
             ]
           }
         ]
@@ -236,17 +236,17 @@ export const categoryMenus: CategoryMenuItem[] = [
       {
         icon: "Woman",
         title: "Woman",
-        href: "/products/search?category=clothes"
+        href: "/pretraga?category=clothes"
       },
       {
         icon: "BabyBoy",
         title: "Baby Boy",
-        href: "/products/search?category=clothes"
+        href: "/pretraga?category=clothes"
       },
       {
         icon: "BabyGirl",
         title: "Baby Girl",
-        href: "/products/search?category=clothes"
+        href: "/pretraga?category=clothes"
       }
     ]
   },
@@ -260,80 +260,80 @@ export const categoryMenus: CategoryMenuItem[] = [
         title: "Man Clothes",
         href: "#",
         children: [
-          { title: "Shirt", href: "/products/search?category=clothes" },
-          { title: "T- shirt", href: "/products/search?category=t-clothes" },
-          { title: "Pant", href: "/products/search?category=clothes" },
-          { title: "Underwear", href: "/products/search?category=clothes" }
+          { title: "Shirt", href: "/pretraga?category=clothes" },
+          { title: "T- shirt", href: "/pretraga?category=t-clothes" },
+          { title: "Pant", href: "/pretraga?category=clothes" },
+          { title: "Underwear", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Accessories",
         href: "#",
         children: [
-          { title: "Belt", href: "/products/search?category=clothes" },
-          { title: "Hat", href: "/products/search?category=clothes" },
-          { title: "Watches", href: "/products/search?category=clothes" },
-          { title: "Sunglasses", href: "/products/search?category=clothes" }
+          { title: "Belt", href: "/pretraga?category=clothes" },
+          { title: "Hat", href: "/pretraga?category=clothes" },
+          { title: "Watches", href: "/pretraga?category=clothes" },
+          { title: "Sunglasses", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Shoes",
         href: "#",
         children: [
-          { title: "Sneakers", href: "/products/search?category=clothes" },
-          { title: "Sandals", href: "/products/search?category=clothes" },
-          { title: "Formal", href: "/products/search?category=clothes" },
-          { title: "Casual", href: "/products/search?category=clothes" }
+          { title: "Sneakers", href: "/pretraga?category=clothes" },
+          { title: "Sandals", href: "/pretraga?category=clothes" },
+          { title: "Formal", href: "/pretraga?category=clothes" },
+          { title: "Casual", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Bags",
         href: "#",
         children: [
-          { title: "Backpack", href: "/products/search?category=clothes" },
-          { title: "Crossbody Bags", href: "/products/search?category=clothes" },
-          { title: "Side Bags", href: "/products/search?category=clothes" },
-          { title: "Slides", href: "/products/search?category=clothes" }
+          { title: "Backpack", href: "/pretraga?category=clothes" },
+          { title: "Crossbody Bags", href: "/pretraga?category=clothes" },
+          { title: "Side Bags", href: "/pretraga?category=clothes" },
+          { title: "Slides", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Woman Clothes",
         href: "#",
         children: [
-          { title: "Shirt", href: "/products/search?category=clothes" },
-          { title: "T- shirt", href: "/products/search?category=clothes" },
-          { title: "Pant", href: "/products/search?category=clothes" },
-          { title: "Underwear", href: "/products/search?category=clothes" }
+          { title: "Shirt", href: "/pretraga?category=clothes" },
+          { title: "T- shirt", href: "/pretraga?category=clothes" },
+          { title: "Pant", href: "/pretraga?category=clothes" },
+          { title: "Underwear", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Accessories",
         href: "#",
         children: [
-          { title: "Belt", href: "/products/search?category=clothes" },
-          { title: "Hat", href: "/products/search?category=clothes" },
-          { title: "Watches", href: "/products/search?category=clothes" },
-          { title: "Sunglasses", href: "/products/search?category=clothes" }
+          { title: "Belt", href: "/pretraga?category=clothes" },
+          { title: "Hat", href: "/pretraga?category=clothes" },
+          { title: "Watches", href: "/pretraga?category=clothes" },
+          { title: "Sunglasses", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Shoes",
         href: "#",
         children: [
-          { title: "Sneakers", href: "/products/search?category=clothes" },
-          { title: "Sandals", href: "/products/search?category=clothes" },
-          { title: "Formal", href: "/products/search?category=clothes" },
-          { title: "Casual", href: "/products/search?category=clothes" }
+          { title: "Sneakers", href: "/pretraga?category=clothes" },
+          { title: "Sandals", href: "/pretraga?category=clothes" },
+          { title: "Formal", href: "/pretraga?category=clothes" },
+          { title: "Casual", href: "/pretraga?category=clothes" }
         ]
       },
       {
         title: "Bags",
         href: "#",
         children: [
-          { title: "Backpack", href: "/products/search?category=clothes" },
-          { title: "Crossbody Bags", href: "/products/search?category=clothes" },
-          { title: "Side Bags", href: "/products/search?category=clothes" },
-          { title: "Slides", href: "/products/search?category=clothes" }
+          { title: "Backpack", href: "/pretraga?category=clothes" },
+          { title: "Crossbody Bags", href: "/pretraga?category=clothes" },
+          { title: "Side Bags", href: "/pretraga?category=clothes" },
+          { title: "Slides", href: "/pretraga?category=clothes" }
         ]
       }
     ]
@@ -347,26 +347,26 @@ export const categoryMenus: CategoryMenuItem[] = [
       {
         icon: "LaptopMobile",
         title: "Electronics & Gadget",
-        href: "/products/search?category=clothes"
+        href: "/pretraga?category=clothes"
       },
 
       {
         icon: "MicrophoneLines",
         title: "Music Instruments",
-        href: "/products/search?category=clothes"
+        href: "/pretraga?category=clothes"
       },
-      { icon: "ShirtLine", title: "Fashion", href: "/products/search?category=clothes" },
-      { icon: "Trees", title: "Home & Garden", href: "/products/search?category=clothes" },
-      { icon: "PersonBiking", title: "Bikes", href: "/products/search?category=clothes" },
-      { icon: "GiftLine", title: "Gifts", href: "/products/search?category=clothes" },
-      { icon: "MakeUp", title: "Beauty Care", href: "/products/search?category=clothes" },
-      { icon: "PawSimple", title: "Dog Food", href: "/products/search?category=clothes" }
+      { icon: "ShirtLine", title: "Fashion", href: "/pretraga?category=clothes" },
+      { icon: "Trees", title: "Home & Garden", href: "/pretraga?category=clothes" },
+      { icon: "PersonBiking", title: "Bikes", href: "/pretraga?category=clothes" },
+      { icon: "GiftLine", title: "Gifts", href: "/pretraga?category=clothes" },
+      { icon: "MakeUp", title: "Beauty Care", href: "/pretraga?category=clothes" },
+      { icon: "PawSimple", title: "Dog Food", href: "/pretraga?category=clothes" }
     ]
   },
-  { icon: "MicrophoneLines", title: "Music", href: "/products/search?category=clothes" },
-  { icon: "MakeUp", title: "Health & Beauty", href: "/products/search?category=clothes" },
-  { icon: "PawSimple", title: "Pets", href: "/products/search?category=clothes" },
-  { icon: "TeddyBearLight", title: "Baby Toys", href: "/products/search?category=clothes" },
-  { icon: "BasketShopping", title: "Groceries", href: "/products/search?category=clothes" },
-  { icon: "TireRuggedLight", title: "Automotive", href: "/products/search?category=clothes" }
+  { icon: "MicrophoneLines", title: "Music", href: "/pretraga?category=clothes" },
+  { icon: "MakeUp", title: "Health & Beauty", href: "/pretraga?category=clothes" },
+  { icon: "PawSimple", title: "Pets", href: "/pretraga?category=clothes" },
+  { icon: "TeddyBearLight", title: "Baby Toys", href: "/pretraga?category=clothes" },
+  { icon: "BasketShopping", title: "Groceries", href: "/pretraga?category=clothes" },
+  { icon: "TireRuggedLight", title: "Automotive", href: "/pretraga?category=clothes" }
 ];

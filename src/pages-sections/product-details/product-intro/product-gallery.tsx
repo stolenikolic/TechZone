@@ -26,7 +26,7 @@ export default function ProductGallery({ images, productName }: Props) {
             selected={currentImage === ind}
           >
             {/* Gallery images: product name + image index */}
-            <Image fill alt={`${productName} image ${ind + 1}`} src={url} sizes="(48px 48px)" />
+            <Image fill alt={`${productName}, slika ${ind + 1}`} src={url} sizes="(48px 48px)" />
           </PreviewImage>
         ))}
       </div>

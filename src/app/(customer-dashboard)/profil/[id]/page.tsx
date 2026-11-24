@@ -18,7 +18,7 @@ export default async function ProfileEdit({ params }: Props) {
   const { id } = await params;
   const profile = await getSessionProfile();
   if (!profile) return null;
-  if (profile.id !== id) redirect("/profile");
+  if (profile.id !== id) redirect("/profil");
 
   const user = profileToUserModel(profile);
   return <ProfileEditPageView user={user} />;
