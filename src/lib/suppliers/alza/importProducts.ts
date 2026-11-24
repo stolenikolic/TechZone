@@ -180,7 +180,7 @@ function categoryIdsFromRaw(raw: unknown): number[] {
     const id = Number(item);
     if (Number.isInteger(id)) ids.add(id);
   }
-  return [...ids].sort((a, b) => a - b);
+  return Array.from(ids).sort((a, b) => a - b);
 }
 
 function runFetch(categoryIds: number[], onEvent: (event: AlzaEvent) => Promise<void>): Promise<number> {
@@ -322,11 +322,13 @@ async function upsertPage(
     byId.set(supplierProductId, product);
   }
   stats.downloaded = new Set(
-    [...stats.seen].filter((id) => id.startsWith("downloaded:")).map((id) => id.slice("downloaded:".length))
+    Array.from(stats.seen)
+      .filter((id) => id.startsWith("downloaded:"))
+      .map((id) => id.slice("downloaded:".length))
   ).size;
 
-  const existing = await loadExistingRaw(supabase, [...byId.keys()]);
-  for (const [supplierProductId, product] of byId) {
+  const existing = await loadExistingRaw(supabase, Array.from(byId.keys()));
+  for (const [supplierProductId, product] of Array.from(byId)) {
     const price = priceAmount(product.price_huf);
     if (price == null || price <= 0) {
       stats.skippedNoPrice += 1;
@@ -477,22 +479,26 @@ export async function runAlzaImportProducts(
 
   let staleDeactivated = 0;
   if (exitCode === 0) {
-    for (const stats of statsByCategory.values()) {
+    for (const stats of Array.from(statsByCategory.values())) {
       if (!stats.complete) continue;
-      const upsertedIds = new Set([...stats.seen].filter((id) => !id.startsWith("downloaded:")));
+      const upsertedIds = new Set(
+        Array.from(stats.seen).filter((id) => !id.startsWith("downloaded:"))
+      );
       staleDeactivated += await removeCategoryFromUnseen(supabase, stats.categoryId, upsertedIds);
     }
   }
 
-  const linkedProductIds = [
-    ...new Set([...statsByCategory.values()].flatMap((stats) => [...stats.linkedProductIds]))
-  ];
+  const linkedProductIds = Array.from(
+    new Set(
+      Array.from(statsByCategory.values()).flatMap((stats) => Array.from(stats.linkedProductIds))
+    )
+  );
   const agg = await aggregatePricesForProductIds(linkedProductIds, { reconcile: true });
   if (agg.error) console.warn("[Alza] aggregate-prices:", agg.error);
 
   const categoryResults = [];
   let rowsInDb = 0;
-  for (const stats of statsByCategory.values()) {
+  for (const stats of Array.from(statsByCategory.values())) {
     const rows = await countRowsInCategory(supabase, stats.categoryId);
     rowsInDb += rows;
     categoryResults.push({
