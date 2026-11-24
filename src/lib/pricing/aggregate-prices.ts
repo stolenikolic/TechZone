@@ -13,8 +13,13 @@ import { getEffectivePrice } from "lib/effective-price";
 import { resolvePriceSourceRegion } from "./price-source-region";
 import { withPostgrestTransientRetry } from "lib/suppliers/ipon/transient-retry";
 
-/** Number of supplier_products rows to fetch per query. Keep at 1000 to stay under PostgREST default row limit. */
+/**
+ * Active linked offers fetched per query. Stay at 1000 (PostgREST default max rows).
+ * Full-catalog reads page by primary key, not OFFSET + ORDER BY product_id: that sort
+ * materializes every active offer and trips the API statement_timeout on the first page.
+ */
 const FETCH_PAGE_SIZE = 1000;
+const OFFER_COLUMNS = "id, product_id, supplier_id, price_amount, currency";
 /** PostgREST .in(product_id) chunk size for scoped aggregation. */
 const PRODUCT_IDS_IN_CHUNK = 100;
 /** Number of products to update per RPC call (price/original_price are unindexed → cheap HOT updates). */
@@ -28,11 +33,11 @@ const UPDATE_BATCH_SIZE = 2500;
 const SOURCE_UPDATE_BATCH_SIZE = 500;
 
 type SupplierProductRow = {
+  id: string;
   product_id: string;
   supplier_id: string;
   price_amount: number;
   currency: string;
-  suppliers: SupplierPricingRow | SupplierPricingRow[] | null;
 };
 
 type WinnerOffer = {
@@ -49,11 +54,6 @@ type ProductMarginRow = {
     | { selling_margin_default: number | null }[]
     | null;
 };
-
-function firstSupplier(raw: SupplierProductRow["suppliers"]): SupplierPricingRow | null {
-  if (raw == null) return null;
-  return Array.isArray(raw) ? raw[0] ?? null : raw;
-}
 
 function categoryDefaultFromProduct(row: ProductMarginRow): number | null {
   const raw = row.categories;
@@ -81,11 +81,12 @@ function mergeWarnings(...lists: (string[] | undefined)[]): string[] | undefined
 function ingestSupplierOfferRows(
   rows: SupplierProductRow[],
   settings: ReturnType<typeof resolvePricingSettingsRow>["settings"],
+  suppliersById: Map<string, SupplierPricingRow>,
   minCostByProduct: Map<string, number>,
   winnerByProduct: Map<string, WinnerOffer>
 ): void {
   for (const row of rows) {
-    const supplier = firstSupplier(row.suppliers);
+    const supplier = suppliersById.get(row.supplier_id);
     const km = computeAcquisitionKm(
       Number(row.price_amount),
       row.currency ?? "",
@@ -108,6 +109,7 @@ function ingestSupplierOfferRows(
 async function loadMinCostByProduct(
   supabase: ReturnType<typeof createSupabaseServiceClient>,
   settings: ReturnType<typeof resolvePricingSettingsRow>["settings"],
+  suppliersById: Map<string, SupplierPricingRow>,
   productIdsFilter: string[] | null
 ): Promise<{ minCostByProduct: Map<string, number>; winnerByProduct: Map<string, WinnerOffer> }> {
   const minCostByProduct = new Map<string, number>();
@@ -118,9 +120,7 @@ async function loadMinCostByProduct(
       const slice = productIdsFilter.slice(i, i + PRODUCT_IDS_IN_CHUNK);
       const { data: rows, error: fetchError } = await supabase
         .from("supplier_products")
-        .select(
-          "product_id, supplier_id, price_amount, currency, suppliers(pricing_formula, cost_adjustment_multiplier)"
-        )
+        .select(OFFER_COLUMNS)
         .in("product_id", slice)
         .eq("is_active", true);
 
@@ -131,6 +131,7 @@ async function loadMinCostByProduct(
       ingestSupplierOfferRows(
         (rows ?? []) as SupplierProductRow[],
         settings,
+        suppliersById,
         minCostByProduct,
         winnerByProduct
       );
@@ -138,17 +139,19 @@ async function loadMinCostByProduct(
     return { minCostByProduct, winnerByProduct };
   }
 
-  let offset = 0;
+  let cursor: string | null = null;
   while (true) {
-    const { data: rows, error: fetchError } = await supabase
+    let query = supabase
       .from("supplier_products")
-      .select(
-        "product_id, supplier_id, price_amount, currency, suppliers(pricing_formula, cost_adjustment_multiplier)"
-      )
+      .select(OFFER_COLUMNS)
       .not("product_id", "is", null)
       .eq("is_active", true)
-      .order("product_id", { ascending: true })
-      .range(offset, offset + FETCH_PAGE_SIZE - 1);
+      .order("id", { ascending: true })
+      .limit(FETCH_PAGE_SIZE);
+
+    if (cursor) query = query.gt("id", cursor);
+
+    const { data: rows, error: fetchError } = await query;
 
     if (fetchError) {
       throw new Error(`supplier_products fetch failed: ${fetchError.message}`);
@@ -157,9 +160,11 @@ async function loadMinCostByProduct(
     const chunk = (rows ?? []) as SupplierProductRow[];
     if (chunk.length === 0) break;
 
-    ingestSupplierOfferRows(chunk, settings, minCostByProduct, winnerByProduct);
-    offset += chunk.length;
-    if (chunk.length < FETCH_PAGE_SIZE) break;
+    ingestSupplierOfferRows(chunk, settings, suppliersById, minCostByProduct, winnerByProduct);
+
+    const lastId = chunk[chunk.length - 1]?.id;
+    if (!lastId || chunk.length < FETCH_PAGE_SIZE) break;
+    cursor = lastId;
   }
 
   return { minCostByProduct, winnerByProduct };
@@ -205,9 +210,20 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
 
   const tiers = (tierRows ?? []) as PricingMarginTierRow[];
 
-  const { data: supplierFormulaRows } = await supabase.from("suppliers").select("pricing_formula");
-  const needsAlzaTax = Boolean(
-    (supplierFormulaRows ?? []).some((r) => r.pricing_formula === "hungary_huf_alza_tax")
+  const { data: supplierFormulaRows, error: suppliersError } = await supabase
+    .from("suppliers")
+    .select("id, pricing_formula, cost_adjustment_multiplier");
+
+  if (suppliersError) {
+    return { updated: 0, batches: 0, error: `suppliers: ${suppliersError.message}`, warnings: settingWarnings };
+  }
+
+  const suppliersById = new Map<string, SupplierPricingRow>();
+  for (const row of (supplierFormulaRows ?? []) as SupplierPricingRow[]) {
+    suppliersById.set(row.id, row);
+  }
+  const needsAlzaTax = Array.from(suppliersById.values()).some(
+    (r) => r.pricing_formula === "hungary_huf_alza_tax"
   );
 
   const validationError = validatePricingForAggregation(settings, tiers, needsAlzaTax);
@@ -218,7 +234,7 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
   let minCostByProduct: Map<string, number>;
   let winnerByProduct: Map<string, WinnerOffer>;
   try {
-    const loaded = await loadMinCostByProduct(supabase, settings, productIdsFilter);
+    const loaded = await loadMinCostByProduct(supabase, settings, suppliersById, productIdsFilter);
     minCostByProduct = loaded.minCostByProduct;
     winnerByProduct = loaded.winnerByProduct;
   } catch (err) {

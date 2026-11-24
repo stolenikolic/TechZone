@@ -279,6 +279,9 @@ jobs:
   aggregate_prices:
     name: "3 · Aggregate prices"
     needs: [auto_match]
+    # Run after a failed auto-match too. A match error must not skip catalog prices
+    # and, through them, enrichment. Skipped match (imports did not run) still skips this.
+    if: ${{ !cancelled() && (needs.auto_match.result == 'success' || needs.auto_match.result == 'failure') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:

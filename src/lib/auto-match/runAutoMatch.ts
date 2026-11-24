@@ -8,7 +8,7 @@
  * additionally emit `job_runs` / `job_run_events` records.
  */
 
-import { aggregatePrices } from "lib/pricing";
+import { aggregatePricesForProductIds } from "lib/pricing";
 import { logEvent, type JobRunHandle } from "lib/jobs/job-runner";
 import { mergeMatchAudit, resolveSupplierProductMatchSafe } from "lib/suppliers/matchSupplierProduct";
 import { mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
@@ -89,6 +89,7 @@ export async function runAutoMatch(jobHandle?: JobRunHandle): Promise<AutoMatchR
   let linked = 0;
   let skipped = 0;
   let errorsCount = 0;
+  const linkedProductIds: string[] = [];
 
   for (;;) {
     let query = supabase
@@ -224,13 +225,19 @@ export async function runAutoMatch(jobHandle?: JobRunHandle): Promise<AutoMatchR
           .eq("id", runId);
         return { success: false, runId, scanned, linked, skipped, errorsCount, error: linkError.message };
       }
+      linkedProductIds.push(match.productId);
     }
 
     cursor = page[page.length - 1]?.id ?? cursor;
     if (page.length < PAGE_SIZE) break;
   }
 
-  const priceRefresh = linked > 0 ? await aggregatePrices() : { updated: 0, batches: 0 };
+  // Reprice only masters linked in this run. A full catalog aggregatePrices()
+  // scans every active offer and times out; nightly step 3 still refreshes the catalog.
+  const priceRefresh =
+    linkedProductIds.length > 0
+      ? await aggregatePricesForProductIds(linkedProductIds, { reconcile: true })
+      : { updated: 0, batches: 0 };
   if (priceRefresh.error) {
     errorsCount += 1;
     await insertEvent(runId, "error", `Price refresh failed: ${priceRefresh.error}`);
