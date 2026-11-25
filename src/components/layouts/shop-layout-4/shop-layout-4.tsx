@@ -12,7 +12,7 @@ import { MobileMenu } from "components/mobile-navbar/mobile-menu";
 import { MobileNavigationBar } from "components/mobile-navigation";
 import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, MobileHeaderActions } from "components/header";
 import { ScrollChromeProvider } from "contexts/ScrollChromeContext";
-import { Topbar, TopbarLanguageSelector, TopbarSocialLinks } from "components/topbar";
+import { Topbar, TopbarContact } from "components/topbar";
 // LOCAL CUSTOM COMPONENTS
 import Footer from "./footer";
 // CUSTOM DATA MODEL
@@ -34,7 +34,7 @@ interface Props extends PropsWithChildren {
 // ==============================================================
 
 export default function ShopLayout4({ children, navigation, data }: Props) {
-  const { topbar, header, mobileNavigation } = data;
+  const { header, mobileNavigation } = data;
 
   const [isFixed, setIsFixed] = useState(false);
   const toggleIsFixed = useCallback((fixed: boolean) => setIsFixed(fixed), []);
@@ -65,12 +65,7 @@ export default function ShopLayout4({ children, navigation, data }: Props) {
   return (
     <ScrollChromeProvider>
       <Topbar>
-        <Topbar.Left label={topbar.label} title={topbar.title} />
-
-        <Topbar.Right>
-          <TopbarLanguageSelector languages={topbar.languageOptions} />
-          <TopbarSocialLinks links={topbar.socials} />
-        </Topbar.Right>
+        <TopbarContact />
       </Topbar>
 
       <Sticky fixedOn={0} onSticky={toggleIsFixed} scrollDistance={150}>

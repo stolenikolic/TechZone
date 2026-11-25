@@ -5,7 +5,7 @@ import Sticky from "components/sticky";
 import { SearchInput2 } from "components/search-box";
 import { CategoryList } from "components/categories";
 import { MobileMenu } from "components/mobile-navbar";
-import { Topbar, TopbarLanguageSelector, TopbarSocialLinks } from "components/topbar";
+import { Topbar, TopbarContact } from "components/topbar";
 import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, MobileHeaderActions } from "components/header";
 // CUSTOM DATA MODEL
 import LayoutModel from "models/Layout.model";
@@ -17,7 +17,7 @@ interface LayoutProps extends PropsWithChildren {
 // ==============================================================
 
 export default function ShopLayout2({ children, data }: LayoutProps) {
-  const { header, topbar, mobileNavigation } = data;
+  const { header, mobileNavigation } = data;
 
   const MOBILE_VERSION_HEADER = (
     <MobileHeader>
@@ -36,12 +36,7 @@ export default function ShopLayout2({ children, data }: LayoutProps) {
   return (
     <ScrollChromeProvider>
       <Topbar>
-        <Topbar.Left label={topbar.label} title={topbar.title} />
-
-        <Topbar.Right>
-          <TopbarLanguageSelector languages={topbar.languageOptions} />
-          <TopbarSocialLinks links={topbar.socials} />
-        </Topbar.Right>
+        <TopbarContact />
       </Topbar>
 
       <Sticky fixedOn={0} scrollDistance={70}>

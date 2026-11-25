@@ -7,6 +7,7 @@ import {
   indexCategoryLinks,
   type CategoryLinkRow
 } from "lib/shop/category-view-href";
+import { siteContact } from "lib/site-contact";
 import {
   createSupabaseClient,
   createSupabaseServiceClient,
@@ -106,8 +107,8 @@ function createLayout(categories: LayoutModel["header"]["categories"], categoryM
         instagram: ""
       },
       contact: {
-        phone: "",
-        email: "",
+        phone: siteContact.phoneDisplay,
+        email: siteContact.email,
         address: ""
       }
     },
@@ -118,7 +119,7 @@ function createLayout(categories: LayoutModel["header"]["categories"], categoryM
       navigation: MAIN_NAVIGATION
     },
     topbar: {
-      title: "Dobrodošli u Tech Zone",
+      title: "",
       label: "",
       socials: {},
       languageOptions: {}

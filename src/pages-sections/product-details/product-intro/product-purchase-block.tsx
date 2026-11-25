@@ -7,7 +7,6 @@ import LocalShipping from "@mui/icons-material/LocalShipping";
 import VerifiedUser from "@mui/icons-material/VerifiedUser";
 import Lock from "@mui/icons-material/Lock";
 import QuantityButtons from "pages-sections/cart/quantity-buttons";
-import ViberChatButton from "components/contact/viber-chat-button";
 import AddToCart from "./add-to-cart";
 import WishlistButton from "./wishlist-button";
 import type { OfferChoiceKey, StorefrontProductOffer } from "lib/product-offers";
@@ -55,13 +54,6 @@ export default function ProductPurchaseBlock({
         />
         <WishlistButton productId={product.id} />
       </Stack>
-
-      <ViberChatButton
-        productTitle={product.title}
-        productSlug={product.slug}
-        fullWidth
-        sx={{ mt: 0.5 }}
-      />
 
       <Stack spacing={0.75} sx={{ mt: 3.5 }}>
         <Typography variant="body2" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>

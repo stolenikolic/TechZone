@@ -15,9 +15,11 @@ export function FooterContact({ email, phone, address }: Props) {
     <Fragment>
       <Heading>Kontakt</Heading>
 
-      <Typography variant="body1" sx={{ py: 0.6 }}>
-        {address}
-      </Typography>
+      {address ? (
+        <Typography variant="body1" sx={{ py: 0.6 }}>
+          {address}
+        </Typography>
+      ) : null}
 
       <Typography variant="body1" sx={{ py: 0.6 }}>
         E-mail: {email}

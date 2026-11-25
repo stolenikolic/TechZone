@@ -17,7 +17,7 @@ import Sticky from "components/sticky";
 import { NavigationList } from "components/navbar";
 import { MobileMenu } from "components/mobile-navbar/mobile-menu";
 import { MobileNavigationBar } from "components/mobile-navigation";
-import { Topbar, TopbarLanguageSelector, TopbarSocialLinks } from "components/topbar";
+import { Topbar, TopbarContact } from "components/topbar";
 import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, MobileHeaderActions } from "components/header";
 // CUSTOM DATA MODEL
 import LayoutModel from "models/Layout.model";
@@ -36,7 +36,7 @@ export default function ShopLayout3({
   showFooter = true,
   showMobileMenu = true
 }: Props) {
-  const { header, topbar, footer, mobileNavigation } = data;
+  const { header, footer, mobileNavigation } = data;
 
   const MOBILE_VERSION_HEADER = (
     <MobileHeader>
@@ -55,12 +55,7 @@ export default function ShopLayout3({
   return (
     <ScrollChromeProvider>
       <Topbar>
-        <Topbar.Left label={topbar.label} title={topbar.title} />
-
-        <Topbar.Right>
-          <TopbarLanguageSelector languages={topbar.languageOptions} />
-          <TopbarSocialLinks links={topbar.socials} />
-        </Topbar.Right>
+        <TopbarContact />
       </Topbar>
 
       <Sticky fixedOn={0} scrollDistance={300}>

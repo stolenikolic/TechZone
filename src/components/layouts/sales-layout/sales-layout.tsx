@@ -18,7 +18,7 @@ import { SecondaryHeader } from "components/secondary-header";
 import { MobileMenu } from "components/mobile-navbar/mobile-menu";
 import { MobileNavigationBar } from "components/mobile-navigation";
 import { SearchInput1 } from "components/search-box";
-import { Topbar, TopbarLanguageSelector, TopbarSocialLinks } from "components/topbar";
+import { Topbar, TopbarContact } from "components/topbar";
 import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, MobileHeaderActions } from "components/header";
 // CUSTOM DATA MODEL
 import LayoutModel from "models/Layout.model";
@@ -30,7 +30,7 @@ interface Props extends PropsWithChildren {
 // ==============================================================
 
 export default function SalesLayout({ children, data }: Props) {
-  const { header, topbar, mobileNavigation, footer } = data;
+  const { header, mobileNavigation, footer } = data;
 
   const MOBILE_VERSION_HEADER = (
     <MobileHeader>
@@ -49,12 +49,7 @@ export default function SalesLayout({ children, data }: Props) {
   return (
     <ScrollChromeProvider>
       <Topbar>
-        <Topbar.Left label={topbar.label} title={topbar.title} />
-
-        <Topbar.Right>
-          <TopbarLanguageSelector languages={topbar.languageOptions} />
-          <TopbarSocialLinks links={topbar.socials} />
-        </Topbar.Right>
+        <TopbarContact />
       </Topbar>
 
       <Header mobileHeader={MOBILE_VERSION_HEADER}>
