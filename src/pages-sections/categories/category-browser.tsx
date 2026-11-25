@@ -3,8 +3,8 @@ import Grid from "@mui/material/Grid";
 import Typography from "@mui/material/Typography";
 import Container from "components/Container";
 import { SectionHeader } from "components/section-header";
-import CategoryCard from "pages-sections/homepage/section-3/category-card";
 import type Category from "models/Category.model";
+import SubcategoryRow from "./subcategory-row";
 
 export type CategoryTreeNode = Omit<Category, "parent"> & {
   parent?: CategoryTreeNode[];
@@ -44,8 +44,8 @@ export default function CategoryBrowser({
           const categoryPath = [...pathPrefix, item.slug].join("/");
 
           return (
-            <Grid size={{ lg: 2, sm: 4, xs: 6 }} key={item.id}>
-              <CategoryCard
+            <Grid size={{ md: 4, sm: 6, xs: 12 }} key={item.id}>
+              <SubcategoryRow
                 image={item.image ?? "/assets/images/categories/default-category.jpg"}
                 title={item.name}
                 slug={categoryPath}
