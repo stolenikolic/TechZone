@@ -47,6 +47,7 @@ type AdminCategoryListItem = {
   image_url: string | null;
   productCount: number;
   topPickCount: number;
+  sort_order: number;
 };
 
 const category = cache(async (): Promise<AdminCategoryListItem[]> => {

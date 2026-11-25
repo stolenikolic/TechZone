@@ -34,7 +34,10 @@ export const Wrapper = styled("div")(({ theme }) => ({
     left: "100%",
     right: "auto",
     display: "none",
-    position: "absolute"
+    position: "absolute",
+    maxHeight: "min(36rem, calc(100dvh - 12.5rem))",
+    overflowY: "auto",
+    overscrollBehavior: "contain"
   },
   ".caret-icon": {
     fontSize: "1rem",

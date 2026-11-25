@@ -17,13 +17,14 @@ interface Category {
   level: number;
   productCount: number;
   topPickCount: number;
+  sortOrder: number;
 }
 
 type Props = { category: Category };
 // ========================================================================
 
 export default function CategoryRow({ category }: Props) {
-  const { image, name, slug, level, id, productCount, topPickCount } = category;
+  const { image, name, slug, level, id, productCount, topPickCount, sortOrder } = category;
 
   return (
     <StyledTableRow tabIndex={-1} role="checkbox">
@@ -47,6 +48,7 @@ export default function CategoryRow({ category }: Props) {
       </StyledTableCell>
 
       <StyledTableCell align="left">{level}</StyledTableCell>
+      <StyledTableCell align="left">{sortOrder}</StyledTableCell>
 
       <StyledTableCell align="left">
         {productCount}

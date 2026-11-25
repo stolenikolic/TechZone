@@ -22,6 +22,7 @@ export type CategoryTreeItem = {
 type DbCategory = CategoryLinkRow & {
   name: string;
   image_url: string | null;
+  sort_order: number;
 };
 
 type TreeNode = DbCategory & { children: TreeNode[] };
@@ -29,7 +30,7 @@ type TreeNode = DbCategory & { children: TreeNode[] };
 /**
  * Builds a full tree from flat rows using parent_id.
  * Roots have parent_id null; children are attached to their parent's children array.
- * Sorts each level by name.
+ * Sorts each level by sort_order, then name.
  */
 function buildCategoryTree(rows: DbCategory[]): TreeNode[] {
   const byId = new Map<string, TreeNode>();
@@ -51,9 +52,10 @@ function buildCategoryTree(rows: DbCategory[]): TreeNode[] {
     }
   }
 
-  const sortByName = (a: TreeNode, b: TreeNode) => a.name.localeCompare(b.name);
+  const compareCategoryOrder = (a: TreeNode, b: TreeNode) =>
+    a.sort_order - b.sort_order || a.name.localeCompare(b.name);
   const sortTree = (nodes: TreeNode[]): void => {
-    nodes.sort(sortByName);
+    nodes.sort(compareCategoryOrder);
     nodes.forEach((n) => sortTree(n.children));
   };
   sortTree(roots);
@@ -79,7 +81,7 @@ function toTreeItem(node: TreeNode, byId: Map<string, CategoryLinkRow>): Categor
 /**
  * GET /api/categories
  * Returns the full category tree from the database for the navbar dropdown.
- * Ordered by name at each level of the hierarchy.
+ * Ordered by sort_order, then name, at each level of the hierarchy.
  */
 export async function GET() {
   try {
@@ -88,9 +90,10 @@ export async function GET() {
     const { data, error } = await supabase
       .from("categories")
       .select(
-        "id, name, slug, parent_id, image_url, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+        "id, name, slug, parent_id, image_url, sort_order, view_source_category_id, view_filter_attribute_slug, view_filter_value"
       )
-      .order("name");
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
 
     if (error) {
       console.error("[api/categories]", error.message);

@@ -14,8 +14,12 @@ import {
   hasSupabaseServerConfig
 } from "utils/supabase";
 
-type DbCategory = CategoryLinkRow & { name: string };
+type DbCategory = CategoryLinkRow & { name: string; sort_order: number };
 type TreeNode = DbCategory & { children: TreeNode[] };
+
+function compareCategoryOrder(a: DbCategory, b: DbCategory): number {
+  return a.sort_order - b.sort_order || a.name.localeCompare(b.name);
+}
 
 const CATEGORY_ICON_BY_SLUG: Record<string, string> = {
   "racunarske-komponente": "Microchip",
@@ -60,6 +64,12 @@ function buildCategoryTree(rows: DbCategory[]): TreeNode[] {
       else roots.push(node);
     }
   }
+
+  const sortTree = (nodes: TreeNode[]): void => {
+    nodes.sort(compareCategoryOrder);
+    nodes.forEach((node) => sortTree(node.children));
+  };
+  sortTree(roots);
 
   return roots;
 }
@@ -135,7 +145,8 @@ export async function getLayoutData(): Promise<LayoutModel> {
       .from("categories")
       .select("id, name, slug")
       .is("parent_id", null)
-      .order("name");
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
 
     const mappedCategories = (rootCategories ?? []).map((row) => ({
       title: row.name,
@@ -145,9 +156,10 @@ export async function getLayoutData(): Promise<LayoutModel> {
     const { data: allCategories } = await supabase
       .from("categories")
       .select(
-        "id, name, slug, parent_id, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+        "id, name, slug, parent_id, sort_order, view_source_category_id, view_filter_attribute_slug, view_filter_value"
       )
-      .order("name");
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
 
     const rows = (allCategories ?? []) as DbCategory[];
     const linkById = indexCategoryLinks(rows);

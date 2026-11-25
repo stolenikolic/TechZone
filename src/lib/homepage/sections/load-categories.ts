@@ -20,9 +20,14 @@ export type HomepageCategoryItem = {
 type DbCategory = CategoryLinkRow & {
   name: string;
   image_url: string | null;
+  sort_order: number;
 };
 
 type TreeNode = DbCategory & { children: TreeNode[] };
+
+function compareCategoryOrder(a: DbCategory, b: DbCategory): number {
+  return a.sort_order - b.sort_order || a.name.localeCompare(b.name);
+}
 
 function buildCategoryTree(rows: DbCategory[]): TreeNode[] {
   const byId = new Map<string, TreeNode>();
@@ -43,6 +48,12 @@ function buildCategoryTree(rows: DbCategory[]): TreeNode[] {
       else roots.push(node);
     }
   }
+
+  const sortTree = (nodes: TreeNode[]): void => {
+    nodes.sort(compareCategoryOrder);
+    nodes.forEach((node) => sortTree(node.children));
+  };
+  sortTree(roots);
 
   return roots;
 }
@@ -70,9 +81,10 @@ export async function loadHomepageCategories(): Promise<HomepageCategoryItem[]> 
   const { data, error } = await supabase
     .from("categories")
     .select(
-      "id, name, slug, parent_id, image_url, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+      "id, name, slug, parent_id, image_url, sort_order, view_source_category_id, view_filter_attribute_slug, view_filter_value"
     )
-    .order("name");
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
 
   if (error) {
     console.error("[homepage/categories]", error.message);

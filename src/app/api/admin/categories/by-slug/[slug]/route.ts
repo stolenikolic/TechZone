@@ -9,6 +9,7 @@ type CategoryRow = {
   parent_id: string | null;
   image_url: string | null;
   selling_margin_default: number | null;
+  sort_order: number;
   view_source_category_id: string | null;
   view_filter_attribute_slug: string | null;
   view_filter_value: string | null;
@@ -70,7 +71,7 @@ export async function GET(
     const { data: category, error } = await supabase
       .from("categories")
       .select(
-        "id, name, slug, parent_id, image_url, selling_margin_default, created_at, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+        "id, name, slug, parent_id, image_url, selling_margin_default, sort_order, created_at, view_source_category_id, view_filter_attribute_slug, view_filter_value"
       )
       .eq("slug", slug)
       .maybeSingle();
@@ -82,7 +83,7 @@ export async function GET(
       supabase
         .from("categories")
         .select(
-          "id, name, slug, parent_id, image_url, selling_margin_default, created_at, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+          "id, name, slug, parent_id, image_url, selling_margin_default, sort_order, created_at, view_source_category_id, view_filter_attribute_slug, view_filter_value"
         )
         .order("name", { ascending: true }),
       supabase

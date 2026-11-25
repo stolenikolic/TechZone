@@ -22,7 +22,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const { data, error } = await supabase
       .from("categories")
       .select(
-        "id, name, slug, parent_id, image_url, selling_margin_default, created_at, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+        "id, name, slug, parent_id, image_url, selling_margin_default, sort_order, created_at, view_source_category_id, view_filter_attribute_slug, view_filter_value"
       )
       .eq("id", id)
       .maybeSingle();
@@ -46,6 +46,7 @@ type PatchBody = {
   viewSourceCategoryId?: string | null;
   viewFilterAttributeSlug?: string | null;
   viewFilterValue?: string | null;
+  sortOrder?: number | null;
 };
 
 /** PATCH /api/admin/categories/:id */
@@ -81,6 +82,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       patch.slug = slug;
     }
     if ("parentId" in body) patch.parent_id = body.parentId ?? null;
+    if ("sortOrder" in body) {
+      const parsed = body.sortOrder;
+      if (typeof parsed !== "number" || !Number.isInteger(parsed)) {
+        return NextResponse.json({ error: "sortOrder must be an integer." }, { status: 400 });
+      }
+      patch.sort_order = parsed;
+    }
 
     if ("imageUrl" in body) {
       const { data: currentCategory } = await supabase

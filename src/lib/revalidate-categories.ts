@@ -17,6 +17,7 @@ export function revalidateCategorySurfaces(
     revalidateTag(categoryListingTagForId(categoryId), "max");
   }
   revalidatePath("/");
+  revalidatePath("/", "layout");
   revalidatePath("/kategorije", "layout");
   revalidatePath("/api/categories");
   revalidatePath("/api/homepage/categories");

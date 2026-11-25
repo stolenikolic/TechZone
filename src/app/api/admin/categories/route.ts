@@ -18,8 +18,33 @@ type CategoryRow = {
   parent_id: string | null;
   image_url: string | null;
   selling_margin_default: number | null;
+  sort_order: number;
   created_at: string;
 };
+
+/** Missing or non-integer sort order means "put this new category at the end of its siblings". */
+function readCreateSortOrder(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(parsed)) return undefined;
+  return parsed;
+}
+
+async function nextSiblingSortOrder(
+  supabase: ReturnType<typeof createSupabaseServiceClient>,
+  parentId: string | null
+): Promise<number> {
+  let query = supabase
+    .from("categories")
+    .select("sort_order")
+    .order("sort_order", { ascending: false })
+    .limit(1);
+  query = parentId == null ? query.is("parent_id", null) : query.eq("parent_id", parentId);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  const max = data?.[0]?.sort_order;
+  return (typeof max === "number" ? max : 0) + 10;
+}
 
 export async function GET() {
   const denied = await guardAdminApi();
@@ -29,7 +54,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from("categories")
       .select(
-        "id, name, slug, parent_id, image_url, selling_margin_default, created_at, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+        "id, name, slug, parent_id, image_url, selling_margin_default, sort_order, created_at, view_source_category_id, view_filter_attribute_slug, view_filter_value"
       )
       .order("name", { ascending: true });
 
@@ -86,6 +111,7 @@ type CreateBody = {
   viewSourceCategoryId?: string | null;
   viewFilterAttributeSlug?: string | null;
   viewFilterValue?: string | null;
+  sortOrder?: number | null;
 };
 
 export async function POST(request: Request) {
@@ -128,6 +154,10 @@ export async function POST(request: Request) {
         };
     if (!resolvedView.ok) return NextResponse.json({ error: resolvedView.error }, { status: 400 });
 
+    const requestedSort = readCreateSortOrder(body.sortOrder);
+    const sortOrder =
+      requestedSort ?? (await nextSiblingSortOrder(supabase, parentId));
+
     const { data: created, error } = await supabase
       .from("categories")
       .insert({
@@ -136,6 +166,7 @@ export async function POST(request: Request) {
         parent_id: parentId,
         image_url: imageUrl,
         selling_margin_default: sellingMarginDefault,
+        sort_order: sortOrder,
         ...resolvedView.columns
       })
       .select("id")

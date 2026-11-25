@@ -26,6 +26,7 @@ type CategoryListRow = {
   image_url: string | null;
   productCount: number;
   topPickCount: number;
+  sort_order: number;
 };
 type Props = { categories: CategoryListRow[] };
 // =============================================================================
@@ -48,7 +49,8 @@ const CategoriesPageView = ({ categories }: Props) => {
       return level;
     })(),
     productCount: item.productCount ?? 0,
-    topPickCount: item.topPickCount ?? 0
+    topPickCount: item.topPickCount ?? 0,
+    sortOrder: item.sort_order ?? 0
   }));
 
   const { order, orderBy, rowsPerPage, filteredList, handleChangePage, handleRequestSort } =

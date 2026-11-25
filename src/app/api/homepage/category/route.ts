@@ -20,6 +20,7 @@ export type HomepageCategoryItem = {
 
 type DbCategory = CategoryLinkRow & {
   name: string;
+  sort_order: number;
 };
 
 /**
@@ -48,6 +49,8 @@ function buildCategoryTree(rows: DbCategory[]): DbCategory[] {
     }
   }
 
+  roots.sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name));
+
   return roots;
 }
 
@@ -74,9 +77,10 @@ export async function GET() {
     const { data, error } = await supabase
       .from("categories")
       .select(
-        "id, name, slug, parent_id, view_source_category_id, view_filter_attribute_slug, view_filter_value"
+        "id, name, slug, parent_id, sort_order, view_source_category_id, view_filter_attribute_slug, view_filter_value"
       )
-      .order("name");
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
 
     if (error) {
       return NextResponse.json(

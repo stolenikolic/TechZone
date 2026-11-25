@@ -47,8 +47,17 @@ type CategoryOption = {
   name: string;
   slug: string;
   parent_id: string | null;
+  sort_order?: number;
   view_source_category_id?: string | null;
 };
+
+function suggestedSiblingSortOrder(parentId: string, rows: CategoryOption[]): string {
+  const siblings = rows.filter((item) =>
+    parentId ? item.parent_id === parentId : item.parent_id == null
+  );
+  const max = siblings.reduce((highest, item) => Math.max(highest, item.sort_order ?? 0), 0);
+  return String(max + 10);
+}
 
 type AttributeOption = {
   id: string;
@@ -166,6 +175,8 @@ export default function CategoryForm({ mode }: Props) {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [parentId, setParentId] = useState("");
+  const [sortOrder, setSortOrder] = useState("");
+  const [sortOrderTouched, setSortOrderTouched] = useState(false);
   const [viewSourceId, setViewSourceId] = useState("");
   const [viewAttributeSlug, setViewAttributeSlug] = useState("");
   const [viewFilterValue, setViewFilterValue] = useState("");
@@ -317,6 +328,7 @@ export default function CategoryForm({ mode }: Props) {
           category: CategoryOption & {
             image_url: string | null;
             selling_margin_default: number | null;
+            sort_order: number;
             view_source_category_id: string | null;
             view_filter_attribute_slug: string | null;
             view_filter_value: string | null;
@@ -352,6 +364,8 @@ export default function CategoryForm({ mode }: Props) {
     setName(data.category.name);
     setSlug(data.category.slug);
     setParentId(data.category.parent_id ?? "");
+    setSortOrder(String(data.category.sort_order ?? 0));
+    setSortOrderTouched(true);
     setViewSourceId(data.category.view_source_category_id ?? "");
     setViewAttributeSlug(data.category.view_filter_attribute_slug ?? "");
     setViewFilterValue(data.category.view_filter_value ?? "");
@@ -430,6 +444,11 @@ export default function CategoryForm({ mode }: Props) {
   }, [mode, categorySlug, loadSuppliers]);
 
   useEffect(() => {
+    if (mode !== "create" || sortOrderTouched) return;
+    setSortOrder(suggestedSiblingSortOrder(parentId, categories));
+  }, [mode, parentId, categories, sortOrderTouched]);
+
+  useEffect(() => {
     if (!viewSourceId) {
       setSourceAttributes([]);
       return;
@@ -485,6 +504,16 @@ export default function CategoryForm({ mode }: Props) {
       setError("Pokazivač traži izvornu kategoriju, slug atributa i tačnu vrijednost.");
       return;
     }
+    const trimmedSort = sortOrder.trim();
+    const parsedSort = trimmedSort === "" ? null : Number(trimmedSort);
+    if (parsedSort != null && !Number.isInteger(parsedSort)) {
+      setError("Redosled mora biti cijeli broj.");
+      return;
+    }
+    if (mode === "edit" && parsedSort == null) {
+      setError("Redosled mora biti cijeli broj.");
+      return;
+    }
     setSaving(true);
     setError(null);
     setNotice(null);
@@ -496,6 +525,7 @@ export default function CategoryForm({ mode }: Props) {
         parentId: parentId || null,
         imageUrl: resolvedImageUrl,
         sellingMarginDefault: sellingMarginDefault.trim() ? Number(sellingMarginDefault) : null,
+        ...(parsedSort == null ? {} : { sortOrder: parsedSort }),
         ...(hasChildren
           ? {}
           : {
@@ -975,6 +1005,19 @@ export default function CategoryForm({ mode }: Props) {
                 </MenuItem>
               ))}
             </TextField>
+          </Grid>
+          <Grid size={{ sm: 6, xs: 12 }}>
+            <TextField
+              fullWidth
+              type="number"
+              label="Redosled"
+              value={sortOrder}
+              helperText="Manji broj je više. Važi samo među kategorijama sa istim parentom. Predložak je 10, 20, 30."
+              onChange={(e) => {
+                setSortOrderTouched(true);
+                setSortOrder(e.target.value);
+              }}
+            />
           </Grid>
           <Grid size={{ sm: 6, xs: 12 }}>
             <TextField
