@@ -43,7 +43,9 @@ async function loadPublishedProductReviews(productId: string): Promise<ProductRe
   if (ratingResult.error) console.warn("[product-reviews]", ratingResult.error.message);
 
   const rows = listResult.data ?? [];
-  const userIds = [...new Set(rows.map((row) => row.user_id).filter((id): id is string => Boolean(id)))];
+  const userIds = Array.from(
+    new Set(rows.map((row) => row.user_id).filter((id): id is string => Boolean(id)))
+  );
   const avatarByUser = new Map<string, string>();
   if (userIds.length > 0) {
     const { data: profiles, error: profileError } = await supabase
