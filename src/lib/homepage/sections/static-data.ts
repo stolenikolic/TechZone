@@ -4,10 +4,10 @@ import type Service from "models/Service.model";
 import type Shop from "models/Shop.model";
 
 export const HOMEPAGE_SERVICES: Service[] = [
-  { id: "1", icon: "Truck", title: "Brza dostava", description: "Na adresu u BiH" },
-  { id: "2", icon: "MoneyGuarantee", title: "Garancija povrata", description: "U roku od 7 dana" },
-  { id: "3", icon: "AlarmClock", title: "365 dana", description: "Besplatan povrat" },
-  { id: "4", icon: "Payment", title: "Plaćanje", description: "Siguran sistem" }
+  { id: "1", icon: "Truck", title: "Dostava", description: "Na adresu širom BiH" },
+  { id: "2", icon: "Shield", title: "Garancija", description: "Od 12 do 36 mjeseci" },
+  { id: "3", icon: "CustomerService", title: "Podrška", description: "Dostupni uvijek" },
+  { id: "4", icon: "Payment", title: "Plaćanje", description: "Pouzećem ili žiralno" }
 ];
 
 export const HOMEPAGE_BRANDS: Brand[] = [

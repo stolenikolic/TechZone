@@ -3,16 +3,21 @@
 import Chip from "@mui/material/Chip";
 import Container from "@mui/material/Container";
 import { styled } from "@mui/material/styles";
+import { layoutConstant } from "utils/constants";
 
 export const StyledRoot = styled("div", {
   shouldForwardProp: (prop) => prop !== "bgColor"
 })<{ bgColor?: string }>(({ theme, bgColor }) => ({
-  fontSize: 12,
-  paddingBlock: 10,
+  display: "none",
+  fontSize: 14,
+  paddingBlock: 14,
   color: theme.palette.secondary.contrastText,
   background: bgColor ?? theme.palette.topbar?.main ?? theme.palette.grey[800],
+  [theme.breakpoints.up(layoutConstant.topbarMinWidth)]: {
+    display: "block"
+  },
   [theme.breakpoints.down("lg")]: {
-    paddingTop: `calc(10px + env(safe-area-inset-top, 0px))`
+    paddingTop: `calc(14px + env(safe-area-inset-top, 0px))`
   }
 }));
 

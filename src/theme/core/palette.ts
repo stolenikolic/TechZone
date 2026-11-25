@@ -52,7 +52,7 @@ export const getPalette = (color: COLORS): Palette => {
     secondary,
     info: blue,
     divider: grey[200],
-    topbar: { main: "#1F2937" },
+    topbar: { main: "#0C4A66" }, // prethodna tamno siva: #1F2937
     footer: { main: "#111827" },
     price: { main: "#2B3445" },
     primary: selectedPrimaryColor,

@@ -7,13 +7,7 @@ import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
 import { layoutConstant } from "utils/constants";
 // GLOBAL CUSTOM COMPONENTS
-import {
-  Footer1,
-  FooterApps,
-  FooterContact,
-  FooterLinksWidget,
-  FooterSocialLinks
-} from "components/footer";
+import { Footer1, FooterApps, FooterContact, FooterLinksWidget, FooterSocialLinks } from "components/footer";
 import Sticky from "components/sticky";
 import { NavigationList } from "components/navbar";
 import { CategoryList } from "components/categories";
@@ -25,6 +19,7 @@ import { Topbar, TopbarContact } from "components/topbar";
 import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, MobileHeaderActions } from "components/header";
 // CUSTOM DATA MODEL
 import LayoutModel from "models/Layout.model";
+import { siteContact, viberChatHref } from "lib/site-contact";
 
 // ==============================================================
 interface Props extends PropsWithChildren {
@@ -132,6 +127,9 @@ export default function ShopLayout1({ children, data }: Props) {
             phone={footer.contact.phone}
             email={footer.contact.email}
             address={footer.contact.address}
+            phoneHref={`tel:${siteContact.phoneE164}`}
+            viberHref={viberChatHref()}
+            pageHref="/kontakt"
           />
 
           <FooterSocialLinks links={footer.socials} />

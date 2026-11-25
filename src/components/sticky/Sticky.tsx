@@ -21,8 +21,13 @@ interface Props extends PropsWithChildren {
 export default function Sticky({ fixedOn, children, onSticky, scrollDistance = 0 }: Props) {
   const theme = useTheme();
   const isMobileLayout = useMediaQuery(theme.breakpoints.down("lg"), { noSsr: true });
+  const topbarVisible = useMediaQuery(`(min-width:${layoutConstant.topbarMinWidth}px)`, {
+    noSsr: true
+  });
   const effectiveScrollDistance = isMobileLayout
-    ? layoutConstant.topbarHeight
+    ? topbarVisible
+      ? layoutConstant.topbarHeight
+      : 0
     : scrollDistance;
   const [height, setHeight] = useState(0);
   const [fixed, setFixed] = useState(false);

@@ -94,8 +94,8 @@ export default function PaymentForm() {
         </Typography>
 
         <Typography color="text.secondary">
-          Narudžba će biti kreirana kao manualno plaćanje / pouzećem. Plaćanje karticom i Stripe
-          ćemo dodati u narednoj fazi.
+          Plaćate kad preuzmete pošiljku. Za žiralnu uplatu javite se prije potvrde, telefonom,
+          Viberom ili e-mailom.
         </Typography>
 
         {error ? <Alert severity="error" sx={{ mt: 3 }}>{error}</Alert> : null}

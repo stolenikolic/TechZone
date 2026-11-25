@@ -1,5 +1,5 @@
 export const siteContact = {
-  phoneDisplay: "065 727 149",
+  phoneDisplay: "065/727-149",
   phoneE164: "+38765727149",
   email: "techzone.prodaja@gmail.com"
 } as const;

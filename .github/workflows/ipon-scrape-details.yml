@@ -5,9 +5,10 @@ name: iPon scrape details
 
 on:
   schedule:
-    # Svakih ~90 min (UTC): 00:00, 01:30, 03:00, 04:30, …
-    - cron: "0 0,3,6,9,12,15,18,21 * * *"
-    - cron: "30 1,4,7,10,13,16,19,22 * * *"
+    # Svakih ~90 min, van punog sata i :30 (GitHub te minute često baci).
+    # UTC: 00:17, 01:47, 03:17, 04:47, …  Lokalno (CET): 01:17, 02:47, 04:17, …
+    - cron: "17 0,3,6,9,12,15,18,21 * * *"
+    - cron: "47 1,4,7,10,13,16,19,22 * * *"
   workflow_dispatch:
 
 env:

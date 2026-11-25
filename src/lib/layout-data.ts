@@ -32,18 +32,16 @@ const CATEGORY_ICON_BY_SLUG: Record<string, string> = {
   "telefoni-tableti-pametni-uredjaji": "MobileNotch",
   "foto-video-dronovi": "Camera",
   "racunarski-dodaci-softver": "Gear",
-  racunari: "Laptop"
+  "laptopi-racunari": "Laptop"
 };
 
 const MAIN_NAVIGATION: Menu[] = [
   { title: "Početna", url: "/", megaMenu: false, megaMenuWithSub: false },
   { title: "Kategorije", url: "/kategorije", megaMenu: false, megaMenuWithSub: false },
-  { title: "Akcije", url: "#", megaMenu: false, megaMenuWithSub: false },
-  { title: "Najprodavanije", url: "#", megaMenu: false, megaMenuWithSub: false },
-  { title: "Novo u ponudi", url: "#", megaMenu: false, megaMenuWithSub: false },
-  { title: "Za firme", url: "#", megaMenu: false, megaMenuWithSub: false },
-  { title: "Kako naručiti", url: "#", megaMenu: false, megaMenuWithSub: false },
-  { title: "Kontakt", url: "#", megaMenu: false, megaMenuWithSub: false }
+  { title: "Laptopi i računari", url: "/kategorije/laptopi-racunari", megaMenu: false, megaMenuWithSub: false },
+  { title: "Računarske komponente", url: "/kategorije/racunarske-komponente", megaMenu: false, megaMenuWithSub: false },
+  { title: "Kako naručiti", url: "/kako-naruciti", megaMenu: false, megaMenuWithSub: false },
+  { title: "Kontakt", url: "/kontakt", megaMenu: false, megaMenuWithSub: false }
 ];
 
 function buildCategoryTree(rows: DbCategory[]): TreeNode[] {
@@ -94,11 +92,20 @@ function createLayout(categories: LayoutModel["header"]["categories"], categoryM
     footer: {
       logo: "/assets/images/logo.svg",
       description:
-        "Tech Zone — online prodavnica računarske opreme i komponenti u Bosni i Hercegovini.",
-      appStoreUrl: "#",
-      playStoreUrl: "#",
-      about: [],
-      customers: [],
+        "Tech Zone - Sva tehnologija na jednom mjestu.",
+      appStoreUrl: "",
+      playStoreUrl: "",
+      about: [
+        { title: "O nama", url: "/o-nama" },
+        { title: "Uslovi kupovine", url: "/uslovi-kupovine" },
+        { title: "Politika privatnosti", url: "/politika-privatnosti" }
+      ],
+      customers: [
+        { title: "Kako naručiti", url: "/kako-naruciti" },
+        { title: "Dostava", url: "/dostava" },
+        { title: "Plaćanje", url: "/nacin-placanja" },
+        { title: "Reklamacije i povrat", url: "/reklamacije" }
+      ],
       socials: {
         google: "",
         twitter: "",
