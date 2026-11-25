@@ -1,5 +1,5 @@
-# iPon scrape details — periodični drain reda, odvojeno od nightly pipeline-a.
-# Svakih ~90 min, max ~30 min po runu; sljedeći run nastavlja red.
+# iPon scrape details — jedini automatski drain reda. Nije u nightly pipeline-u.
+# Svakih ~90 min, scrape staje na 20 min da ne dođe do captche; sljedeći run nastavlja red.
 
 name: iPon scrape details
 
@@ -43,13 +43,14 @@ jobs:
       - run: npm ci
       - run: echo "Triggered by ${{ github.event_name }} at $(date -u)"
       - run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
-      # Soft stop ~28 min (exit 124); GHA hard-kill na 30 min. Ne dira scrapeDetails.ts.
+      # Soft stop na 20 min (exit 124), prije captche koja je dolazila oko 26. minute.
+      # GHA hard-kill na 30 min. Ne dira scrapeDetails.ts.
       - run: |
           set +e
-          timeout 28m npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-scrape-details.ts
+          timeout 20m npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-scrape-details.ts
           code=$?
           if [ "$code" -eq 124 ]; then
-            echo "Stopped after 28m time budget (queue continues on next run)."
+            echo "Stopped after 20m time budget (queue continues on next run)."
             exit 0
           fi
           exit "$code"

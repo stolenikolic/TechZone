@@ -2,8 +2,9 @@
 # Pojedinačni jobovi: background-jobs.yml (workflow_dispatch).
 # AI opisi nisu u lancu.
 # Uvozi idu paralelno. Cijeli workflow čeka price-sync.yml ako je sync još u toku.
-# Match i iPon RSC scrape kreću kad uvozi završe, paralelno.
-# Cijene čekaju match. Enrichment čeka cijene i scrape, pa mapira specifikacije koje scrape stigne upisati.
+# Match kreće kad uvozi završe. Cijene čekaju match.
+# iPon RSC scrape nije u ovom lancu — radi ga ipon-scrape-details.yml (20 min, svakih 90 min).
+# Enrichment mapira specifikacije koje su samostalni scrapeovi već upisali.
 
 name: Nightly pipeline
 
@@ -249,33 +250,6 @@ jobs:
       - if: steps.pause.outcome == 'success'
         run: npx tsx -r ./scripts/register-ws.cjs scripts/run-auto-match.ts
 
-  ipon_scrape_details:
-    name: "2b · iPon scrape details"
-    needs: [ipon_import, pcx_import, firstshop_import, pcland_import, oazis_import, konzolvilag_import, comtrade_import, avtera_import, alza_import]
-    if: ${{ !cancelled() }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    # Isti group kao ipon-scrape-details.yml — ne jure paralelno isti iPon red.
-    concurrency:
-      group: ipon-scrape-details
-      cancel-in-progress: false
-    env:
-      JOB_TRIGGERED_BY: cron
-      JOB_TYPE: ipon_scrape_details
-      IPON_SCRAPE_UNTIL_EMPTY: "1"
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
-      - run: npm ci
-      - id: pause
-        continue-on-error: true
-        run: npx tsx -r ./scripts/register-ws.cjs scripts/check-job-paused.ts
-      - if: steps.pause.outcome == 'success'
-        run: npx tsx -r ./scripts/register-ws.cjs scripts/run-ipon-scrape-details.ts
-
   aggregate_prices:
     name: "3 · Aggregate prices"
     needs: [auto_match]
@@ -302,7 +276,7 @@ jobs:
 
   enrichment:
     name: "4 · Enrichment"
-    needs: [aggregate_prices, ipon_scrape_details]
+    needs: [aggregate_prices]
     if: ${{ !cancelled() && needs.aggregate_prices.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
