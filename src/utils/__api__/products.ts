@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import { productDetailTag } from "lib/reviews/tags";
 import axios from "utils/axiosInstance";
 import { mapProductSpecifications } from "lib/shop/map-product-specifications";
 import { createSupabaseServiceClient } from "utils/supabase";
@@ -23,6 +24,7 @@ type DbProduct = {
   brand: string | null;
   main_image: string | null;
   rating: number | null;
+  rating_count: number | null;
   price: number | null;
   custom_price: number | null;
   original_price: number | null;
@@ -50,6 +52,7 @@ function rowToProduct(product: DbProduct, parentCategory?: { name: string; slug:
     price,
     ...(originalPrice != null && { originalPrice }),
     rating: Math.min(5, Math.max(0, rating)),
+    ratingCount: product.rating_count != null ? Number(product.rating_count) : 0,
     discount: 0,
     thumbnail,
     images: [thumbnail],
@@ -70,16 +73,14 @@ const getSlugs = cache(async () => {
 
 // get product based on slug. Server-side reads DB directly; no axios hop to our own API during RSC render.
 // Data-Cached (60s) + de-duped per request; admin edits call revalidatePath(`/proizvodi/:slug`) on save.
-const getProduct = cache(
-  unstable_cache(
-    async (slug: string): Promise<Product | null> => {
+async function loadProductBySlug(slug: string): Promise<Product | null> {
       try {
         const supabase = createSupabaseServiceClient();
         const { data, error } = await applyStorefrontProductVisibility(
           supabase
             .from("products")
             .select(
-              "id, name, slug, description, brand, main_image, rating, price, custom_price, original_price, mpn, ean, ai_meta_description, ai_og_description, ai_faq, ai_description_status, categories(id, name, slug, parent_id)"
+              "id, name, slug, description, brand, main_image, rating, rating_count, price, custom_price, original_price, mpn, ean, ai_meta_description, ai_og_description, ai_faq, ai_description_status, categories(id, name, slug, parent_id)"
             )
             .eq("slug", slug)
         ).maybeSingle();
@@ -168,11 +169,14 @@ const getProduct = cache(
         console.warn("[product-details]", message);
         return null;
       }
-    },
-    ["product-detail"],
-    { revalidate: PRODUCT_DETAIL_REVALIDATE_SECONDS }
-  )
-);
+}
+
+const getProduct = cache(async (slug: string) => {
+  return unstable_cache(() => loadProductBySlug(slug), ["product-detail", slug], {
+    revalidate: PRODUCT_DETAIL_REVALIDATE_SECONDS,
+    tags: [productDetailTag(slug)]
+  })();
+});
 
 // search products
 const searchProducts = cache(async (name?: string, category?: string) => {

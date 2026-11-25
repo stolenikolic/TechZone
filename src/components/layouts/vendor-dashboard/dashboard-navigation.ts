@@ -111,7 +111,7 @@ export const navigation = [
   {
     name: "Reviews",
     icon: duotone.Review,
-    path: "/vendor/reviews"
+    path: "/admin/products/reviews"
   },
   {
     name: "Shop Setting",

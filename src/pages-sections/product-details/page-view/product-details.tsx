@@ -60,7 +60,7 @@ export default function ProductDetailsPageView(props: Props) {
           ) : undefined
         }
         faq={hasFaq ? <ProductFaq items={product.faq} showTitle={false} /> : undefined}
-        reviews={<ProductReviews />}
+        reviews={<ProductReviews productId={product.id} productSlug={product.slug} />}
         hasSpecifications={hasSpecifications}
         hasFaq={hasFaq}
       />

@@ -33,12 +33,12 @@ export default function ProductReviewsPageView({ reviews }: Props) {
   // RESHAPE THE REVIEW LIST BASED TABLE HEAD CELL ID
   const filteredReviews = reviews.map((item) => ({
     id: item.id,
-    published: true,
+    published: item.published !== false,
     comment: item.comment,
     productId: item.product.id,
     product: item.product.title,
     productImage: item.product.thumbnail,
-    customer: `${item.customer.name.firstName} ${item.customer.name.lastName}`
+    customer: `${item.customer.name.firstName} ${item.customer.name.lastName}`.trim()
   }));
 
   const { order, orderBy, rowsPerPage, filteredList, handleChangePage, handleRequestSort } =
@@ -69,7 +69,7 @@ export default function ProductReviewsPageView({ reviews }: Props) {
         <Stack alignItems="center" my={4}>
           <TablePagination
             onChange={handleChangePage}
-            count={Math.ceil(filteredList.length / rowsPerPage)}
+            count={Math.ceil(reviews.length / rowsPerPage)}
           />
         </Stack>
       </Card>

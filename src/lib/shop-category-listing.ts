@@ -89,6 +89,7 @@ type DbProduct = {
   price?: number | null;
   custom_price?: number | null;
   original_price?: number | null;
+  rating?: number | null;
   created_at?: string | null;
 };
 
@@ -329,7 +330,7 @@ function toProduct(
     title: row.name,
     price,
     ...(originalPrice != null && { originalPrice }),
-    rating: 4,
+    rating: row.rating != null ? Math.min(5, Math.max(0, Number(row.rating))) : 0,
     discount: 0,
     thumbnail,
     images: [thumbnail, thumbnail],
@@ -393,6 +394,25 @@ export async function getCategoryProductsListing(
       attributeIdBySlug
     });
 
+    const ratingById = new Map<string, number>();
+    if (rows.length > 0) {
+      const { data: ratingRows, error: ratingError } = await supabase
+        .from("products")
+        .select("id, rating")
+        .in(
+          "id",
+          rows.map((row) => row.id)
+        );
+      if (ratingError) {
+        console.warn("[category-listing] ratings", ratingError.message);
+      } else {
+        for (const ratingRow of ratingRows ?? []) {
+          const value = ratingRow.rating != null ? Number(ratingRow.rating) : 0;
+          ratingById.set(ratingRow.id, Number.isFinite(value) ? value : 0);
+        }
+      }
+    }
+
     const totalPages = total > 0 ? Math.max(1, Math.ceil(total / LISTING_LIMIT)) : 0;
     const clampedPage = totalPages > 0 ? Math.min(Math.max(1, page), totalPages) : page;
     const products = rows.map((row) =>
@@ -407,6 +427,7 @@ export async function getCategoryProductsListing(
           price: row.price,
           custom_price: row.custom_price,
           original_price: row.original_price,
+          rating: ratingById.get(row.id) ?? 0,
           created_at: row.created_at
         },
         category,

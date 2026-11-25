@@ -16,6 +16,7 @@ type DbProduct = {
   brand: string | null;
   main_image: string | null;
   rating: number | null;
+  rating_count?: number | null;
   price: number | null;
   custom_price: number | null;
   original_price: number | null;
@@ -40,6 +41,7 @@ function toProduct(
     price,
     ...(originalPrice != null && { originalPrice }),
     rating: Math.min(5, Math.max(0, rating)),
+    ratingCount: product.rating_count != null ? Number(product.rating_count) : 0,
     discount: 0,
     thumbnail,
     images: [thumbnail],
@@ -63,7 +65,7 @@ export async function GET(
     const { data, error } = await applyStorefrontProductVisibility(
       supabase
         .from("products")
-        .select("id, name, slug, description, brand, main_image, rating, price, custom_price, original_price, categories(id, name, slug, parent_id)")
+        .select("id, name, slug, description, brand, main_image, rating, rating_count, price, custom_price, original_price, categories(id, name, slug, parent_id)")
         .eq("slug", slug)
     ).maybeSingle();
 

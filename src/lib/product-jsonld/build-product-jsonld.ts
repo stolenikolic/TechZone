@@ -65,6 +65,15 @@ export function buildProductJsonLd(product: Product, canonicalUrl: string): Reco
 
   if (schemaDescription) schema.description = schemaDescription;
   if (product.brand) schema.brand = { "@type": "Brand", name: product.brand };
+  if ((product.ratingCount ?? 0) > 0 && product.rating > 0) {
+    schema.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: Number(product.rating.toFixed(2)),
+      reviewCount: product.ratingCount,
+      bestRating: 5,
+      worstRating: 1
+    };
+  }
   if (product.mpn) schema.mpn = product.mpn;
   if (product.ean) schema.gtin13 = product.ean;
 

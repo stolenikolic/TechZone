@@ -1,11 +1,5 @@
-import { adminPageMetadata } from "lib/site-metadata";
-import { ReviewsPageView } from "pages-sections/vendor-dashboard/reviews/page-view";
-// API FUNCTIONS
-import api from "utils/__api__/vendor";
+import { redirect } from "next/navigation";
 
-export const metadata = adminPageMetadata("Recenzije");
-
-export default async function Reviews() {
-  const reviews = await api.getAllProductReviews();
-  return <ReviewsPageView reviews={reviews} />;
+export default function Reviews() {
+  redirect("/admin/products/reviews");
 }

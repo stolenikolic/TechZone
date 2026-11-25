@@ -10,6 +10,8 @@ export default interface Product {
   originalPrice?: number;
   title: string;
   rating: number;
+  /** Published review count. Zero means the product has no public rating yet. */
+  ratingCount?: number;
   discount: number;
   thumbnail: string;
   description?: string;
