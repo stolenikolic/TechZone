@@ -9,7 +9,10 @@ export {
   wrapAggregatePricesJobResult,
   type AggregatePricesResult
 } from "./aggregate-prices";
-export { reconcileProductsIsActiveFromSupplierOffers } from "./reconcile-product-active";
+export {
+  reconcileProductsIsActiveFromSupplierOffers,
+  repairProductsActiveDrift
+} from "./reconcile-product-active";
 export {
   applyRoundingPipeline,
   computeFinalSellingKm,

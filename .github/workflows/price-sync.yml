@@ -1,9 +1,8 @@
 # iPon XML, Avtera i ComTrade price sync — jedan sekvencijalni job svaka 4h.
-# Prije je svaki supplier imao svoj workflow na istom cronu (0 */2 * * *), pa su sva tri
-# istovremeno radila pun aggregatePrices() + reconcile_products_is_active_from_supplier_offers()
-# nad cijelim katalogom (~56k products) — otuda redovan "statement timeout" na reconcile-u i
-# na update_products_prices. Sada svaki supplier korak agregira/reconcile-uje samo proizvode
-# koje je taj run dirnuo (vidi aggregatePricesForProductIds(..., { reconcile: true })).
+# Cijene se agregiraju samo za proizvode koje je taj run dirnuo.
+# products.is_active se poslije toga poravna drift prolazom
+# (reconcile_products_is_active_from_supplier_offers bez liste id-eva): mijenja samo
+# mastere čiji is_active ne odgovara vezanim ponudama. Ako taj RPC padne, job pada.
 # Dijeli concurrency group sa nightly-pipeline.yml, pa ne radi u isto vrijeme kad noćni lanac.
 
 name: Price sync (iPon, Avtera, ComTrade)

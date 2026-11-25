@@ -8,7 +8,7 @@ import { spawn } from "child_process";
 import path from "path";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logEvent, type JobRunHandle } from "lib/jobs/job-runner";
-import { aggregatePricesForProductIds } from "lib/pricing";
+import { aggregatePricesForProductIds, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
 import { resolveSupplierProductMatchSafe } from "lib/suppliers/matchSupplierProduct";
 import { eanFromMpnField, mpnMatchKeyFromMpn, normalizeMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
@@ -98,6 +98,8 @@ export type AlzaImportResult = {
     aggregate_batches: number;
     aggregate_error?: string;
     aggregate_warnings?: string[];
+    active_reconciled?: number;
+    reconcile_error?: string;
     error?: string;
     category_results: Array<{
       category_id: number;
@@ -267,13 +269,13 @@ async function removeCategoryFromUnseen(
   supabase: SupabaseClient,
   categoryId: number,
   seen: Set<string>
-): Promise<number> {
-  const stale: Array<{ supplier_product_id: string; raw_json: unknown }> = [];
+): Promise<{ removed: number; productIds: string[] }> {
+  const stale: Array<{ supplier_product_id: string; product_id: string | null; raw_json: unknown }> = [];
   const pageSize = 1000;
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await supabase
       .from("supplier_products")
-      .select("supplier_product_id, raw_json")
+      .select("supplier_product_id, product_id, raw_json")
       .eq("supplier_id", ALZA_SUPPLIER_ID)
       .contains("raw_json", { category_ids: [categoryId] })
       .range(from, from + pageSize - 1);
@@ -286,6 +288,7 @@ async function removeCategoryFromUnseen(
   }
 
   let removed = 0;
+  const productIds: string[] = [];
   for (const row of stale) {
     const categoryIds = categoryIdsFromRaw(row.raw_json).filter((id) => id !== categoryId);
     const raw =
@@ -297,7 +300,10 @@ async function removeCategoryFromUnseen(
       raw_json: raw,
       updated_at: new Date().toISOString()
     };
-    if (categoryIds.length === 0) patch.is_active = false;
+    if (categoryIds.length === 0) {
+      patch.is_active = false;
+      if (row.product_id) productIds.push(row.product_id);
+    }
     const { error } = await supabase
       .from("supplier_products")
       .update(patch)
@@ -306,7 +312,7 @@ async function removeCategoryFromUnseen(
     if (error) throw new Error(`[Alza] gašenje ponude ${row.supplier_product_id}: ${error.message}`);
     removed += 1;
   }
-  return removed;
+  return { removed, productIds };
 }
 
 async function upsertPage(
@@ -478,23 +484,36 @@ export async function runAlzaImportProducts(
   }
 
   let staleDeactivated = 0;
+  const deactivatedProductIds: string[] = [];
   if (exitCode === 0) {
     for (const stats of Array.from(statsByCategory.values())) {
       if (!stats.complete) continue;
       const upsertedIds = new Set(
         Array.from(stats.seen).filter((id) => !id.startsWith("downloaded:"))
       );
-      staleDeactivated += await removeCategoryFromUnseen(supabase, stats.categoryId, upsertedIds);
+      const removed = await removeCategoryFromUnseen(supabase, stats.categoryId, upsertedIds);
+      staleDeactivated += removed.removed;
+      deactivatedProductIds.push(...removed.productIds);
     }
   }
 
   const linkedProductIds = Array.from(
-    new Set(
-      Array.from(statsByCategory.values()).flatMap((stats) => Array.from(stats.linkedProductIds))
-    )
+    new Set([
+      ...Array.from(statsByCategory.values()).flatMap((stats) => Array.from(stats.linkedProductIds)),
+      ...deactivatedProductIds
+    ])
   );
   const agg = await aggregatePricesForProductIds(linkedProductIds, { reconcile: true });
   if (agg.error) console.warn("[Alza] aggregate-prices:", agg.error);
+  const drift = await reconcileProductsIsActiveFromSupplierOffers(supabase);
+  const reconcileError = drift.error
+    ? `reconcile_products_is_active_from_supplier_offers: ${drift.error}`
+    : undefined;
+  if (drift.updated) console.log(`[Alza] products.is_active updated: ${drift.updated}`);
+  if (reconcileError) {
+    console.error("[Alza]", reconcileError);
+    errorMessage = errorMessage ? `${errorMessage}; ${reconcileError}` : reconcileError;
+  }
 
   const categoryResults = [];
   let rowsInDb = 0;
@@ -516,7 +535,7 @@ export async function runAlzaImportProducts(
 
   const downloaded = categoryResults.reduce((sum, row) => sum + row.downloaded, 0);
   const upserted = categoryResults.reduce((sum, row) => sum + row.upserted, 0);
-  const success = exitCode === 0 && !agg.error;
+  const success = exitCode === 0 && !agg.error && !reconcileError;
 
   return {
     success,
@@ -534,6 +553,8 @@ export async function runAlzaImportProducts(
       blocked,
       aggregate_updated: agg.updated,
       aggregate_batches: agg.batches,
+      ...(drift.updated != null ? { active_reconciled: drift.updated } : {}),
+      ...(reconcileError ? { reconcile_error: reconcileError } : {}),
       ...(agg.error ? { aggregate_error: agg.error } : {}),
       ...(agg.warnings?.length ? { aggregate_warnings: agg.warnings } : {}),
       ...(errorMessage ? { error: errorMessage } : {}),

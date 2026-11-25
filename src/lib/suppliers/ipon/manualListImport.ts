@@ -5,7 +5,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { aggregatePricesForProductIds, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
+import { aggregatePricesForProductIds, repairProductsActiveDrift } from "lib/pricing";
 import { fetchWithSession } from "lib/suppliers/shared/http-session";
 import { createSupabaseServiceClient } from "utils/supabase";
 import {
@@ -230,8 +230,7 @@ async function upsertManualItem(
     imageChanged: number;
     rescrapeQueued: number;
   },
-  aggregateIds: Set<string>,
-  activeTouched: { current: boolean }
+  aggregateIds: Set<string>
 ): Promise<void> {
   const supplierProductId = supplierIdOf(item);
   const { data: existing, error: lookupErr } = await withPostgrestTransientRetry(
@@ -264,9 +263,6 @@ async function upsertManualItem(
     if (result.priceChanged || result.activeChanged || result.activated || manualOfferIsActive(item.isBuyable)) {
       aggregateIds.add(existing.product_id);
     }
-    if (result.activeChanged || result.activated || !manualOfferIsActive(item.isBuyable)) {
-      activeTouched.current = true;
-    }
     return;
   }
 
@@ -280,7 +276,6 @@ async function upsertManualItem(
     if (linked.activated) tallies.activated += 1;
     if (linked.productId) aggregateIds.add(linked.productId);
   }
-  if (!manualOfferIsActive(item.isBuyable)) activeTouched.current = true;
 }
 
 export async function runIponManualListImport(
@@ -306,7 +301,6 @@ export async function runIponManualListImport(
     imageChanged: 0,
     rescrapeQueued: 0
   };
-  const activeTouched = { current: false };
   let wroteAny = false;
   let skipped = 0;
   let total: number | null = null;
@@ -353,7 +347,7 @@ export async function runIponManualListImport(
           continue;
         }
         const id = supplierIdOf(merged.item);
-        await upsertManualItem(supabase, merged.item, cat.internalCategoryId, tallies, aggregateIds, activeTouched);
+        await upsertManualItem(supabase, merged.item, cat.internalCategoryId, tallies, aggregateIds);
         fetchedIds.add(id);
         wroteAny = true;
       }
@@ -394,16 +388,10 @@ export async function runIponManualListImport(
     const sweep = await deactivateInactiveIponInCategory(supabase, cat.internalCategoryId, fetchedIds);
     deactivated = sweep.deactivated;
     for (const productId of sweep.productIds) aggregateIds.add(productId);
-    if (deactivated > 0) activeTouched.current = true;
   } else {
     console.warn(
       `[iPon manual] Nepotpun prolaz (total=${total ?? "?"}, fetched=${fetchedIds.size}). Deaktivacija preskočena.`
     );
-  }
-
-  if (activeTouched.current) {
-    const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
-    if (rec.error) console.warn("[iPon manual] reconcile:", rec.error);
   }
 
   let pricesAggregated = 0;
@@ -418,6 +406,8 @@ export async function runIponManualListImport(
     aggWarnings = agg.warnings;
     if (agg.error) console.warn("[iPon manual] aggregatePricesForProductIds:", agg.error);
   }
+
+  await repairProductsActiveDrift(supabase);
 
   console.log("[iPon manual] Jedna kategorija završena.", {
     category: cat.name,

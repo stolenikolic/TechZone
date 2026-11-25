@@ -4,7 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
+import { repairProductsActiveDrift } from "lib/pricing";
 import { mergeMatchAudit, resolveSupplierProductMatchSafe } from "lib/suppliers/matchSupplierProduct";
 import { normalizeEan, normalizeMpn, mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
@@ -256,8 +256,7 @@ export async function runAvteraImportForSupplierCategory(
   console.log(`${LOG} Postojećih u DB (u ovoj kategoriji): ${existingIds.size}`);
 
   const stats = await importCategoryGroup(supabase, category, categoryProducts, existingIds);
-  const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
-  if (rec.error) console.warn(`${LOG} reconcile:`, rec.error);
+  await repairProductsActiveDrift(supabase);
 
   const summary = {
     single_category: true,
@@ -327,8 +326,7 @@ export async function runAvteraImportProducts(): Promise<AvteraImportResult> {
       summary.skipped_no_id += stats.skippedNoId;
     }
 
-    const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
-    if (rec.error) console.warn(`${LOG} reconcile:`, rec.error);
+    await repairProductsActiveDrift(supabase);
 
     console.log(`${LOG} Završeno.`, summary);
     return { success: true, summary };

@@ -11,6 +11,7 @@ async function main() {
     wrapAggregatePricesJobResult(await aggregatePrices())
   );
   console.log(JSON.stringify(r, null, 2));
+  if (!r.success) process.exit(1);
 }
 
 main().catch((e) => {

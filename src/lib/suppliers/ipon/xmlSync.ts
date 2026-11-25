@@ -5,7 +5,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSupabaseServiceClient } from "utils/supabase";
-import { aggregatePricesForProductIds } from "lib/pricing";
+import { aggregatePricesForProductIds, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
 import { IPON_SUPPLIER_ID } from "./categories";
 import { parseIponXmlFeed, peekIponXmlFeedCreatedAt, type IponXmlFeedEntry } from "./xmlFeed";
 import { withPostgrestTransientRetry } from "./transient-retry";
@@ -294,12 +294,20 @@ export async function runIponXmlSync(): Promise<IponXmlSyncResult> {
   );
   for (const id of deactivatedProductIds) changedProductIds.add(id);
 
-  // Scoped: only the masters this run touched, not the full catalog — avoids the
-  // full-table UPDATE that used to hit `statement timeout` on every cron run.
-  const agg = await aggregatePricesForProductIds(Array.from(changedProductIds), { reconcile: true });
+  // Prices stay scoped to this run. is_active is a separate catalog drift repair so a
+  // product whose offers were already inactive still gets turned off.
+  const agg = await aggregatePricesForProductIds(Array.from(changedProductIds), { reconcile: false });
+  const drift = await reconcileProductsIsActiveFromSupplierOffers(supabase);
+  const reconcileError = drift.error
+    ? `reconcile_products_is_active_from_supplier_offers: ${drift.error}`
+    : undefined;
+  if (drift.updated) {
+    console.log(`[iPon XML] products.is_active updated: ${drift.updated}`);
+  }
+  if (reconcileError) console.error("[iPon XML]", reconcileError);
 
   const result: IponXmlSyncResult = {
-    success: !agg.error,
+    success: !agg.error && !reconcileError,
     parsed,
     dbOffers: dbOffers.length,
     updated,
@@ -317,6 +325,8 @@ export async function runIponXmlSync(): Promise<IponXmlSyncResult> {
       changed_product_ids: changedProductIds.size,
       prices_aggregated: agg.updated,
       aggregate_batches: agg.batches,
+      ...(drift.updated != null ? { active_reconciled: drift.updated } : {}),
+      ...(reconcileError ? { reconcile_error: reconcileError } : {}),
       ...(agg.error ? { aggregate_error: agg.error } : {}),
       ...(agg.warnings?.length ? { aggregate_warnings: agg.warnings } : {})
     }

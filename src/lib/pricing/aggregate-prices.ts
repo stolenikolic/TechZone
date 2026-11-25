@@ -68,15 +68,9 @@ export type AggregatePricesResult = {
   batches: number;
   warnings?: string[];
   error?: string;
+  /** Masters whose is_active changed during reconcile. Set when reconcile ran. */
+  activeReconciled?: number;
 };
-
-function mergeWarnings(...lists: (string[] | undefined)[]): string[] | undefined {
-  const out: string[] = [];
-  for (const l of lists) {
-    if (l) for (const w of l) out.push(w);
-  }
-  return out.length ? out : undefined;
-}
 
 function ingestSupplierOfferRows(
   rows: SupplierProductRow[],
@@ -173,7 +167,10 @@ async function loadMinCostByProduct(
 type AggregatePricesOptions = {
   /** When set, only these master products are updated (e.g. newly imported). */
   productIds?: string[];
-  /** Run reconcile_products_is_active_from_supplier_offers after price update. Default true for full catalog. */
+  /**
+   * Run reconcile_products_is_active_from_supplier_offers even when the price update fails.
+   * Default true for a full catalog (drift repair). Scoped jobs pass the ids they touched.
+   */
   reconcile?: boolean;
 };
 
@@ -186,13 +183,29 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
 
   const supabase = createSupabaseServiceClient();
 
+  async function finish(partial: AggregatePricesResult): Promise<AggregatePricesResult> {
+    if (!shouldReconcile) return partial;
+    const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase, productIdsFilter ?? undefined);
+    if (rec.error) {
+      const msg = `reconcile_products_is_active_from_supplier_offers: ${rec.error}`;
+      return {
+        ...partial,
+        error: partial.error ? `${partial.error}; ${msg}` : msg
+      };
+    }
+    if (rec.updated) {
+      console.log(`[aggregate] products.is_active reconciled: ${rec.updated}`);
+    }
+    return { ...partial, activeReconciled: rec.updated ?? 0 };
+  }
+
   const { data: settingsRows, error: settingsError } = await supabase
     .from("pricing_settings")
     .select("*")
     .limit(1);
 
   if (settingsError) {
-    return { updated: 0, batches: 0, error: `pricing_settings: ${settingsError.message}` };
+    return finish({ updated: 0, batches: 0, error: `pricing_settings: ${settingsError.message}` });
   }
 
   const settingsRow = (settingsRows?.[0] ?? null) as PricingSettingsRow | null;
@@ -205,7 +218,7 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
     .order("sort_order", { ascending: true });
 
   if (tiersError) {
-    return { updated: 0, batches: 0, error: `pricing_margin_tiers: ${tiersError.message}` };
+    return finish({ updated: 0, batches: 0, error: `pricing_margin_tiers: ${tiersError.message}` });
   }
 
   const tiers = (tierRows ?? []) as PricingMarginTierRow[];
@@ -215,7 +228,12 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
     .select("id, pricing_formula, cost_adjustment_multiplier");
 
   if (suppliersError) {
-    return { updated: 0, batches: 0, error: `suppliers: ${suppliersError.message}`, warnings: settingWarnings };
+    return finish({
+      updated: 0,
+      batches: 0,
+      error: `suppliers: ${suppliersError.message}`,
+      warnings: settingWarnings
+    });
   }
 
   const suppliersById = new Map<string, SupplierPricingRow>();
@@ -228,7 +246,7 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
 
   const validationError = validatePricingForAggregation(settings, tiers, needsAlzaTax);
   if (validationError) {
-    return { updated: 0, batches: 0, error: validationError, warnings: settingWarnings };
+    return finish({ updated: 0, batches: 0, error: validationError, warnings: settingWarnings });
   }
 
   let minCostByProduct: Map<string, number>;
@@ -239,19 +257,11 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
     winnerByProduct = loaded.winnerByProduct;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return { updated: 0, batches: 0, error: message, warnings: settingWarnings };
+    return finish({ updated: 0, batches: 0, error: message, warnings: settingWarnings });
   }
 
   if (minCostByProduct.size === 0) {
-    if (shouldReconcile) {
-      const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase, productIdsFilter ?? undefined);
-      const warnings = mergeWarnings(
-        settingWarnings,
-        rec.error ? [`reconcile_products_is_active_from_supplier_offers: ${rec.error}`] : undefined
-      );
-      return { updated: 0, batches: 0, warnings };
-    }
-    return { updated: 0, batches: 0, warnings: settingWarnings };
+    return finish({ updated: 0, batches: 0, warnings: settingWarnings });
   }
 
   const productIds = Array.from(minCostByProduct.keys());
@@ -267,12 +277,12 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
       .in("id", slice);
 
     if (pErr) {
-      return {
+      return finish({
         updated: 0,
         batches: 0,
         error: `products margin fetch failed: ${pErr.message}`,
         warnings: settingWarnings
-      };
+      });
     }
 
     for (const pr of (prodRows ?? []) as ProductMarginRow[]) {
@@ -294,21 +304,21 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
     const margins = marginByProduct.get(productId) ?? { category: null, product: null };
     const m = resolveSellingMultiplier(costKm, tiers, settings, margins.category, margins.product);
     if (!Number.isFinite(m) || m <= 0) {
-      return {
+      return finish({
         updated: 0,
         batches: 0,
         error: `Invalid selling multiplier for product ${productId} (check tiers / default_selling_margin / overrides).`,
         warnings: settingWarnings
-      };
+      });
     }
     const finalPrice = computeFinalSellingKm(costKm, m, settings);
     if (!Number.isFinite(finalPrice) || finalPrice <= 0) {
-      return {
+      return finish({
         updated: 0,
         batches: 0,
         error: `Computed invalid selling price for product ${productId}.`,
         warnings: settingWarnings
-      };
+      });
     }
     const enginePrice = round2(finalPrice);
     const customPrice = customPriceByProduct.get(productId) ?? null;
@@ -327,12 +337,12 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
     );
 
     if (rpcError) {
-      return {
+      return finish({
         updated: updatedCount,
         batches,
         error: `update_products_prices RPC failed: ${rpcError.message}`,
         warnings: settingWarnings
-      };
+      });
     }
     updatedCount += batch.length;
     batches += 1;
@@ -363,29 +373,20 @@ async function aggregatePricesCore(options?: AggregatePricesOptions): Promise<Ag
       async () => supabase.rpc("update_products_price_sources", { entries: batch })
     );
     if (sourceRpcError) {
-      return {
+      return finish({
         updated: updatedCount,
         batches,
         error: `update_products_price_sources RPC failed: ${sourceRpcError.message}`,
         warnings: settingWarnings
-      };
+      });
     }
   }
 
-  let warnings: string[] | undefined = settingWarnings;
-  if (shouldReconcile) {
-    const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase, productIdsFilter ?? undefined);
-    warnings = mergeWarnings(
-      settingWarnings,
-      rec.error ? [`reconcile_products_is_active_from_supplier_offers: ${rec.error}`] : undefined
-    );
-  }
-
-  return {
+  return finish({
     updated: updatedCount,
     batches,
-    warnings
-  };
+    warnings: settingWarnings
+  });
 }
 
 /**
@@ -400,9 +401,9 @@ export async function aggregatePrices(): Promise<AggregatePricesResult> {
  * Aggregate selling price only for given master product IDs (e.g. after iPon discovery import,
  * or the handful of masters a 2h/4h supplier price-sync just touched).
  *
- * `reconcile` defaults to `false` to preserve existing callers that run their own reconcile
- * separately. Price-sync jobs should pass `{ reconcile: true }` to also sync `products.is_active`
- * for just these IDs — scoped, so it never scans the full `products` table.
+ * `reconcile` defaults to `false`. Pass `{ reconcile: true }` to also sync `products.is_active`
+ * for these IDs. A failed reconcile is returned on `error` so the job does not look successful.
+ * Catalog-wide drift repair is `repairProductsActiveDrift`, not this scoped call.
  */
 export async function aggregatePricesForProductIds(
   productIds: string[],
@@ -423,6 +424,7 @@ export function wrapAggregatePricesJobResult(r: AggregatePricesResult) {
     summary: {
       updated: r.updated,
       batches: r.batches,
+      ...(r.activeReconciled != null ? { active_reconciled: r.activeReconciled } : {}),
       ...(r.error ? { error: r.error } : {}),
       ...(r.warnings?.length ? { warnings: r.warnings } : {})
     }

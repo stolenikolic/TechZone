@@ -14,7 +14,7 @@ import { createSupabaseServiceClient } from "utils/supabase";
 import {
   aggregatePrices,
   aggregatePricesForProductIds,
-  reconcileProductsIsActiveFromSupplierOffers
+  repairProductsActiveDrift
 } from "lib/pricing";
 import { mergeMatchAudit, resolveSupplierProductMatchSafe } from "lib/suppliers/matchSupplierProduct";
 import { normalizeEan, normalizeMpn, mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
@@ -1045,10 +1045,7 @@ async function importIponCategory(
     );
   } else {
     deactivated = (await deactivateInactiveIponInCategory(supabase, cat.internalCategoryId, fetchedIds)).deactivated;
-    const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
-    if (rec.error) {
-      console.warn("[iPon] reconcile_products_is_active_from_supplier_offers:", rec.error);
-    }
+    await repairProductsActiveDrift(supabase);
   }
 
   console.log(
@@ -1158,10 +1155,7 @@ export async function runIponImportFromFixtureFile(
   let deactivated = 0;
   if (fetchedIds.size > 0) {
     deactivated = (await deactivateInactiveIponInCategory(supabase, cat.internalCategoryId, fetchedIds)).deactivated;
-    const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
-    if (rec.error) {
-      console.warn("[iPon] reconcile_products_is_active_from_supplier_offers:", rec.error);
-    }
+    await repairProductsActiveDrift(supabase);
   }
 
   const discoveryModeForAgg = discoveryMode;

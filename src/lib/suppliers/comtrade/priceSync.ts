@@ -4,7 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { aggregatePricesForProductIds } from "lib/pricing";
+import { aggregatePricesForProductIds, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { createComtradeApiClient } from "./api-client";
 import { clearComtradeTokenCache } from "./auth";
@@ -150,6 +150,8 @@ export type ComtradePriceSyncResult = {
     aggregate_batches?: number;
     aggregate_error?: string;
     aggregate_warnings?: string[];
+    active_reconciled?: number;
+    reconcile_error?: string;
   };
 };
 
@@ -249,10 +251,16 @@ export async function runComtradePriceSync(): Promise<ComtradePriceSyncResult> {
     );
     for (const id of deactivatedProductIds) changedProductIds.add(id);
 
-    // Scoped: only the masters this run touched, not the full catalog — avoids the
-    // full-table UPDATE that used to hit `statement timeout` on every cron run.
-    const agg = await aggregatePricesForProductIds(Array.from(changedProductIds), { reconcile: true });
+    // Prices stay scoped to this run. is_active is a catalog drift repair so offers
+    // that were already inactive still turn the master off.
+    const agg = await aggregatePricesForProductIds(Array.from(changedProductIds), { reconcile: false });
     if (agg.error) console.warn(`${LOG} aggregate:`, agg.error);
+    const drift = await reconcileProductsIsActiveFromSupplierOffers(supabase);
+    const reconcileError = drift.error
+      ? `reconcile_products_is_active_from_supplier_offers: ${drift.error}`
+      : undefined;
+    if (drift.updated) console.log(`${LOG} products.is_active updated: ${drift.updated}`);
+    if (reconcileError) console.error(`${LOG}`, reconcileError);
 
     const summary = {
       feed_items: items.length,
@@ -265,13 +273,15 @@ export async function runComtradePriceSync(): Promise<ComtradePriceSyncResult> {
       changed_product_ids: changedProductIds.size,
       prices_aggregated: agg.updated,
       aggregate_batches: agg.batches,
+      ...(drift.updated != null ? { active_reconciled: drift.updated } : {}),
+      ...(reconcileError ? { reconcile_error: reconcileError } : {}),
       ...(agg.error ? { aggregate_error: agg.error } : {}),
       ...(agg.warnings?.length ? { aggregate_warnings: agg.warnings } : {})
     };
     console.log(`${LOG} Završeno.`, summary);
 
     return {
-      success: !agg.error,
+      success: !agg.error && !reconcileError,
       summary
     };
   } catch (err) {

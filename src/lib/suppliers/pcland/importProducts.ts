@@ -7,7 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveSupplierProductMatchSafe } from "lib/suppliers/matchSupplierProduct";
 import { normalizeEan, normalizeMpn, mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
-import { aggregatePrices, reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
+import { aggregatePrices, repairProductsActiveDrift } from "lib/pricing";
 import { createSupabaseServiceClient } from "utils/supabase";
 import { getSupplierCategories } from "lib/suppliers/registry";
 import {
@@ -635,10 +635,7 @@ export async function importCategory(category: PclandCategory): Promise<PclandCa
       seenIdsThisCategory
     );
   }
-  const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
-  if (rec.error) {
-    console.warn("[PCLand] reconcile_products_is_active_from_supplier_offers:", rec.error);
-  }
+  await repairProductsActiveDrift(supabase);
 
   return stats;
 }

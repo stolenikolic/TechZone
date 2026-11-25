@@ -4,7 +4,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { reconcileProductsIsActiveFromSupplierOffers } from "lib/pricing";
+import { repairProductsActiveDrift } from "lib/pricing";
 import { mergeMatchAudit, resolveSupplierProductMatchSafe } from "lib/suppliers/matchSupplierProduct";
 import { normalizeEan, normalizeMpn, mpnMatchKeyFromMpn } from "lib/suppliers/normalizeProductIdentifiers";
 import { getIdentifierSyncUpdate } from "lib/suppliers/syncSupplierIdentifiers";
@@ -298,8 +298,7 @@ export async function runComtradeImportForSupplierCategory(
   console.log(`${LOG} Postojećih u DB (u ovoj grupi): ${existingIds.size}`);
 
   const stats = await importCategoryGroup(supabase, category, allItems, existingIds);
-  const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
-  if (rec.error) console.warn(`${LOG} reconcile:`, rec.error);
+  await repairProductsActiveDrift(supabase);
 
   const summary = {
     single_category: true,
@@ -365,8 +364,7 @@ export async function runComtradeImportProducts(): Promise<ComtradeImportResult>
       summary.skipped_no_product_no += stats.skippedNoProductNo;
     }
 
-    const rec = await reconcileProductsIsActiveFromSupplierOffers(supabase);
-    if (rec.error) console.warn(`${LOG} reconcile:`, rec.error);
+    await repairProductsActiveDrift(supabase);
 
     console.log(`${LOG} Završeno.`, summary);
     return { success: true, summary };
