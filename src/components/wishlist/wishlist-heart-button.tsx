@@ -4,6 +4,7 @@ import IconButton from "@mui/material/IconButton";
 import Favorite from "@mui/icons-material/Favorite";
 import FavoriteBorder from "@mui/icons-material/FavoriteBorder";
 import useWishlist from "hooks/useWishlist";
+import { imageActionButtonSx } from "./image-action-button-sx";
 
 type Props = {
   productId: string;
@@ -26,7 +27,7 @@ export default function WishlistHeartButton({ productId, size = "small", classNa
         event.stopPropagation();
         void toggleWishlist(productId);
       }}
-      sx={{ position: "absolute", top: 15, right: 15, zIndex: 2, ...sx }}
+      sx={{ ...imageActionButtonSx, position: "absolute", top: 15, right: 15, zIndex: 2, ...sx }}
     >
       {active ? (
         <Favorite color="primary" fontSize="small" />

@@ -40,7 +40,7 @@ export default function ProductDetailsPageView(props: Props) {
   ];
 
   return (
-    <Container className="mt-2 mb-2">
+    <Container className="mt-2 mb-2" sx={{ px: { xs: 0.5, sm: 3 } }}>
       <ProductDetailsScrollReset slug={product.slug} />
       <SiteBreadcrumbs items={breadcrumbItems} />
 

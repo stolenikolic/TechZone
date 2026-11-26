@@ -60,7 +60,7 @@ export default function AddToCart({ product, qty = 1, selectedOffer, offerChoice
       loading={isLoading}
       disabled={disabled}
       onClick={handleAddToCart}
-      sx={{ px: "1.75rem", height: 40 }}
+      sx={{ flex: 1, minWidth: 0, height: 40 }}
     >
       Dodaj u korpu
     </Button>
