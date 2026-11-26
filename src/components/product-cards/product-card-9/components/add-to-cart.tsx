@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Add from "@mui/icons-material/Add";
+import AddShoppingCart from "@mui/icons-material/AddShoppingCart";
 import Button from "@mui/material/Button";
 import useCart from "hooks/useCart";
 import { addProductToCart } from "lib/cart/add-product-to-cart";
@@ -24,12 +24,18 @@ export default function AddToCartButton({ product }: Props) {
   return (
     <Button
       color="primary"
-      loading={isLoading}
       variant="contained"
-      sx={{ padding: 0.5, minHeight: 0 }}
+      loading={isLoading}
+      aria-label="Dodaj u korpu"
       onClick={handleAddToCart}
+      sx={{
+        flexShrink: 0,
+        minWidth: 34,
+        minHeight: 34,
+        padding: "4px"
+      }}
     >
-      <Add fontSize="small" />
+      <AddShoppingCart fontSize="small" />
     </Button>
   );
 }

@@ -7,5 +7,5 @@ type Props = {
 };
 
 export default function FavoriteButton({ productId }: Props) {
-  return <WishlistHeartButton productId={productId} />;
+  return <WishlistHeartButton productId={productId} sx={{ position: "static" }} />;
 }

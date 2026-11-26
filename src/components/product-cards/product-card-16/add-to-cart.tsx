@@ -24,7 +24,7 @@ export default function AddToCart({ product }: Props) {
   return (
     <Button
       color="primary"
-      variant="outlined"
+      variant="contained"
       loading={isLoading}
       onClick={handleAddToCart}
       sx={{

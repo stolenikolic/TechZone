@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import Container from "@mui/material/Container";
 import CategoryProductsSection from "components/products-view/category-products-section";
+import { getInitialListingView } from "lib/shop/listing-view-server";
 import CategoryBrowser, { type CategoryTreeNode } from "pages-sections/categories";
 import { SiteBreadcrumbs } from "components/site-breadcrumbs";
 import type { SiteBreadcrumbItem } from "components/site-breadcrumbs";
@@ -233,6 +234,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
           products={payload.products}
           page={payload.page}
           totalProducts={payload.total}
+          initialListingView={await getInitialListingView()}
         />
       </Container>
     </div>

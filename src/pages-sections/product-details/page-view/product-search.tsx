@@ -21,14 +21,11 @@ import { isSearchPageFilters } from "models/Filters";
 import ProductsGridView from "components/products-view/products-grid-view";
 import ProductsListView from "components/products-view/products-list-view";
 import type { ProductFilterCardFilters } from "components/products-view/filters/use-product-filter-card";
+import { LISTING_SORT_OPTIONS } from "components/products-view/listing-sort-options";
+import MobileSortButton from "components/products-view/mobile-sort-button";
+import { useListingView } from "components/products-view/use-listing-view";
+import type { ListingView } from "lib/shop/listing-view";
 import Product from "models/Product.model";
-
-const SORT_OPTIONS = [
-  { label: "Relevantnost", value: "relevance" },
-  { label: "Datum", value: "date" },
-  { label: "Cijena: od niže ka višoj", value: "asc" },
-  { label: "Cijena: od više ka nižoj", value: "desc" }
-];
 
 interface Props {
   filters: ProductFilterCardFilters;
@@ -37,21 +34,23 @@ interface Props {
   lastIndex: number;
   firstIndex: number;
   totalProducts: number;
+  initialListingView: ListingView;
 }
 
 export default function ProductSearchPageView({
   filters,
   products,
   pageCount,
-  totalProducts
+  totalProducts,
+  initialListingView
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { view, setView } = useListingView(initialListingView);
 
   const query = searchParams.get("q");
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
-  const view = searchParams.get("view") || "grid";
   const sort = searchParams.get("sort") || "relevance";
 
   const navigateSearch = useCallback(
@@ -77,10 +76,8 @@ export default function ProductSearchPageView({
     );
   };
 
-  const handleViewChange = (value: string) => {
-    navigateSearch((params) => {
-      params.set("view", value);
-    });
+  const handleViewChange = (value: ListingView) => {
+    setView(value);
   };
 
   return (
@@ -94,21 +91,34 @@ export default function ProductSearchPageView({
           }
         />
 
-        <FlexBetween flexWrap="wrap" gap={2} mb={2}>
-          {query ? (
-            <div>
-              <Typography variant="h5" sx={{ mb: 0.5 }}>
-                Pretraga: „{query}“
-              </Typography>
-              <Typography variant="body1" sx={{ color: "grey.600" }}>
-                {totalProducts} rezultata
-              </Typography>
-            </div>
-          ) : (
-            <div />
-          )}
+        <Box mb={2}>
+          <FlexBetween alignItems="center" gap={1}>
+            <Box minWidth={0} flex={1}>
+              {query ? (
+                <>
+                  <Typography variant="h5" sx={{ mb: 0.5 }}>
+                    Pretraga: „{query}“
+                  </Typography>
+                  <Typography variant="body1" sx={{ color: "grey.600" }}>
+                    {totalProducts} rezultata
+                  </Typography>
+                </>
+              ) : null}
+            </Box>
 
-          <Box display={{ xs: "none", md: "block" }}>
+            <FlexBox alignItems="center" sx={{ display: { xs: "flex", md: "none" } }}>
+              <Typography variant="body1" sx={{ color: "grey.600", mr: 0.5 }}>
+                Prikaz:
+              </Typography>
+              <IconButton onClick={() => handleViewChange("grid")} aria-label="Prikaz mreže">
+                <Apps fontSize="small" color={view === "grid" ? "primary" : "inherit"} />
+              </IconButton>
+              <IconButton onClick={() => handleViewChange("list")} aria-label="Prikaz liste">
+                <ViewList fontSize="small" color={view === "list" ? "primary" : "inherit"} />
+              </IconButton>
+            </FlexBox>
+
+            <Box display={{ xs: "none", md: "block" }}>
             <FlexBox alignItems="center" columnGap={4} flexWrap="wrap">
               <FlexBox alignItems="center" gap={1} flex="1 1 0">
                 <Typography variant="body1" sx={{ color: "grey.600", whiteSpace: "pre" }}>
@@ -124,7 +134,7 @@ export default function ProductSearchPageView({
                   onChange={(e) => handleSortChange(e.target.value)}
                   sx={{ flex: "1 1 0", minWidth: "150px" }}
                 >
-                  {SORT_OPTIONS.map((item) => (
+                  {LISTING_SORT_OPTIONS.map((item) => (
                     <MenuItem value={item.value} key={item.value}>
                       {item.label}
                     </MenuItem>
@@ -146,54 +156,14 @@ export default function ProductSearchPageView({
                 </IconButton>
               </FlexBox>
             </FlexBox>
-          </Box>
+            </Box>
+          </FlexBetween>
 
-          <Box
-            display={{ xs: "flex", md: "none" }}
-            flexDirection="column"
-            gap={1.5}
-            width="100%"
-            maxWidth="100%"
-          >
-            <FlexBox alignItems="center" gap={1} width="100%">
-              <Typography variant="body1" sx={{ color: "grey.600", whiteSpace: "nowrap" }}>
-                Sortiraj:
-              </Typography>
-
-              <TextField
-                select
-                fullWidth
-                size="small"
-                value={sort}
-                variant="outlined"
-                onChange={(e) => handleSortChange(e.target.value)}
-              >
-                {SORT_OPTIONS.map((item) => (
-                  <MenuItem value={item.value} key={item.value}>
-                    {item.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </FlexBox>
-
-            <FlexBetween alignItems="center" gap={1}>
-              <MobileFilterButton filters={filters} />
-
-              <FlexBox alignItems="center">
-                <Typography variant="body1" sx={{ color: "grey.600", mr: 0.5 }}>
-                  Prikaz:
-                </Typography>
-                <IconButton onClick={() => handleViewChange("grid")} aria-label="Prikaz mreže">
-                  <Apps fontSize="small" color={view === "grid" ? "primary" : "inherit"} />
-                </IconButton>
-
-                <IconButton onClick={() => handleViewChange("list")} aria-label="Prikaz liste">
-                  <ViewList fontSize="small" color={view === "list" ? "primary" : "inherit"} />
-                </IconButton>
-              </FlexBox>
-            </FlexBetween>
-          </Box>
-        </FlexBetween>
+          <FlexBetween alignItems="center" gap={1} mt={1.5} sx={{ display: { xs: "flex", md: "none" } }}>
+            <MobileFilterButton filters={filters} />
+            <MobileSortButton value={sort} onChange={handleSortChange} />
+          </FlexBetween>
+        </Box>
 
         <Grid container spacing={4}>
           <Grid size={{ xl: 2, md: 3 }} sx={{ display: { md: "block", xs: "none" } }}>

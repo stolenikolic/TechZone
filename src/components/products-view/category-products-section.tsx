@@ -20,14 +20,11 @@ import SiteBreadcrumbs from "components/site-breadcrumbs/site-breadcrumbs";
 import type { SiteBreadcrumbItem } from "components/site-breadcrumbs";
 import type { CategorySidebarFilters } from "models/Filters";
 import { FlexBetween, FlexBox } from "components/flex-box";
+import { LISTING_SORT_OPTIONS } from "components/products-view/listing-sort-options";
+import MobileSortButton from "components/products-view/mobile-sort-button";
+import { useListingView } from "components/products-view/use-listing-view";
+import type { ListingView } from "lib/shop/listing-view";
 import type Product from "models/Product.model";
-
-const SORT_OPTIONS = [
-  { label: "Relevantnost", value: "relevance" },
-  { label: "Datum", value: "date" },
-  { label: "Cijena: od niže ka višoj", value: "asc" },
-  { label: "Cijena: od više ka nižoj", value: "desc" }
-];
 
 export interface CategoryProductsSectionProps {
   filters: CategorySidebarFilters;
@@ -38,6 +35,8 @@ export interface CategoryProductsSectionProps {
   totalProducts: number;
   /** Breadcrumbs iznad naslova kategorije. */
   breadcrumbItems?: SiteBreadcrumbItem[];
+  /** Sačuvan izbor, ili list na telefonu i grid na širim ekranima. */
+  initialListingView: ListingView;
 }
 
 export default function CategoryProductsSection({
@@ -47,13 +46,14 @@ export default function CategoryProductsSection({
   products,
   page,
   totalProducts,
-  breadcrumbItems
+  breadcrumbItems,
+  initialListingView
 }: CategoryProductsSectionProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { view, setView } = useListingView(initialListingView);
 
-  const view = searchParams.get("view") || "grid";
   const sort = searchParams.get("sort") || "relevance";
 
   const navigateSearch = useCallback(
@@ -79,27 +79,38 @@ export default function CategoryProductsSection({
     );
   };
 
-  const handleViewChange = (value: string) => {
-    navigateSearch((params) => {
-      params.set("view", value);
-    });
+  const handleViewChange = (value: ListingView) => {
+    setView(value);
   };
 
   return (
     <>
       {breadcrumbItems && breadcrumbItems.length > 0 ? <SiteBreadcrumbs items={breadcrumbItems} /> : null}
 
-      <FlexBetween flexWrap="wrap" gap={2} mb={2}>
-        <div>
-          <Typography variant="h5" sx={{ mb: 0.5 }}>
-            {title}
-          </Typography>
-          <Typography variant="body1" sx={{ color: "grey.600" }}>
-            {totalProducts} rezultata
-          </Typography>
-        </div>
+      <Box mb={2}>
+        <FlexBetween alignItems="center" gap={1}>
+          <Box minWidth={0} flex={1}>
+            <Typography variant="h5" sx={{ mb: 0.5 }}>
+              {title}
+            </Typography>
+            <Typography variant="body1" sx={{ color: "grey.600" }}>
+              {totalProducts} rezultata
+            </Typography>
+          </Box>
 
-        <Box display={{ xs: "none", md: "block" }}>
+          <FlexBox alignItems="center" sx={{ display: { xs: "flex", md: "none" } }}>
+            <Typography variant="body1" sx={{ color: "grey.600", mr: 0.5 }}>
+              Prikaz:
+            </Typography>
+            <IconButton onClick={() => handleViewChange("grid")} aria-label="Prikaz mreže">
+              <Apps fontSize="small" color={view === "grid" ? "primary" : "inherit"} />
+            </IconButton>
+            <IconButton onClick={() => handleViewChange("list")} aria-label="Prikaz liste">
+              <ViewList fontSize="small" color={view === "list" ? "primary" : "inherit"} />
+            </IconButton>
+          </FlexBox>
+
+          <Box display={{ xs: "none", md: "block" }}>
           <FlexBox alignItems="center" columnGap={4} flexWrap="wrap">
             <FlexBox alignItems="center" gap={1} flex="1 1 0">
               <Typography variant="body1" sx={{ color: "grey.600", whiteSpace: "pre" }}>
@@ -114,7 +125,7 @@ export default function CategoryProductsSection({
                 onChange={(e) => handleSortChange(e.target.value)}
                 sx={{ flex: "1 1 0", minWidth: "150px" }}
               >
-                {SORT_OPTIONS.map((item) => (
+                {LISTING_SORT_OPTIONS.map((item) => (
                   <MenuItem value={item.value} key={item.value}>
                     {item.label}
                   </MenuItem>
@@ -134,52 +145,14 @@ export default function CategoryProductsSection({
               </IconButton>
             </FlexBox>
           </FlexBox>
-        </Box>
+          </Box>
+        </FlexBetween>
 
-        <Box
-          display={{ xs: "flex", md: "none" }}
-          flexDirection="column"
-          gap={1.5}
-          width="100%"
-          maxWidth="100%"
-        >
-          <FlexBox alignItems="center" gap={1} width="100%">
-            <Typography variant="body1" sx={{ color: "grey.600", whiteSpace: "nowrap" }}>
-              Sortiraj:
-            </Typography>
-            <TextField
-              select
-              fullWidth
-              size="small"
-              value={sort}
-              variant="outlined"
-              onChange={(e) => handleSortChange(e.target.value)}
-            >
-              {SORT_OPTIONS.map((item) => (
-                <MenuItem value={item.value} key={item.value}>
-                  {item.label}
-                </MenuItem>
-              ))}
-            </TextField>
-          </FlexBox>
-
-          <FlexBetween alignItems="center" gap={1}>
-            <MobileFilterButton filters={filters} />
-
-            <FlexBox alignItems="center">
-              <Typography variant="body1" sx={{ color: "grey.600", mr: 0.5 }}>
-                Prikaz:
-              </Typography>
-              <IconButton onClick={() => handleViewChange("grid")} aria-label="Prikaz mreže">
-                <Apps fontSize="small" color={view === "grid" ? "primary" : "inherit"} />
-              </IconButton>
-              <IconButton onClick={() => handleViewChange("list")} aria-label="Prikaz liste">
-                <ViewList fontSize="small" color={view === "list" ? "primary" : "inherit"} />
-              </IconButton>
-            </FlexBox>
-          </FlexBetween>
-        </Box>
-      </FlexBetween>
+        <FlexBetween alignItems="center" gap={1} mt={1.5} sx={{ display: { xs: "flex", md: "none" } }}>
+          <MobileFilterButton filters={filters} />
+          <MobileSortButton value={sort} onChange={handleSortChange} />
+        </FlexBetween>
+      </Box>
 
       <Grid container spacing={4}>
         <Grid size={{ xl: 2, md: 3 }} sx={{ display: { md: "block", xs: "none" } }}>

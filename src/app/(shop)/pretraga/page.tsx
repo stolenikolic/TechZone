@@ -5,6 +5,7 @@ import { ogPageTitle, pageTitle, SITE_KEYWORDS } from "lib/site-metadata";
 import { ProductSearchPageView } from "pages-sections/product-details/page-view";
 // API FUNCTIONS
 import { getSearchPageData } from "utils/__api__/product-search";
+import { getInitialListingView } from "lib/shop/listing-view-server";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +78,7 @@ export default async function ProductSearch({ searchParams }: Props) {
       totalProducts={data.totalProducts}
       lastIndex={data.lastIndex}
       firstIndex={data.firstIndex}
+      initialListingView={await getInitialListingView()}
     />
   );
 }
