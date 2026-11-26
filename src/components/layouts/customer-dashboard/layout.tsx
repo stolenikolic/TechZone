@@ -18,7 +18,7 @@ export function CustomerDashboardLayout({
 }: PropsWithChildren<{ orderCount?: number }>) {
   return (
     <OrderCountProvider count={orderCount}>
-      <Box bgcolor="grey.50" py={{ xs: 3, sm: 4 }}>
+      <Box bgcolor="grey.50" pt={{ xs: 1, sm: 2 }} pb={{ xs: 3, sm: 4 }}>
         <Container>
           <Grid container spacing={3}>
             <Grid size={{ lg: 3, xs: 12 }} sx={gridStyle}>

@@ -14,7 +14,7 @@ type Props = {
 
 export default function OrderConfirmationPageView({ orderId }: Props) {
   return (
-    <Container className="mt-2 mb-5">
+    <Container className="mt-1 mb-5">
       <SiteBreadcrumbs
         items={[
           { label: "Korpa", href: "/korpa" },

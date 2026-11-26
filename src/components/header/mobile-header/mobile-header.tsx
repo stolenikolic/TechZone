@@ -2,6 +2,7 @@ import type { ComponentProps } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import Box from "@mui/material/Box";
+import { MobileHeaderSearch } from "./mobile-header-search";
 
 // ==============================================================
 interface MobileHeaderProps extends ComponentProps<typeof Box> {}
@@ -9,8 +10,20 @@ interface MobileHeaderProps extends ComponentProps<typeof Box> {}
 
 export function MobileHeader({ children, ...props }: MobileHeaderProps) {
   return (
-    <Box display="flex" alignItems="center" justifyContent="space-between" width="100%" {...props}>
-      {children}
+    <Box
+      width="100%"
+      height="100%"
+      display="flex"
+      flexDirection="column"
+      justifyContent="center"
+      gap={0.75}
+      py={1}
+      {...props}
+    >
+      <Box display="flex" alignItems="center" justifyContent="space-between" width="100%">
+        {children}
+      </Box>
+      <MobileHeaderSearch />
     </Box>
   );
 }

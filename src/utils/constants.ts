@@ -5,6 +5,6 @@ export const layoutConstant = {
   headerHeight: 80,
   mobileNavHeight: 64,
   containerWidth: 1200,
-  mobileHeaderHeight: 64,
+  mobileHeaderHeight: 104,
   grocerySidenavWidth: 280
 };

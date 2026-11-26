@@ -189,7 +189,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
       currentCategory.name
     );
     return (
-      <div className="bg-white pt-2 pb-4">
+      <div className="bg-white pt-1 pb-4">
         <CategoryBrowser
           breadcrumbs={<SiteBreadcrumbs items={categoryCrumbs} />}
           categories={subcategories}
@@ -223,7 +223,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   );
 
   return (
-    <div className="bg-white pt-2 pb-4">
+    <div className="bg-white pt-1 pb-4">
       <Container>
         <CategoryProductsSection
           breadcrumbItems={listingCrumbs}

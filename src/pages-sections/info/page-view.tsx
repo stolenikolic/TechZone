@@ -21,7 +21,7 @@ const cardSx = {
 
 export function InfoPage({ title, lede, children }: { title: string; lede: string; children: ReactNode }) {
   return (
-    <div className="bg-white pt-2 pb-4">
+    <div className="bg-white pt-1 pb-4">
       <Container>
         <SiteBreadcrumbs items={[{ label: title }]} />
         <SectionHeader title={title} />
@@ -310,7 +310,7 @@ export function ContactPageView() {
   ];
 
   return (
-    <div className="bg-white pt-2 pb-4">
+    <div className="bg-white pt-1 pb-4">
       <Container>
         <SiteBreadcrumbs items={[{ label: "Kontakt" }]} />
         <SectionHeader title="Kontakt" />

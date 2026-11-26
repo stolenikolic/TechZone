@@ -84,7 +84,7 @@ export default function ProductSearchPageView({
   };
 
   return (
-    <div className="bg-white pt-2 pb-4">
+    <div className="bg-white pt-1 pb-4">
       <Container>
         <SiteBreadcrumbs
           items={

@@ -31,7 +31,11 @@ export const StyledContainer = styled(Container)(({ theme }) => ({
   },
   "& .mobile-header": { display: "none" },
   [theme.breakpoints.down(1150)]: {
-    "& .mobile-header": { display: "flex" },
+    "& .mobile-header": {
+      display: "flex",
+      alignItems: "stretch",
+      justifyContent: "stretch"
+    },
     "& .main-header": { display: "none" }
   }
 }));

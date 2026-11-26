@@ -1,21 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 
-const SCROLL_THRESHOLD = 32;
+const HIDE_DISTANCE = 150;
 const TOP_THRESHOLD = 50;
-const TOGGLE_COOLDOWN_MS = 280;
 
 export function useScrollChromeState(enabled: boolean) {
   const [chromeVisible, setChromeVisible] = useState(true);
   const chromeVisibleRef = useRef(true);
-  const latchedHidden = useRef(false);
+  const accumulated = useRef(0);
   const lastScrollY = useRef(0);
-  const lastToggleAt = useRef(0);
   const ticking = useRef(false);
+  const ignoreLayoutShift = useRef(false);
 
   useEffect(() => {
     if (!enabled) {
       chromeVisibleRef.current = true;
-      latchedHidden.current = false;
+      accumulated.current = 0;
       queueMicrotask(() => setChromeVisible(true));
       return;
     }
@@ -23,19 +22,17 @@ export function useScrollChromeState(enabled: boolean) {
     const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (motionQuery.matches) return;
 
-    const applyVisibility = (nextVisible: boolean, force = false) => {
+    const applyVisibility = (nextVisible: boolean) => {
       if (nextVisible === chromeVisibleRef.current) return;
-
-      const now = Date.now();
-      if (!force && now - lastToggleAt.current < TOGGLE_COOLDOWN_MS) return;
-
       chromeVisibleRef.current = nextVisible;
-      lastToggleAt.current = now;
       setChromeVisible(nextVisible);
     };
 
     const onMotionChange = (event: MediaQueryListEvent) => {
-      if (event.matches) applyVisibility(true, true);
+      if (event.matches) {
+        accumulated.current = 0;
+        applyVisibility(true);
+      }
     };
 
     motionQuery.addEventListener("change", onMotionChange);
@@ -45,27 +42,38 @@ export function useScrollChromeState(enabled: boolean) {
       ticking.current = true;
 
       requestAnimationFrame(() => {
-        const currentY = window.scrollY;
-        const delta = currentY - lastScrollY.current;
-        let nextVisible = chromeVisibleRef.current;
+        const currentY = Math.max(0, window.scrollY);
+        let delta = currentY - lastScrollY.current;
+        lastScrollY.current = currentY;
+        ticking.current = false;
 
-        if (currentY <= TOP_THRESHOLD) {
-          latchedHidden.current = false;
-          nextVisible = true;
-        } else if (delta > SCROLL_THRESHOLD) {
-          latchedHidden.current = true;
-          nextVisible = false;
-        } else if (delta < -SCROLL_THRESHOLD) {
-          latchedHidden.current = false;
-          nextVisible = true;
-        } else {
-          nextVisible = latchedHidden.current ? false : chromeVisibleRef.current;
+        if (ignoreLayoutShift.current) {
+          ignoreLayoutShift.current = false;
+          if (Math.abs(delta) < HIDE_DISTANCE) delta = 0;
         }
 
-        applyVisibility(nextVisible, currentY <= TOP_THRESHOLD);
+        if (!chromeVisibleRef.current && currentY <= TOP_THRESHOLD) {
+          accumulated.current = 0;
+          applyVisibility(true);
+          return;
+        }
 
-        lastScrollY.current = Math.max(0, currentY);
-        ticking.current = false;
+        if (chromeVisibleRef.current) {
+          accumulated.current = Math.max(0, accumulated.current + delta);
+          if (accumulated.current >= HIDE_DISTANCE) {
+            accumulated.current = 0;
+            ignoreLayoutShift.current = true;
+            applyVisibility(false);
+          }
+          return;
+        }
+
+        accumulated.current = Math.min(0, accumulated.current + delta);
+        if (accumulated.current <= -HIDE_DISTANCE) {
+          accumulated.current = 0;
+          ignoreLayoutShift.current = true;
+          applyVisibility(true);
+        }
       });
     };
 

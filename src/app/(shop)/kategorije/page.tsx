@@ -12,7 +12,7 @@ export default async function CategoriesPage() {
   const categories = (await api.getCategories()) as unknown as CategoryTreeNode[];
 
   return (
-    <div className="bg-white pt-2 pb-4">
+    <div className="bg-white pt-1 pb-4">
       <CategoryBrowser
         breadcrumbs={<SiteBreadcrumbs items={[{ label: "Kategorije" }]} />}
         categories={categories}
