@@ -9,7 +9,6 @@ import SideNavbarTwo from "components/page-sidenav/side-navbar-2";
 import { NavigationList } from "components/navbar";
 import { CategoryList } from "components/categories";
 import { MobileMenu } from "components/mobile-navbar/mobile-menu";
-import { MobileNavigationBar } from "components/mobile-navigation";
 import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, MobileHeaderActions } from "components/header";
 import { ScrollChromeProvider } from "contexts/ScrollChromeContext";
 import { Topbar, TopbarContact } from "components/topbar";
@@ -95,8 +94,6 @@ export default function ShopLayout4({ children, navigation, data }: Props) {
       <Divider />
 
       <StickyWrapper SideNav={Sidebar}>{children}</StickyWrapper>
-
-      <MobileNavigationBar navigation={mobileNavigation.version1} />
     </ScrollChromeProvider>
   );
 }

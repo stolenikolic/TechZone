@@ -5,7 +5,6 @@ import Image from "next/image";
 import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
 import Typography from "@mui/material/Typography";
-import { layoutConstant } from "utils/constants";
 // GLOBAL CUSTOM COMPONENTS
 import { Footer1, FooterApps, FooterContact, FooterLinksWidget, FooterSocialLinks } from "components/footer";
 import Sticky from "components/sticky";
@@ -13,7 +12,6 @@ import { NavigationList } from "components/navbar";
 import { CategoryList } from "components/categories";
 import { MobileMenu } from "components/mobile-navbar";
 import { SecondaryHeader } from "components/secondary-header";
-import { MobileNavigationBar } from "components/mobile-navigation";
 import { SearchInput1 } from "components/search-box";
 import { Topbar, TopbarContact } from "components/topbar";
 import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, MobileHeaderActions } from "components/header";
@@ -78,19 +76,7 @@ export default function ShopLayout1({ children, data }: Props) {
         </SecondaryHeader.Right>
       </SecondaryHeader>
 
-      <Box
-        component="main"
-        sx={{
-          pb: {
-            xs: `calc(${layoutConstant.mobileNavHeight}px + env(safe-area-inset-bottom, 0px))`,
-            lg: 0
-          }
-        }}
-      >
-        {children}
-      </Box>
-
-      <MobileNavigationBar navigation={mobileNavigation.version1} />
+      <Box component="main">{children}</Box>
 
       <Footer1 bgcolor="footer.main">
         <Footer1.Brand>

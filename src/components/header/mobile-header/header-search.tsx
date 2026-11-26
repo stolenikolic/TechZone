@@ -28,8 +28,8 @@ function HeaderSearchInner({ children }: PropsWithChildren) {
 
   return (
     <Fragment>
-      <IconButton onClick={() => setOpen(true)}>
-        <Search />
+      <IconButton onClick={() => setOpen(true)} aria-label="Pretraži">
+        <Search fontSize="small" />
       </IconButton>
 
       <Drawer open={open} anchor="top" onClose={handleClose} sx={{ zIndex: 9999 }}>
@@ -56,7 +56,7 @@ export function HeaderSearch({ children }: PropsWithChildren) {
     <Suspense
       fallback={
         <IconButton aria-label="Pretraži" disabled>
-          <Search />
+          <Search fontSize="small" />
         </IconButton>
       }
     >

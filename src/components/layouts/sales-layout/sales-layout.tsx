@@ -16,7 +16,6 @@ import { NavigationList } from "components/navbar";
 import { CategoryList } from "components/categories";
 import { SecondaryHeader } from "components/secondary-header";
 import { MobileMenu } from "components/mobile-navbar/mobile-menu";
-import { MobileNavigationBar } from "components/mobile-navigation";
 import { SearchInput1 } from "components/search-box";
 import { Topbar, TopbarContact } from "components/topbar";
 import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, MobileHeaderActions } from "components/header";
@@ -132,8 +131,6 @@ export default function SalesLayout({ children, data }: Props) {
         </Footer1.Copyright>
       </Footer1>
 
-      {/* SMALLER DEVICE NAVIGATION */}
-      <MobileNavigationBar navigation={mobileNavigation.version1} />
     </ScrollChromeProvider>
   );
 }

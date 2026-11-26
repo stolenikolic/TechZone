@@ -16,7 +16,6 @@ import {
 import Sticky from "components/sticky";
 import { NavigationList } from "components/navbar";
 import { MobileMenu } from "components/mobile-navbar/mobile-menu";
-import { MobileNavigationBar } from "components/mobile-navigation";
 import { Topbar, TopbarContact } from "components/topbar";
 import { Header, HeaderCart, HeaderLogin, HeaderWishlist, MobileHeader, MobileHeaderActions } from "components/header";
 // CUSTOM DATA MODEL
@@ -26,15 +25,13 @@ import LayoutModel from "models/Layout.model";
 interface Props extends PropsWithChildren {
   data: LayoutModel;
   showFooter?: boolean;
-  showMobileMenu?: boolean;
 }
 // ==============================================================
 
 export default function ShopLayout3({
   data,
   children,
-  showFooter = true,
-  showMobileMenu = true
+  showFooter = true
 }: Props) {
   const { header, footer, mobileNavigation } = data;
 
@@ -77,8 +74,6 @@ export default function ShopLayout3({
       <Divider />
 
       {children}
-
-      {showMobileMenu && <MobileNavigationBar navigation={mobileNavigation.version1} />}
 
       {showFooter && (
         <Footer1 color="text.primary" bgcolor="background.paper">
