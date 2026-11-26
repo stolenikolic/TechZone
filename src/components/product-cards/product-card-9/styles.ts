@@ -7,10 +7,12 @@ export const Wrapper = styled(Card)(({ theme }) => ({
   width: "100%",
   overflow: "hidden",
   position: "relative",
-  marginBottom: "1.25rem",
+  marginBottom: "1.5rem",
+  borderRadius: 12,
+  border: `1px solid ${theme.palette.divider}`,
+  boxShadow: "none",
   [theme.breakpoints.down("sm")]: {
-    marginBottom: theme.spacing(1.5),
-    borderRadius: 12
+    marginBottom: theme.spacing(2)
   }
 }));
 

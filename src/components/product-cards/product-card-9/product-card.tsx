@@ -43,6 +43,7 @@ export default function ProductCard9({ product }: Props) {
 
   return (
     <Wrapper
+      elevation={0}
       sx={
         topPick
           ? {
