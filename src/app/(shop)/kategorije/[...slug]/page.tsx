@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import Container from "@mui/material/Container";
 import CategoryProductsSection from "components/products-view/category-products-section";
 import { getInitialListingView } from "lib/shop/listing-view-server";
+import { getSavedListingSort } from "lib/shop/listing-sort-server";
+import { parseListingSort, resolveListingSort } from "lib/shop/listing-sort";
 import CategoryBrowser, { type CategoryTreeNode } from "pages-sections/categories";
 import { SiteBreadcrumbs } from "components/site-breadcrumbs";
 import type { SiteBreadcrumbItem } from "components/site-breadcrumbs";
@@ -202,6 +204,13 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
     );
   }
 
+  const urlSort = Array.isArray(queryParams.sort) ? queryParams.sort[0] : queryParams.sort;
+  const listingSort = resolveListingSort(urlSort, await getSavedListingSort());
+  if (!parseListingSort(urlSort)) {
+    if (listingSort === "relevance") delete effectiveFilterParams.sort;
+    else effectiveFilterParams.sort = listingSort;
+  }
+
   const pageData = await getCategoryPageData(categoryPath, page, effectiveFilterParams);
 
   if (!pageData || "error" in pageData) notFound();
@@ -235,6 +244,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
           page={payload.page}
           totalProducts={payload.total}
           initialListingView={await getInitialListingView()}
+          initialListingSort={listingSort}
         />
       </Container>
     </div>

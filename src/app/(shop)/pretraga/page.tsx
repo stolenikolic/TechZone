@@ -6,6 +6,8 @@ import { ProductSearchPageView } from "pages-sections/product-details/page-view"
 // API FUNCTIONS
 import { getSearchPageData } from "utils/__api__/product-search";
 import { getInitialListingView } from "lib/shop/listing-view-server";
+import { getSavedListingSort } from "lib/shop/listing-sort-server";
+import { resolveListingSort } from "lib/shop/listing-sort";
 
 export const dynamic = "force-dynamic";
 
@@ -67,8 +69,19 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 
 export default async function ProductSearch({ searchParams }: Props) {
   const { q, page, sort, sale, prices, colors, brands, rating, category } = await searchParams;
+  const listingSort = resolveListingSort(sort, await getSavedListingSort());
 
-  const data = await getSearchPageData({ q, page, sort, sale, prices, colors, brands, rating, category });
+  const data = await getSearchPageData({
+    q,
+    page,
+    sort: listingSort,
+    sale,
+    prices,
+    colors,
+    brands,
+    rating,
+    category
+  });
 
   return (
     <ProductSearchPageView
@@ -79,6 +92,7 @@ export default async function ProductSearch({ searchParams }: Props) {
       lastIndex={data.lastIndex}
       firstIndex={data.firstIndex}
       initialListingView={await getInitialListingView()}
+      initialListingSort={listingSort}
     />
   );
 }

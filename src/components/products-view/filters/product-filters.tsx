@@ -7,17 +7,14 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import Collapse from "@mui/material/Collapse";
-import FormGroup from "@mui/material/FormGroup";
 import Typography from "@mui/material/Typography";
-import KeyboardArrowUp from "@mui/icons-material/KeyboardArrowUp";
-import KeyboardArrowDown from "@mui/icons-material/KeyboardArrowDown";
 // GLOBAL CUSTOM COMPONENTS
 import AccordionHeader from "components/accordion";
 import { NavLink } from "components/nav-link";
 // LOCAL CUSTOM COMPONENTS
-import FilterCheckboxRow from "./filter-checkbox-row";
 import DualRangeSlider, { formatRangeParam } from "./dual-range-slider";
 import FilterSectionTitle from "./filter-section-title";
+import FilterValueList from "./filter-value-list";
 // CUSTOM LOCAL HOOK
 import useProductFilterCard, { type ProductFilterCardFilters } from "./use-product-filter-card";
 // TYPES
@@ -65,8 +62,6 @@ function formatFilterValue(slug: string, value: string) {
   return value === "-" ? "Nije primjenjivo (SATA)" : value;
 }
 
-const BRAND_VISIBLE_LIMIT = 5;
-
 /** Slightly tighter accordion rows; font/dividers unchanged. */
 const FILTER_ACCORDION_HEADER_SX = {
   padding: "0.375rem 0",
@@ -101,7 +96,6 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [openFilterSlugs, setOpenFilterSlugs] = useState<Record<string, boolean>>({ brand: true });
-  const [expandedFilterSlugs, setExpandedFilterSlugs] = useState<Record<string, boolean>>({});
   const [openCategories, setOpenCategories] = useState<Record<string, boolean>>(() => {
     if (!isCategorySidebarFilters(filters)) return {};
     const initial: Record<string, boolean> = {};
@@ -220,11 +214,8 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
         {filters.filters.map((filter) => {
           const isBrand = filter.slug === "brand";
           const open = openFilterSlugs[filter.slug] ?? isBrand;
-          const expanded = expandedFilterSlugs[filter.slug] ?? false;
-          const visibleValues = isBrand ? filter.values.slice(0, BRAND_VISIBLE_LIMIT) : filter.values;
-          const hiddenValues = isBrand ? filter.values.slice(BRAND_VISIBLE_LIMIT) : [];
-          const hasHiddenBrandValues = isBrand && filter.values.length > BRAND_VISIBLE_LIMIT;
           const isRangeFilter = filter.displayType === "range" && filter.range;
+          const searchLabel = isBrand ? "brend" : filter.name.toLocaleLowerCase("bs");
 
           return (
             <Fragment key={filter.slug}>
@@ -247,62 +238,22 @@ export default function ProductFilters({ filters }: { filters: ProductFilterCard
                     onApply={handleAttributeRangeFilterChange}
                   />
                 ) : (
-                  <>
-                    <FormGroup>
-                      {visibleValues.map((value) => {
-                        const normalized = isBrand ? normalizeBrandValue(value) : value;
-                        const selected = getSelectedValues(filter.slug).includes(normalized);
-                        const pendingKey = filterValuePendingKey(filter.slug, normalized);
+                  <FilterValueList
+                    searchPlaceholder={`Pretraži ${searchLabel}`}
+                    options={filter.values.map((value) => {
+                      const normalized = isBrand ? normalizeBrandValue(value) : value;
+                      const selected = getSelectedValues(filter.slug).includes(normalized);
+                      const pendingKey = filterValuePendingKey(filter.slug, normalized);
 
-                        return (
-                          <FilterCheckboxRow
-                            key={value}
-                            label={formatFilterValue(filter.slug, value)}
-                            checked={selected}
-                            onChange={() => handleFilterChange(filter.slug, value, !selected)}
-                            pending={isFilterPending(pendingKey)}
-                          />
-                        );
-                      })}
-                    </FormGroup>
-
-                    {hasHiddenBrandValues && (
-                      <>
-                        <Collapse in={expanded} timeout="auto" unmountOnExit>
-                          <FormGroup>
-                            {hiddenValues.map((value) => {
-                              const normalized = normalizeBrandValue(value);
-                              const selected = getSelectedValues(filter.slug).includes(normalized);
-                              const pendingKey = filterValuePendingKey(filter.slug, normalized);
-
-                              return (
-                                <FilterCheckboxRow
-                                  key={value}
-                                  label={formatFilterValue(filter.slug, value)}
-                                  checked={selected}
-                                  onChange={() => handleFilterChange(filter.slug, value, !selected)}
-                                  pending={isFilterPending(pendingKey)}
-                                />
-                              );
-                            })}
-                          </FormGroup>
-                        </Collapse>
-
-                        <Button
-                          size="small"
-                          color="primary"
-                          variant="text"
-                          endIcon={expanded ? <KeyboardArrowUp fontSize="small" /> : <KeyboardArrowDown fontSize="small" />}
-                          onClick={() =>
-                            setExpandedFilterSlugs((state) => ({ ...state, [filter.slug]: !expanded }))
-                          }
-                          sx={{ mt: 1, px: 0, minWidth: 0, color: "primary.main" }}
-                        >
-                          {expanded ? "Prikaži manje" : "Prikaži više"}
-                        </Button>
-                      </>
-                    )}
-                  </>
+                      return {
+                        id: value,
+                        label: formatFilterValue(filter.slug, value),
+                        checked: selected,
+                        pending: isFilterPending(pendingKey),
+                        onChange: () => handleFilterChange(filter.slug, value, !selected)
+                      };
+                    })}
+                  />
                 )}
               </Collapse>
               <Box component={Divider} my={3} />

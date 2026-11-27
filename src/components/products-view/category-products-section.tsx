@@ -23,7 +23,9 @@ import { FlexBetween, FlexBox } from "components/flex-box";
 import { LISTING_SORT_OPTIONS } from "components/products-view/listing-sort-options";
 import MobileSortButton from "components/products-view/mobile-sort-button";
 import { useListingView } from "components/products-view/use-listing-view";
+import { useListingSort } from "components/products-view/use-listing-sort";
 import type { ListingView } from "lib/shop/listing-view";
+import { parseListingSort, type ListingSort } from "lib/shop/listing-sort";
 import type Product from "models/Product.model";
 
 export interface CategoryProductsSectionProps {
@@ -37,6 +39,8 @@ export interface CategoryProductsSectionProps {
   breadcrumbItems?: SiteBreadcrumbItem[];
   /** Sačuvan izbor, ili list na telefonu i grid na širim ekranima. */
   initialListingView: ListingView;
+  /** Sort iz adrese, ili sačuvani izbor kad adresa nema `sort`. */
+  initialListingSort: ListingSort;
 }
 
 export default function CategoryProductsSection({
@@ -47,14 +51,16 @@ export default function CategoryProductsSection({
   page,
   totalProducts,
   breadcrumbItems,
-  initialListingView
+  initialListingView,
+  initialListingSort
 }: CategoryProductsSectionProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { view, setView } = useListingView(initialListingView);
+  const { sort: savedSort, setSort } = useListingSort(initialListingSort);
 
-  const sort = searchParams.get("sort") || "relevance";
+  const sort = parseListingSort(searchParams.get("sort")) ?? savedSort;
 
   const navigateSearch = useCallback(
     (mutate: (p: URLSearchParams) => void, options?: { refreshServer?: boolean }) => {
@@ -70,6 +76,8 @@ export default function CategoryProductsSection({
   );
 
   const handleSortChange = (value: string) => {
+    const next = parseListingSort(value);
+    if (next) setSort(next);
     navigateSearch(
       (params) => {
         params.set("sort", value);

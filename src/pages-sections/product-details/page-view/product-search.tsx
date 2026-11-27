@@ -24,7 +24,9 @@ import type { ProductFilterCardFilters } from "components/products-view/filters/
 import { LISTING_SORT_OPTIONS } from "components/products-view/listing-sort-options";
 import MobileSortButton from "components/products-view/mobile-sort-button";
 import { useListingView } from "components/products-view/use-listing-view";
+import { useListingSort } from "components/products-view/use-listing-sort";
 import type { ListingView } from "lib/shop/listing-view";
+import { parseListingSort, type ListingSort } from "lib/shop/listing-sort";
 import Product from "models/Product.model";
 
 interface Props {
@@ -35,6 +37,7 @@ interface Props {
   firstIndex: number;
   totalProducts: number;
   initialListingView: ListingView;
+  initialListingSort: ListingSort;
 }
 
 export default function ProductSearchPageView({
@@ -42,16 +45,18 @@ export default function ProductSearchPageView({
   products,
   pageCount,
   totalProducts,
-  initialListingView
+  initialListingView,
+  initialListingSort
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { view, setView } = useListingView(initialListingView);
+  const { sort: savedSort, setSort } = useListingSort(initialListingSort);
 
   const query = searchParams.get("q");
   const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
-  const sort = searchParams.get("sort") || "relevance";
+  const sort = parseListingSort(searchParams.get("sort")) ?? savedSort;
 
   const navigateSearch = useCallback(
     (mutate: (p: URLSearchParams) => void, options?: { refreshServer?: boolean }) => {
@@ -67,6 +72,8 @@ export default function ProductSearchPageView({
   );
 
   const handleSortChange = (value: string) => {
+    const next = parseListingSort(value);
+    if (next) setSort(next);
     navigateSearch(
       (params) => {
         params.set("sort", value);

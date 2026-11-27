@@ -3,21 +3,15 @@
 import { Fragment, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
 import Collapse from "@mui/material/Collapse";
-import FormGroup from "@mui/material/FormGroup";
-import KeyboardArrowUp from "@mui/icons-material/KeyboardArrowUp";
-import KeyboardArrowDown from "@mui/icons-material/KeyboardArrowDown";
 import AccordionHeader from "components/accordion";
 import type { SearchPageFilters } from "models/Filters";
-import FilterCheckboxRow from "./filter-checkbox-row";
 import DualRangeSlider from "./dual-range-slider";
 import FilterSectionTitle from "./filter-section-title";
+import FilterValueList from "./filter-value-list";
 import SearchCategoryFilter from "./search-category-filter";
 import useProductFilterCard from "./use-product-filter-card";
-
-const BRAND_VISIBLE_LIMIT = 5;
 
 const FILTER_ACCORDION_HEADER_SX = {
   padding: "0.375rem 0",
@@ -36,7 +30,6 @@ interface Props {
 export default function SearchPageSidebar({ filters }: Props) {
   const searchParams = useSearchParams();
   const [openBrand, setOpenBrand] = useState(true);
-  const [expandedBrands, setExpandedBrands] = useState(false);
 
   const hook = useProductFilterCard(filters);
   const {
@@ -51,9 +44,6 @@ export default function SearchPageSidebar({ filters }: Props) {
 
   const priceRange = filters.priceRange;
   const brandFilter = filters.filters.find((item) => item.slug === "brand");
-  const visibleBrands = brandFilter?.values.slice(0, BRAND_VISIBLE_LIMIT) ?? [];
-  const hiddenBrands = brandFilter?.values.slice(BRAND_VISIBLE_LIMIT) ?? [];
-  const hasHiddenBrands = (brandFilter?.values.length ?? 0) > BRAND_VISIBLE_LIMIT;
 
   return (
     <div>
@@ -88,60 +78,20 @@ export default function SearchPageSidebar({ filters }: Props) {
           </AccordionHeader>
 
           <Collapse in={openBrand}>
-            <FormGroup>
-              {visibleBrands.map((value) => {
-                const selected = getSelectedValues("brand").includes(normalizeBrandValue(value));
+            <FilterValueList
+              searchPlaceholder="Pretraži brend"
+              options={(brandFilter?.values ?? []).map((value) => {
                 const norm = normalizeBrandValue(value);
-                return (
-                  <FilterCheckboxRow
-                    key={value}
-                    label={value}
-                    checked={selected}
-                    onChange={() => handleFilterChange("brand", value, !selected)}
-                    pending={isFilterPending(filterValuePendingKey("brand", norm))}
-                  />
-                );
+                const selected = getSelectedValues("brand").includes(norm);
+                return {
+                  id: value,
+                  label: value,
+                  checked: selected,
+                  pending: isFilterPending(filterValuePendingKey("brand", norm)),
+                  onChange: () => handleFilterChange("brand", value, !selected)
+                };
               })}
-            </FormGroup>
-
-            {hasHiddenBrands && (
-              <>
-                <Collapse in={expandedBrands} timeout="auto" unmountOnExit>
-                  <FormGroup>
-                    {hiddenBrands.map((value) => {
-                      const selected = getSelectedValues("brand").includes(normalizeBrandValue(value));
-                      const norm = normalizeBrandValue(value);
-                      return (
-                        <FilterCheckboxRow
-                          key={value}
-                          label={value}
-                          checked={selected}
-                          onChange={() => handleFilterChange("brand", value, !selected)}
-                          pending={isFilterPending(filterValuePendingKey("brand", norm))}
-                        />
-                      );
-                    })}
-                  </FormGroup>
-                </Collapse>
-
-                <Button
-                  size="small"
-                  color="primary"
-                  variant="text"
-                  endIcon={
-                    expandedBrands ? (
-                      <KeyboardArrowUp fontSize="small" />
-                    ) : (
-                      <KeyboardArrowDown fontSize="small" />
-                    )
-                  }
-                  onClick={() => setExpandedBrands((state) => !state)}
-                  sx={{ mt: 1, px: 0, minWidth: 0, color: "primary.main" }}
-                >
-                  {expandedBrands ? "Prikaži manje" : "Prikaži više"}
-                </Button>
-              </>
-            )}
+            />
           </Collapse>
         </Fragment>
       )}
