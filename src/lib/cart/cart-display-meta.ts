@@ -1,12 +1,11 @@
 import type { CartItem } from "contexts/CartContext";
 import { offerChoiceLabel } from "lib/cart/cart-line-id";
+import { deliveryBandFromCalendarDays, type DeliveryBand } from "lib/product-offers/delivery-band";
 import {
-  formatDeliveryDate,
+  daysBetween,
   parseDeliveryDateStorageKey,
   parseDisplayDeliveryDate
 } from "lib/product-offers/delivery-estimate";
-
-const MS_PER_DAY = 86_400_000;
 
 function startOfLocalDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -47,11 +46,14 @@ export function getOfferLabelForCartLine(item: CartItem, cart: CartItem[]): stri
 }
 
 export type CartDeliverySummary = {
-  /** Latest (slowest) delivery date across lines — global promise. */
+  /** Latest (slowest) delivery date across lines — kept for the order promise, not shown to the shopper. */
   globalDate: Date | null;
-  globalDateFormatted: string | null;
-  hasMixedDeliveryDates: boolean;
-  /** Per line id: show individual delivery when any line dates differ. */
+  /** Working-day range of the slowest line, e.g. "7–10 radnih dana". */
+  globalRangeLabel: string | null;
+  globalTone: DeliveryBand["tone"] | null;
+  /** True when shopper-facing ranges differ. Exact dates inside one range stay one promise. */
+  hasMixedDeliveryBands: boolean;
+  /** Per line id: show that line's range only when bands differ. */
   showLineDeliveryById: Record<string, boolean>;
 };
 
@@ -63,44 +65,42 @@ export function computeCartDeliverySummary(cart: CartItem[]): CartDeliverySummar
   if (!dated.length) {
     return {
       globalDate: null,
-      globalDateFormatted: null,
-      hasMixedDeliveryDates: false,
+      globalRangeLabel: null,
+      globalTone: null,
+      hasMixedDeliveryBands: false,
       showLineDeliveryById: {}
     };
   }
 
-  const times = dated.map((row) => row.date.getTime());
-  const globalTime = Math.max(...times);
-  const uniqueTimes = new Set(times);
-  const hasMixedDeliveryDates = uniqueTimes.size > 1;
-  const globalDate = new Date(globalTime);
+  const today = new Date();
+  const withBands = dated.map((row) => ({
+    ...row,
+    band: deliveryBandFromCalendarDays(daysBetween(today, row.date))
+  }));
+  const globalTime = Math.max(...withBands.map((row) => row.date.getTime()));
+  const globalRow = withBands.find((row) => row.date.getTime() === globalTime) ?? withBands[0];
+  const uniqueRanges = new Set(withBands.map((row) => row.band.rangeLabel));
+  const hasMixedDeliveryBands = uniqueRanges.size > 1;
 
   const showLineDeliveryById: Record<string, boolean> = {};
-  for (const row of dated) {
-    showLineDeliveryById[row.id] = hasMixedDeliveryDates;
+  for (const row of withBands) {
+    showLineDeliveryById[row.id] = hasMixedDeliveryBands;
   }
 
   return {
-    globalDate,
-    globalDateFormatted: formatDeliveryDate(globalDate),
-    hasMixedDeliveryDates,
+    globalDate: globalRow.date,
+    globalRangeLabel: globalRow.band.rangeLabel,
+    globalTone: globalRow.band.tone,
+    hasMixedDeliveryBands,
     showLineDeliveryById
   };
 }
 
-export function formatLineDeliveryFromDate(date: Date): string {
-  const today = startOfLocalDay(new Date());
-  const days = Math.max(0, Math.round((date.getTime() - today.getTime()) / MS_PER_DAY));
-  if (days === 0) return formatDeliveryDate(date);
-  if (days === 1) return `sutra (${formatDeliveryDate(date)})`;
-  return `${formatDeliveryDate(date)} (za ~${days} dana)`;
-}
-
-/** Prikaz roka na liniji — uvijek iz estimatedDeliveryDate (ne zastarjelog deliveryLabel). */
-export function getLineDeliveryDisplayText(
+/** Shopper-facing range for one line. Date stays on the line; this does not expose it. */
+export function getLineDeliveryBand(
   item: Pick<CartItem, "estimatedDeliveryDate" | "deliveryLabel">
-): string | null {
+): DeliveryBand | null {
   const date = parseEstimatedDeliveryDate(item);
   if (!date) return null;
-  return `Isporuka od: ${formatLineDeliveryFromDate(date)}`;
+  return deliveryBandFromCalendarDays(daysBetween(new Date(), date));
 }

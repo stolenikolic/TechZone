@@ -10,7 +10,7 @@ export default function ProgressBar() {
     <NextTopLoader
       height={3}
       shadow={false}
-      showSpinner={true}
+      showSpinner={false}
       color={theme.palette.primary.main}
     />
   );

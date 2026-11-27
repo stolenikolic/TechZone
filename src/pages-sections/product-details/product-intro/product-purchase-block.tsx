@@ -6,6 +6,8 @@ import Typography from "@mui/material/Typography";
 import LocalShipping from "@mui/icons-material/LocalShipping";
 import VerifiedUser from "@mui/icons-material/VerifiedUser";
 import Lock from "@mui/icons-material/Lock";
+import DeliveryRangeText from "components/delivery/delivery-range-text";
+import { deliveryBandFromCalendarDays } from "lib/product-offers/delivery-band";
 import QuantityButtons from "pages-sections/cart/quantity-buttons";
 import AddToCart from "./add-to-cart";
 import type { OfferChoiceKey, StorefrontProductOffer } from "lib/product-offers";
@@ -14,7 +16,8 @@ import Product from "models/Product.model";
 // ================================================================
 type Props = {
   product: Product;
-  deliveryLine: string;
+  /** Calendar days until the internal delivery date. Null means the range is unknown. */
+  deliveryDaysFromToday: number | null;
   selectedOffer: StorefrontProductOffer | null;
   offerChoice: OfferChoiceKey;
 };
@@ -25,15 +28,16 @@ type Props = {
  */
 export default function ProductPurchaseBlock({
   product,
-  deliveryLine,
+  deliveryDaysFromToday,
   selectedOffer,
   offerChoice
 }: Props) {
   const [qty, setQty] = useState(1);
   const offers = product.productOffers;
 
-  const warrantyLine =
-    offers?.warrantyTrustLabel ?? "Garancija: 36 mjeseci";
+  const warrantyLine = offers?.warrantyTrustLabel ?? "2 godine garancije";
+  const deliveryBand =
+    deliveryDaysFromToday == null ? null : deliveryBandFromCalendarDays(deliveryDaysFromToday);
 
   return (
     <Stack spacing={6} sx={{ mb: 4.5 }}>
@@ -56,7 +60,15 @@ export default function ProductPurchaseBlock({
       <Stack spacing={0.75}>
         <Typography variant="body2" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
           <LocalShipping fontSize="small" sx={{ color: "text.secondary" }} />
-          {deliveryLine}
+          {deliveryBand ? (
+            <DeliveryRangeText
+              tone={deliveryBand.tone}
+              rangeLabel={deliveryBand.rangeLabel}
+              lead="Isporuka za"
+            />
+          ) : (
+            "Rok isporuke: na upit"
+          )}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
           <VerifiedUser fontSize="small" sx={{ color: "text.secondary" }} />
@@ -64,7 +76,7 @@ export default function ProductPurchaseBlock({
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
           <Lock fontSize="small" sx={{ color: "text.secondary" }} />
-          Sigurno plaćanje
+          Plaćanje pouzećem ili žiralno
         </Typography>
       </Stack>
     </Stack>

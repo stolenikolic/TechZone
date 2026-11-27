@@ -3,8 +3,8 @@
 import Alert from "@mui/material/Alert";
 import AlertTitle from "@mui/material/AlertTitle";
 import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
 import LocalShippingOutlined from "@mui/icons-material/LocalShippingOutlined";
+import DeliveryRangeText from "components/delivery/delivery-range-text";
 import type { CartDeliverySummary } from "lib/cart/cart-display-meta";
 
 type Props = {
@@ -13,12 +13,12 @@ type Props = {
 };
 
 export default function CartDeliverySummaryBlock({ summary, compact }: Props) {
-  if (!summary.globalDateFormatted) return null;
+  if (!summary.globalRangeLabel || !summary.globalTone) return null;
 
   const mb = compact ? 1.5 : 2;
   const bodyVariant = compact ? "body2" : "body1";
 
-  if (summary.hasMixedDeliveryDates) {
+  if (summary.hasMixedDeliveryBands) {
     return (
       <Alert
         severity="warning"
@@ -33,27 +33,25 @@ export default function CartDeliverySummaryBlock({ summary, compact }: Props) {
         <AlertTitle sx={{ fontWeight: 700, mb: 0.5, fontSize: compact ? 13 : 14 }}>
           Rokovi isporuke se razlikuju po stavkama.
         </AlertTitle>
-        <Typography variant={bodyVariant} color="text.secondary">
-          Procijenjena isporuka narudžbe:{" "}
-          <Typography component="span" variant="inherit" fontWeight={600} color="text.primary">
-            {summary.globalDateFormatted}
-          </Typography>
-        </Typography>
+        <DeliveryRangeText
+          tone={summary.globalTone}
+          rangeLabel={summary.globalRangeLabel}
+          lead="Cijela narudžba:"
+          variant={bodyVariant}
+        />
       </Alert>
     );
   }
 
   return (
-    <Stack direction="row" spacing={0.75} alignItems="flex-start" sx={{ mb }}>
-      <LocalShippingOutlined
-        sx={{ fontSize: compact ? 18 : 20, color: "text.secondary", mt: 0.15 }}
+    <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb }}>
+      <LocalShippingOutlined sx={{ fontSize: compact ? 18 : 20, color: "text.secondary" }} />
+      <DeliveryRangeText
+        tone={summary.globalTone}
+        rangeLabel={summary.globalRangeLabel}
+        lead="Isporuka narudžbe:"
+        variant={bodyVariant}
       />
-      <Typography variant={bodyVariant} color="text.secondary">
-        Procijenjena isporuka narudžbe:{" "}
-        <Typography component="span" variant="inherit" fontWeight={600} color="text.primary">
-          {summary.globalDateFormatted}
-        </Typography>
-      </Typography>
     </Stack>
   );
 }

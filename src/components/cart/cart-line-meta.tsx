@@ -1,6 +1,7 @@
-import Typography from "@mui/material/Typography";
+import DeliveryRangeText from "components/delivery/delivery-range-text";
 import type { CartItem } from "contexts/CartContext";
-import { getLineDeliveryDisplayText } from "lib/cart/cart-display-meta";
+import Typography from "@mui/material/Typography";
+import { getLineDeliveryBand } from "lib/cart/cart-display-meta";
 
 type Props = {
   item: CartItem;
@@ -9,9 +10,9 @@ type Props = {
 };
 
 export default function CartLineMeta({ item, offerLabel, showLineDelivery }: Props) {
-  const lineDelivery = showLineDelivery ? getLineDeliveryDisplayText(item) : null;
+  const lineBand = showLineDelivery ? getLineDeliveryBand(item) : null;
 
-  if (!offerLabel && !lineDelivery) return null;
+  if (!offerLabel && !lineBand) return null;
 
   return (
     <>
@@ -26,10 +27,14 @@ export default function CartLineMeta({ item, offerLabel, showLineDelivery }: Pro
           {offerLabel}
         </Typography>
       ) : null}
-      {lineDelivery ? (
-        <Typography variant="body2" color="text.secondary" sx={{ fontSize: 12 }} noWrap>
-          {lineDelivery}
-        </Typography>
+      {lineBand ? (
+        <DeliveryRangeText
+          tone={lineBand.tone}
+          rangeLabel={lineBand.rangeLabel}
+          lead="Isporuka za"
+          fontSize={12}
+          noWrap
+        />
       ) : null}
     </>
   );

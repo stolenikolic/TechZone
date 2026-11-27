@@ -77,12 +77,25 @@ function categoryDefaultFromProduct(row: ProductMarginRow): number | null {
   return v != null && Number.isFinite(v) && v > 0 ? v : null;
 }
 
+function warrantyUnit(count: number, one: string, few: string, many: string): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
+}
+
+/** Longest offer warranty, from supplier_products.warranty_months. Whole years when the span divides by 12. */
 function formatWarrantyMonths(months: number | null): string | null {
   if (months == null || !Number.isFinite(months) || months <= 0) return null;
   const m = Math.round(months);
-  if (m === 1) return "Garancija: 1 mjesec";
-  if (m >= 2 && m <= 4) return `Garancija: ${m} mjeseca`;
-  return `Garancija: ${m} mjeseci`;
+  if (m % 12 === 0) {
+    const years = m / 12;
+    const unit = warrantyUnit(years, "godina", "godine", "godina");
+    return `${years} ${unit} garancije`;
+  }
+  const unit = warrantyUnit(m, "mjesec", "mjeseca", "mjeseci");
+  return `${m} ${unit} garancije`;
 }
 
 export async function computeProductOffersForStorefront(

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import { formatPrice } from "lib";
-import { formatRokIsporuke, hasDistinctPurchaseOffers } from "lib/product-offers";
+import { hasDistinctPurchaseOffers } from "lib/product-offers";
 import Product from "models/Product.model";
 import type { StorefrontProductOffer } from "lib/product-offers";
 import ProductOfferChoices, { type OfferChoiceKey } from "./product-offer-choices";
@@ -52,9 +52,7 @@ export default function ProductIntroSidebar({ product }: Props) {
   const originalPrice =
     referenceOriginal != null && referenceOriginal > displayPrice ? referenceOriginal : null;
 
-  const deliveryLine = activeOffer
-    ? formatRokIsporuke(activeOffer)
-    : offers?.deliveryTrustLabel ?? "Rok isporuke: 2–4 radna dana";
+  const deliveryDaysFromToday = activeOffer ? activeOffer.estimatedDaysFromToday : null;
 
   return (
     <>
@@ -102,7 +100,7 @@ export default function ProductIntroSidebar({ product }: Props) {
 
       <ProductPurchaseBlock
         product={product}
-        deliveryLine={deliveryLine}
+        deliveryDaysFromToday={deliveryDaysFromToday}
         selectedOffer={activeOffer}
         offerChoice={selectedKey}
       />
